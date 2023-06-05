@@ -1,0 +1,8 @@
+nl test = "hey";
+
+f hehe(number: number){
+    ml e = 2;
+    if e == number:
+        >true         
+    >false
+}
