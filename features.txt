@@ -1,0 +1,52 @@
+FEATURES OF JadeFlow PROGRAMMING LANGUAGE
+
+Variables:
+- let/nl: for non mutable vars 
+- letmut/ml for mutable vars
+
+DATA TYPES:
+- boolean
+- string
+- int
+- float
+- Object (Class, Fn, Array)
+- Tuple
+
+Declaring functions:
+- fn <name>(params) {}
+- (params:type)
+
+Return statement in fn:
+- return x;
+- >x;
+- x
+
+Conditional statements:
+- if x=x {} 
+    else {}
+- switch {
+    case x:
+    case y:
+}
+
+Operators:
+- Arithmetic: +,-,*,/,%
+- Comparaison: ==,!=,>,<,>=,<=
+- Logical: and,or,! 
+- Assignment: =,+=,-=,*=,/=,%=
+- Increment/Decrement: ++,--
+
+Built-in Functions:
+- Input/Output: print, read, prompt
+- Math Functions: sqrt, abs, pow, round
+- String Functions: length, substring, concat, indexOf
+- String Functions: length, substring, concat, indexOf
+
+Comments:
+- Single-line comments: // comment
+- Multi-line comments: /* comment */
+
+
+Standard Libraries:
+- Standard library functions and modules for common tasks
+- FS, networking, and data structures.
