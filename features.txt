@@ -22,7 +22,7 @@ Return statement in fn:
 - x
 
 Conditional statements:
-- if x=x {} 
+- if x==x {} 
     else {}
 - switch {
     case x:
