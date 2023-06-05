@@ -1,0 +1,37 @@
+let x = 5;
+nl z = 9.4;
+
+let bool = true;
+let bool2 = false;
+
+let str = String("test");
+let str2 = "test";
+
+let obj = Object({});
+let obj2 = {};
+
+let arr = Array([2,3,4]);
+let arr2 = [];
+
+let tup = ();
+let tup = Tuple(1,2,3);
+
+
+
+let x: int = 5;
+nl z: float = 9.4;
+
+let bool: boolean = true;
+let bool2: boolean = false;
+
+let str: string = String("test");
+let str2: String = "test";
+
+let arr: [] = Array([2,3,4]);
+let arr2: [] = [];
+
+let obj: {} = Object({});
+let obj2: {} = {};
+
+let tup: () = ();
+let tup: () = Tuple(1,2,3);
