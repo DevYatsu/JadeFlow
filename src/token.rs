@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use crate::errors::{TokenisationErrors};
+
 #[derive(Debug)]
 pub enum TokenType {
     Let, MutLet,
@@ -61,7 +63,7 @@ fn is_class_init(str: &str) -> bool {
         false
     }
 }
-pub fn tokenize(source_code: String) -> Result<Vec<Token>, Box<dyn Error>> {
+pub fn tokenize(source_code: String) -> Result<Vec<Token>, TokenisationErrors> {
     let mut tokens: Vec<Token> = vec![];
     let formatted_src: String = source_code.replace("\n", "").replace(";", " ").replace("  ", " ");
     let mut src: Vec<&str> = formatted_src.split(" ").filter(|x| x != &"").collect();
@@ -116,7 +118,7 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, Box<dyn Error>> {
                 }else if is_class_init(x) {
                     tokens.push(token(val, TokenType::Class));
                 }else {
-                    return Err(format!("Syntax error: '{}', line: {:?}", x, source_code.find(x).unwrap()+1).into())
+                    return Err(TokenisationErrors::SyntaxError { line: source_code.find(x).unwrap()+1, at: x.to_string() }.into())
                 }
             },
         }

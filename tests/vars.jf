@@ -1,12 +1,12 @@
 let x: = 5;
-nl z = 9.4;
+nl e z = 9.4;
 
 let bool = true;
 let bool2 = false;
 
 let str2 = "test";
 let str = String("haha");
-let str = new String("hehe");
+let str2 = new String("hehe");
 
 let obj = Object({});
 let obj2 = {};

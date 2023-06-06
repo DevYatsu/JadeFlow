@@ -1,4 +1,5 @@
 mod token;
+mod errors;
 
 use std::{fs, error::Error};
 
