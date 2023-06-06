@@ -1,15 +1,14 @@
 mod token;
 
-use std::fs;
+use std::{fs, error::Error};
 
 use crate::token::tokenize;
 
 const FILE_PATH: &str = "./tests/vars.jf";
 
-fn main() {
-    let contents = fs::read_to_string(FILE_PATH)
-        .expect("Should have been able to read the file");
+fn main() -> Result<(), Box<dyn Error>> {
+    let contents: String = fs::read_to_string(FILE_PATH)?;
 
-
-    println!("{:?}", tokenize(contents).unwrap())
+    println!("{:?}", tokenize(contents)?);
+    Ok(())
 }

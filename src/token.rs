@@ -96,10 +96,12 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, Box<dyn Error>> {
                     tokens.push(token(val, TokenType::Float));
                 } else if is_after_let || is_after_fn {
                     if is_after_let && x.ends_with(":"){
-                        is_a_type = true;
+                        is_a_type = true;                    
+                        tokens.push(token(&val[..val.len()-1], TokenType::Identifier));
+                    }else {
+                        tokens.push(token(val, TokenType::Identifier));
                     }
 
-                    tokens.push(token(val, TokenType::Identifier));
                     is_after_fn = false;
                     is_after_let = false;
                 }else if is_string(x) {
@@ -114,8 +116,7 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, Box<dyn Error>> {
                 }else if is_class_init(x) {
                     tokens.push(token(val, TokenType::Class));
                 }else {
-                    println!("{}",x);
-                    return Err("Error in the provided code".into())
+                    return Err(format!("Syntax error: '{}', line: {:?}", x, source_code.find(x).unwrap()+1).into())
                 }
             },
         }

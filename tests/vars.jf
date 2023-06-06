@@ -1,4 +1,4 @@
-let x = 5;
+let x: = 5;
 nl z = 9.4;
 
 let bool = true;
