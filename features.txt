@@ -10,7 +10,8 @@ DATA TYPES:
 - int
 - float
 - Object (Class, Fn, Array)
-- Tuple
+- Null
+- Undefined
 
 Declaring functions:
 - fn <name>(params) {}

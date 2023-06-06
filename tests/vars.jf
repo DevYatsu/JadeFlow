@@ -4,19 +4,15 @@ nl z = 9.4;
 let bool = true;
 let bool2 = false;
 
-let str = String("test");
 let str2 = "test";
+let str = String("haha");
+let str = new String("hehe");
 
 let obj = Object({});
 let obj2 = {};
 
 let arr = Array([2,3,4]);
 let arr2 = [];
-
-let tup = ();
-let tup = Tuple(1,2,3);
-
-
 
 let x: int = 5;
 nl z: float = 9.4;
@@ -32,6 +28,3 @@ let arr2: [] = [];
 
 let obj: {} = Object({});
 let obj2: {} = {};
-
-let tup: () = ();
-let tup: () = Tuple(1,2,3);
