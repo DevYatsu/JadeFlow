@@ -1,7 +1,7 @@
-mod token;
 mod errors;
+mod token;
 
-use std::{fs, error::Error};
+use std::{error::Error, fs};
 
 use crate::token::tokenize;
 
