@@ -1,4 +1,5 @@
 use crate::errors::{find_line, SyntaxError, TokenisationError};
+use regex::Regex;
 
 const TYPE_ASSERTIONS: [&str; 8] = [
     "string",
@@ -11,7 +12,7 @@ const TYPE_ASSERTIONS: [&str; 8] = [
     "[]",
 ];
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     Let,
     MutLet,
@@ -31,9 +32,10 @@ pub enum TokenType {
     OpenParen,
     CloseParen,
     BinaryOperator,
+    Separator,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     value: String,
     type_: TokenType,
@@ -47,52 +49,28 @@ fn token(value: &str, type_: TokenType) -> Token {
 }
 
 fn is_bool(str: &str) -> bool {
-    if str == "false" || str == "true" {
-        true
-    } else {
-        false
-    }
+    str == "false" || str == "true"
 }
 fn is_float(str: &str) -> bool {
-    str.parse::<f64>().ok().is_some()
+    str.parse::<f64>().is_ok()
 }
 fn is_int(str: &str) -> bool {
-    str.parse::<i64>().ok().is_some()
+    str.parse::<i64>().is_ok()
 }
 fn is_string(str: &str) -> bool {
-    if str.starts_with("\"") || str.starts_with("String(") || str.starts_with("new String(") {
-        true
-    } else {
-        false
-    }
+    str.starts_with('\"') || str.starts_with("String(") || str.starts_with("new String(")
 }
 fn is_object(str: &str) -> bool {
-    if str.starts_with("{") || str.starts_with("Object(") || str.starts_with("new Object(") {
-        true
-    } else {
-        false
-    }
+    str.starts_with('{') || str.starts_with("Object(") || str.starts_with("new Object(")
 }
 fn is_array(str: &str) -> bool {
-    if str.starts_with("[") || str.starts_with("Array(") || str.starts_with("new Array(") {
-        true
-    } else {
-        false
-    }
+    str.starts_with('[') || str.starts_with("Array(") || str.starts_with("new Array(")
 }
 fn is_fn_declaration(str: &str) -> bool {
-    if str.starts_with("fn") {
-        true
-    } else {
-        false
-    }
+    str.starts_with("fn")
 }
 fn is_class_init(str: &str) -> bool {
-    if str.starts_with("new") || str.starts_with(" new") || str.starts_with("new ") {
-        true
-    } else {
-        false
-    }
+    str.starts_with("new") || str.starts_with(" new") || str.starts_with("new ")
 }
 
 fn is_type_coherent(type_assertion: &str, value: &str) -> bool {
@@ -103,10 +81,7 @@ fn is_type_coherent(type_assertion: &str, value: &str) -> bool {
         "float" => is_float(value),
         "boolean" => is_bool(value),
         "{}" => {
-            if is_object(value) {
-                return true;
-            }
-            if is_class_init(value) {
+            if is_object(value) || is_class_init(value) {
                 return true;
             }
             false
@@ -118,18 +93,59 @@ fn is_type_coherent(type_assertion: &str, value: &str) -> bool {
     }
 }
 
+fn replace_sequence_outside_quotes(input: &str, sequence: &str, replacement: &str) -> String {
+    let mut output = String::new();
+    let mut inside_quotes = false;
+
+    let sequence_chars: Vec<char> = sequence.chars().collect();
+    let sequence_len = sequence_chars.len();
+
+    for (i, c) in input.chars().enumerate() {
+        if c == '"' {
+            inside_quotes = !inside_quotes;
+        }
+
+        if i + sequence_len <= input.len() {
+            let current_sequence: String = input.chars().skip(i).take(sequence_len).collect();
+            if current_sequence == sequence && !inside_quotes {
+                output.push_str(replacement);
+                continue; // Skip the sequence if not inside quotes
+            }
+        }
+        println!("{}",c);
+        output.push(c);
+    }
+
+    output
+}
+
+
 pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
+    let reg = Regex::new(r#"(?:"[^"]*[";])|\b(\+=|\-=|\*=|/=|%=|=[^;=])\b"#).unwrap();
+
+    // println!("{}", replace_sequence_outside_quotes(&source_code, "=", " = "));
+
+    let formatted_src: String = reg.replace_all(&source_code, |caps: &regex::Captures<'_>| {
+        caps[0].to_string().replace("=", " = ")
+    })
+        .replace(";", " ; ").replace("  ", " ").to_string();
+
+    let mut src: Vec<&str> = formatted_src
+        .split_whitespace()
+        .filter(|x| !x.is_empty())
+        .collect();
+
     let mut tokens: Vec<Token> = vec![];
-    let formatted_src: String = source_code
-        .replace("\n", "")
-        .replace(";", " ")
-        .replace("  ", " ");
-    let mut src: Vec<&str> = formatted_src.split(" ").filter(|x| x != &"").collect();
 
     let mut is_after_let: bool = false;
     let mut is_after_fn: bool = false;
     let mut is_a_type: bool = false;
     let mut is_after_new: bool = false;
+    let mut is_after_semicollon: bool = false;
+    let mut is_after_identifier: bool = false;
+
+    let mut last_variable_type: Option<TokenType> = None;
+    let mut is_after_collon: bool = false;
 
     let mut type_assertion: &str = "";
 
@@ -137,10 +153,79 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
         let val: &str = src.remove(0);
 
         match val {
-            "(" => tokens.push(token(val, TokenType::OpenParen)),
-            ")" => tokens.push(token(val, TokenType::CloseParen)),
-            "new" => is_after_new = true,
+            ";" => {
+                if is_after_let {
+                    return Err(SyntaxError::MissingVariableName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
+                if is_after_new {
+                    return Err(SyntaxError::ClassInstance {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
+                if is_after_semicollon {
+                    return Err(SyntaxError::SeveralSemiCollon {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
+                if is_after_identifier {
+                    tokens.push(token("=", TokenType::AssignmentOperator));
+                    tokens.push(token("undefined", TokenType::Undefined));
+                }
+
+                tokens.push(token(val, TokenType::Separator));
+                is_after_semicollon = true;
+                last_variable_type = None;
+            }
+            "(" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+                tokens.push(token(val, TokenType::OpenParen));
+            }
+            ")" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+                tokens.push(token(val, TokenType::CloseParen));
+            }
+            "new" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                };
+                is_after_new = true
+            }
             "let" | "nl" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -149,9 +234,19 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     .to_string());
                 }
                 tokens.push(token(val, TokenType::Let));
-                is_after_let = true
+                is_after_let = true;
+                is_after_semicollon = false;
+                last_variable_type = Some(TokenType::Let);
             }
             "letmut" | "ml" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -160,9 +255,19 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     .to_string());
                 }
                 tokens.push(token(val, TokenType::MutLet));
-                is_after_let = true
+                is_after_let = true;
+                is_after_semicollon = false;
+                last_variable_type = Some(TokenType::MutLet);
             }
             "+" | "-" | "*" | "/" | "%" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -173,6 +278,14 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                 tokens.push(token(val, TokenType::BinaryOperator))
             }
             "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
+                if is_after_let {
+                    return Err(SyntaxError::MissingVariableName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_a_type {
                     return Err(TokenisationError::MissingTypeError {
                         line: find_line(&source_code, val),
@@ -187,9 +300,18 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     .to_string());
                 }
 
-                tokens.push(token(val, TokenType::AssignmentOperator))
+                tokens.push(token(val, TokenType::AssignmentOperator));
+                is_after_identifier = false;
             }
-            "true" | "false" => {
+            "true" | "false" | "true," | "false," => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -198,7 +320,12 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     .to_string());
                 }
 
-                tokens.push(token(val, TokenType::Boolean));
+                if val.ends_with(",") {
+                    tokens.push(token(&val[0..val.len() - 1], TokenType::Boolean));
+                    is_after_collon = true;
+                } else {
+                    tokens.push(token(val, TokenType::Boolean));
+                }
                 if !is_type_coherent(type_assertion, val) {
                     return Err(TokenisationError::TypeAssertionError {
                         line: find_line(&source_code, val),
@@ -208,7 +335,15 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                 }
                 type_assertion = "";
             }
-            "null" => {
+            "null" | "null," => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -217,7 +352,13 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     .to_string());
                 }
 
-                tokens.push(token(val, TokenType::Null));
+                if val.ends_with(",") {
+                    tokens.push(token(&val[0..val.len() - 1], TokenType::Null));
+                    is_after_collon = true;
+                } else {
+                    tokens.push(token(val, TokenType::Null));
+                }
+
                 if !is_type_coherent(type_assertion, val) {
                     return Err(TokenisationError::TypeAssertionError {
                         line: find_line(&source_code, val),
@@ -227,7 +368,15 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                 }
                 type_assertion = "";
             }
-            "undefined" => {
+            "undefined" | "undefined," => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -236,7 +385,12 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     .to_string());
                 }
 
-                tokens.push(token(val, TokenType::Undefined));
+                if val.ends_with(",") {
+                    tokens.push(token(&val[0..val.len() - 1], TokenType::Undefined));
+                    is_after_collon = true;
+                } else {
+                    tokens.push(token(val, TokenType::Undefined));
+                }
                 if !is_type_coherent(type_assertion, val) {
                     return Err(TokenisationError::TypeAssertionError {
                         line: find_line(&source_code, val),
@@ -247,6 +401,14 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                 type_assertion = "";
             }
             ":" | ": " | " :" => {
+                if is_after_let {
+                    return Err(SyntaxError::ForbiddenIdentifierName {
+                        line: find_line(&source_code, val),
+                        at: val.to_string(),
+                    }
+                    .to_string());
+                }
+
                 if is_after_new {
                     return Err(SyntaxError::ClassInstance {
                         line: find_line(&source_code, val),
@@ -256,7 +418,29 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                 };
                 is_a_type = true;
             }
-            x => {
+            mut x => {
+                if is_after_collon {
+                    if let Some(x) = &last_variable_type {
+                        tokens.push(token(";", TokenType::Separator));
+                        tokens.push(token(
+                            if x == &TokenType::Let {
+                                "let"
+                            } else {
+                                "letmut"
+                            },
+                            *x,
+                        ));
+                        is_after_let = true;
+                        is_after_collon = false;
+                    }
+                    //next things are managed
+                }
+
+                if x.ends_with(",") && !is_a_type {
+                    x = &x[0..x.len() - 1];
+                    is_after_collon = true;
+                }
+
                 if is_a_type {
                     //retrieves the type assigned by the user to the variable
                     if !TYPE_ASSERTIONS.contains(&val) {
@@ -292,6 +476,14 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     type_assertion = "";
                     is_after_new = false;
                 } else if is_int(x) {
+                    if is_after_let {
+                        return Err(SyntaxError::ForbiddenIdentifierName {
+                            line: find_line(&source_code, val),
+                            at: val.to_string(),
+                        }
+                        .to_string());
+                    }
+
                     tokens.push(token(val, TokenType::Int));
                     if !is_type_coherent(type_assertion, val) {
                         return Err(TokenisationError::TypeInferenceError {
@@ -303,6 +495,14 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     }
                     type_assertion = "";
                 } else if is_float(x) {
+                    if is_after_let {
+                        return Err(SyntaxError::ForbiddenIdentifierName {
+                            line: find_line(&source_code, val),
+                            at: val.to_string(),
+                        }
+                        .to_string());
+                    }
+
                     tokens.push(token(val, TokenType::Float));
 
                     if !is_type_coherent(type_assertion, val) {
@@ -336,6 +536,7 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                             is_a_type = true;
                             tokens.push(token(&val[..val.len() - 1], TokenType::Identifier));
                             is_after_let = false;
+                            is_after_identifier = true;
                             continue;
                         }
 
@@ -351,8 +552,12 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                         tokens.push(token(vec[1], TokenType::TypeAssertion));
 
                         type_assertion = vec[1];
+                    } else if is_after_let {
+                        tokens.push(token(val, TokenType::Identifier));
+                        is_after_identifier = true;
                     } else {
                         tokens.push(token(val, TokenType::Identifier));
+                        is_after_identifier = true;
                     }
 
                     is_after_fn = false;
@@ -370,6 +575,14 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
                     }
                     type_assertion = "";
                 } else if is_object(x) {
+                    if is_after_let {
+                        return Err(SyntaxError::ForbiddenIdentifierName {
+                            line: find_line(&source_code, val),
+                            at: val.to_string(),
+                        }
+                        .to_string());
+                    }
+
                     tokens.push(token(val, TokenType::Object));
 
                     if !is_type_coherent(type_assertion, val) {
@@ -383,6 +596,14 @@ pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
 
                     type_assertion = "";
                 } else if is_array(x) {
+                    if is_after_let {
+                        return Err(SyntaxError::ForbiddenIdentifierName {
+                            line: find_line(&source_code, val),
+                            at: val.to_string(),
+                        }
+                        .to_string());
+                    }
+
                     tokens.push(token(val, TokenType::Array));
 
                     if !is_type_coherent(type_assertion, val) {

@@ -11,9 +11,22 @@ custom_error! {pub SyntaxError
     Default{line:usize, at: String} = "Syntax Error: '{at}' is not defined [at line: {line}]",
     StartCollon{line:usize, at:String} = "Syntax Error: expression '{at}' cannot start with ':' [at line: {line}]",
     MiddleCollon{line:usize, at:String} = "Syntax Error: expression '{at}' cannot contain ':' [at line: {line}]",
-    ClassInstance{line:usize, at:String} = "Syntax Error: expression '{at}' is not a valid class instance initialization [at line: {line}]"
+    ClassInstance{line:usize, at:String} = "Syntax Error: expression '{at}' is not a valid class instance initialization [at line: {line}]",
+    ForbiddenIdentifierName{line:usize, at:String} = "Syntax Error: expression '{at}' cannot be used as a variable name [at line: {line}]",
+    MissingVariableName{line:usize, at:String} = "Syntax Error: Variable name missing in expression '{at}' [at line: {line}]",
+    SeveralSemiCollon{line:usize, at:String} = "Syntax Error: Cannot have several semicollon one after another [at line: {line}]",
 }
 
 pub fn find_line(src: &str, x: &str) -> usize {
-    src.find(x).unwrap()
+    let mut line: usize = 0;
+
+    for (index, l) in src.split("\n").enumerate() {
+        let number: Option<usize> = l.find(x);
+
+        if let Some(_) = number {
+            line = index+1;
+        }
+    }
+
+    line
 }
