@@ -1,5 +1,6 @@
-x = 5788887;
+x = 5788887
 z =  2 + 9.3; # hey how + == -
+string = "test"
 
 ###
 bool = true;
@@ -7,13 +8,12 @@ bool2 = false;
 
 t = null; 
 
-str = new "test";
-str = String("haha");
-str2 = new String("hehe");
-obj = Object({});
+str = str("haha");
+str2 = new str("hehe");
+obj = dict({});
 obj2 = {};
 
-arr = Array([2,3,4]);
+arr = array([2,3,4]);
 arr2 = [];
 
 x = 5;
@@ -22,13 +22,13 @@ z = 9.1;
 bool = true;
 bool2 = false;
 
-str = String("test");
+str = str("test");
 str2 = "test";
 
-arr = Array([2,3,4]);
+arr = array([2,3,4]);
 arr2 = [];
 
-obj = Object({});
+obj = dict({});
 obj2= {};
 ###
 
