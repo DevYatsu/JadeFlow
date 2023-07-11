@@ -75,7 +75,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             number_lexeme.push(next_char);
                             position += 1;
                         },
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => {break;},
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
                         _ => return Err(SyntaxError::InvalidNumber {
                             line: 9999,
                             at: format!("{}{}", number_lexeme, next_char),
