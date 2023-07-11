@@ -1,14 +1,12 @@
 FEATURES OF JadeFlow PROGRAMMING LANGUAGE
 
 Variables:
-- let/nl: for non mutable vars 
-- letmut/ml for mutable vars
+- declare a variable without keyword,similar to python
 
 DATA TYPES:
 - boolean
 - string
-- int
-- float
+- int/float
 - Object (Class, Fn, Array)
 - Null
 - Undefined

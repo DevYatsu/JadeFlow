@@ -1,32 +1,32 @@
-let x = 5;
-nl z:float = 9.3;
+x = 5;
+z = 9.3;
 
-let bool = true;
-let bool2 = false;
+bool = true;
+bool2 = false;
 
-let t:null = null; 
+t = null; 
 
-let str = new "test";
-let str = String("haha");
-let str2 = new String("hehe");
+str = new "test";
+str = String("haha");
+str2 = new String("hehe");
 
-let obj = Object({});
-let obj2 = {};
+obj = Object({});
+obj2 = {};
 
-let arr = Array([2,3,4]);
-let arr2 = [];
+arr = Array([2,3,4]);
+arr2 = [];
 
-let x: int = 5;
-nl z: float = 9.1;
+x = 5;
+z = 9.1;
 
-let bool: boolean = true;
-let bool2: boolean = false;
+bool = true;
+bool2 = false;
 
-let str: string = String("test");
-let str2: string = "test";
+str = String("test");
+str2 = "test";
 
-let arr:[] = Array([2,3,4]);
-let arr2: [] = [];
+arr = Array([2,3,4]);
+arr2 = [];
 
-let obj: {} = Object({});
-let obj2: {} = {};
+obj = Object({});
+obj2= {};
