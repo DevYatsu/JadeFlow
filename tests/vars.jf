@@ -1,6 +1,7 @@
-x = 5;
-z = 9.3;
+x = 5788887;
+z =  2 + 9.3; # hey how + == - 
 
+###
 bool = true;
 bool2 = false;
 
@@ -9,7 +10,6 @@ t = null;
 str = new "test";
 str = String("haha");
 str2 = new String("hehe");
-
 obj = Object({});
 obj2 = {};
 
@@ -30,3 +30,7 @@ arr2 = [];
 
 obj = Object({});
 obj2= {};
+###
+
+hey = 23 + 40 
+hey = 2+2

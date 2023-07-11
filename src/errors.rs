@@ -8,12 +8,10 @@ custom_error! {pub TokenisationError
 }
 
 custom_error! {pub SyntaxError
-    Default{line:usize, at: String} = "Syntax Error: '{at}' is not defined [at line: {line}]",
+    UndefinedVar{line:usize, at: String} = "Syntax Error: '{at}' is not defined [at line: {line}]",
     StartCollon{line:usize, at:String} = "Syntax Error: expression '{at}' cannot start with ':' [at line: {line}]",
     MiddleCollon{line:usize, at:String} = "Syntax Error: expression '{at}' cannot contain ':' [at line: {line}]",
-    ClassInstance{line:usize, at:String} = "Syntax Error: expression '{at}' is not a valid class instance initialization [at line: {line}]"
-}
-
-pub fn find_line(src: &str, x: &str) -> usize {
-    src.find(x).unwrap()
+    ClassInstance{line:usize, at:String} = "Syntax Error: expression '{at}' is not a valid class instance initialization [at line: {line}]",
+    InvalidNumber{line:usize, at:String} = "Syntax Error: Invalid number '{at}' [at line: {line}]",
+    Comment{line:usize, message:String} = "Syntax Error: {message} [at line: {line}]",
 }
