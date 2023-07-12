@@ -29,7 +29,7 @@ Conditional statements:
 
 Operators:
 - Arithmetic: +,-,*,/,%
-- Comparaison: ==,!=,>,<,>=,<=
+- Comparaison: ==,!=,>,<,>=,<= as well as => and =<
 - Logical: and,or,! 
 - Assignment: =,+=,-=,*=,/=,%=
 - Increment/Decrement: ++,--

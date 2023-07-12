@@ -8,8 +8,8 @@ arr2 = [2,4,"test",9.4];
 nonono = null; 
 bool = true;
 bool2 = false;
-dfdf == eefgf
-dfd => efefd
+bool == bool2
+z <= x
 
 ###
 str = str("haha");
