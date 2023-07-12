@@ -207,14 +207,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 position += 1;
 
-                while position < source_code.len() {
+                while position < source_code.len() && null_lexeme.len() < 4 {
                     let c = source_code.as_bytes()[position] as char;
                     null_lexeme.push(c);
-
-                    if null_lexeme.len() == 4 {
-                        break;
-                    }
-
                     position += 1;
                 }
 
