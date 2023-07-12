@@ -92,7 +92,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 // for numbers
                 let mut number_lexeme = c.to_string();
 
-                while let Some(&next_char) = source_code.as_bytes().get(position) {
+                while let Some(&next_char) = source_code.as_bytes().get(position + 1) {
                     let next_char: char = next_char as char;
 
                     match next_char {
@@ -270,7 +270,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     let c = source_code.as_bytes()[position] as char;
 
                     match c {
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '!' => {position -= 1; break},
                         _ => value_lexeme.push(c),
                     }
 
