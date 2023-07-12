@@ -197,16 +197,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 while position < source_code.len() {
                     let c: char = source_code.as_bytes()[position] as char;
 
-                    if c == ']' {
-                        break;
+                    match c {
+                        ']' => break,
+                        '\n' | ';' => return Err(SyntaxError::InvalidArray { line: 000, at: format!("[{array_lexeme}]") }.to_string()),
+                        _ => array_lexeme.push(c),
                     }
 
-                    array_lexeme.push(c);
                     position += 1;
-                }
-
-                if position >= source_code.len() {
-                    return Err("Missing closing ']' for the array".to_string());
                 }
 
                 /*

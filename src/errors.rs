@@ -14,4 +14,5 @@ custom_error! {pub SyntaxError
     ClassInstance{line:usize, at:String} = "Syntax Error: expression '{at}' is not a valid class instance initialization [at line: {line}]",
     InvalidNumber{line:usize, at:String} = "Syntax Error: Invalid number '{at}' [at line: {line}]",
     Comment{line:usize, message:String} = "Syntax Error: {message} [at line: {line}]",
+    InvalidArray{line:usize, at:String} = "Syntax Error: Invalid Array '{at}' [at line: {line}]",
 }
