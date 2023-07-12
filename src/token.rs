@@ -201,7 +201,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 */
 
                 tokens.push(token(&array_lexeme, TokenType::Array));
-
             },
             _ => (),
         };
