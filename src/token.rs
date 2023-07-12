@@ -3,7 +3,6 @@ use crate::errors::{SyntaxError, TokenisationError};
 #[derive(Debug, Clone, Copy)]
 pub enum TokenType {
     Identifier,
-    AssignmentOperator,
     Number,
     String,
     FormatedString, //format with #{} inside `` quote
@@ -12,13 +11,17 @@ pub enum TokenType {
     Function,
     Class,
     OpenParen,
-    OpenBrace, OpenBracket,
+    OpenBrace,
+    OpenBracket,
     CloseParen,
-    CloseBrace, CloseBracket,
+    CloseBrace,
+    CloseBracket,
+    BlockComment,
+    LineComment,
     BinaryOperator,
     ComparisonOperator,
-    LineComment,
-    BlockComment,
+    AssignmentOperator,
+    LogicalOperator,
 }
 
 #[derive(Debug, Clone)]
@@ -62,7 +65,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
-            '>' | '<' | '!' => {
+            '>' | '<' => {
                 // for binary and assignement operators
                 let mut operator_lexeme = character.to_string();
 
@@ -72,6 +75,42 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 }
 
                 tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+            }
+            '!' => {
+                let mut operator_lexeme = character.to_string();
+
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                    position += 1;
+                    operator_lexeme.push('=');
+                    tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+                } else {
+                    tokens.push(token(operator_lexeme, TokenType::LogicalOperator))
+                }
+            }
+            'a' | 'o' => {
+                // for 'and' and 'or' logical operators
+                let mut value_lexeme: String = character.to_string();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
+                        | '(' | ')' | '[' => break,
+                        _ => value_lexeme.push(c),
+                    }
+
+                    position += 1;
+                }
+
+                let token_type = match value_lexeme.as_str() {
+                    "and" | "or" => TokenType::LogicalOperator,
+                    _ => TokenType::Identifier,
+                };
+
+                tokens.push(token(value_lexeme, token_type));
             }
             '=' => {
                 // for equality and value assignement
@@ -100,7 +139,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' => break,
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' => {
+                            break
+                        }
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
                                 line: 9999,
@@ -207,7 +248,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 }
 
                 tokens.push(token(string_lexeme, TokenType::FormatedString));
-            },
+            }
             '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
             ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
             '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
@@ -253,7 +294,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 println!("{:?}", arr_vec);
 
                 tockenize values of an array
-                
+
                 tokens.push(token(array_lexeme, TokenType::Array));
                 */
             }

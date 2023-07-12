@@ -41,8 +41,8 @@ Built-in Functions:
 - String Functions: length, substring, concat, indexOf
 
 Comments:
-- Single-line comments: // comment
-- Multi-line comments: /* comment */
+- Single-line comments: # comment
+- Multi-line comments: ### comment ###
 
 
 Standard Libraries:
