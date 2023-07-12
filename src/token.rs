@@ -18,7 +18,7 @@ pub enum TokenType {
     BinaryOperator,
     ComparisonOperator,
     LineComment,
-    BlockComment
+    BlockComment,
 }
 
 #[derive(Debug, Clone)]
@@ -46,9 +46,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 // for binary and assignement operators
                 let mut operator_lexeme = character.to_string();
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) 
-                || (operator_lexeme == "+" && source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)))
-                || (operator_lexeme == "-" && source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)))
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8))
+                    || (operator_lexeme == "+"
+                        && source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)))
+                    || (operator_lexeme == "-"
+                        && source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)))
                 {
                     position += 1;
                     operator_lexeme.push(source_code.as_bytes()[position] as char);
