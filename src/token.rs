@@ -42,6 +42,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
         let character: char = source_code.chars().nth(position).unwrap();
 
         match character {
+            ' ' | '\n' | '\t' | ';' => (),
             '+' | '-' | '/' | '*' | '%' => {
                 // for binary and assignement operators
                 let mut operator_lexeme = character.to_string();
@@ -233,7 +234,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     let c = source_code.as_bytes()[position] as char;
 
                     match c {
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`' | '(' | ')' | '[' => break,
                         _ => value_lexeme.push(c),
                     }
 
@@ -248,8 +249,27 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(&value_lexeme, TokenType::Identifier));
                 }
             }
-            _ => println!("{character}"),
+            _ => {
+                let mut value_lexeme: String = character.to_string();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
+                        _ => value_lexeme.push(c),
+                    }
+
+                    position += 1;
+                }
+
+                tokens.push(token(&value_lexeme, TokenType::Identifier));
+            }
         };
+
+        println!("{position}");
         position += 1;
     }
 
