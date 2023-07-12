@@ -36,7 +36,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
     let mut position: usize = 0;
 
     while position < source_code.len() {
-        let character: char = source_code.chars().nth(position).unwrap();
+        let character: char = source_code.as_bytes()[position] as char;
 
         match character {
             ' ' | '\n' | '\t' | ';' => (),
@@ -88,7 +88,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 let mut number_lexeme = c.to_string();
                 position += 1;
 
-                while let Some(next_char) = source_code.chars().nth(position) {
+                while let Some(&next_char) = source_code.as_bytes().get(position) {
+                    let next_char: char = next_char as char;
+
                     match next_char {
                         _n if next_char.is_digit(10) || next_char == '.' => {
                             position += 1;
