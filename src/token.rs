@@ -86,7 +86,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             c if character.is_digit(10) => {
                 // for numbers
                 let mut number_lexeme = c.to_string();
-                position += 1;
 
                 while let Some(&next_char) = source_code.as_bytes().get(position) {
                     let next_char: char = next_char as char;
