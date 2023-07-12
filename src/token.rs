@@ -42,16 +42,21 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             ' ' | '\n' | '\t' | ';' => (),
             '+' | '-' | '/' | '*' | '%' => {
                 // for binary and assignement operators
-                let mut operator_lexeme = character.to_string();
+                let operator_lexeme = match character {
+                    '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
+                        "++".to_string()
+                    }
+                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
+                        "--".to_string()
+                    }
+                    '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        "+=".to_string()
+                    }
+                    _ => character.to_string(),
+                };
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8))
-                    || (operator_lexeme == "+"
-                        && source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)))
-                    || (operator_lexeme == "-"
-                        && source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)))
-                {
+                if operator_lexeme.len() == 2 {
                     position += 1;
-                    operator_lexeme.push(source_code.as_bytes()[position] as char);
                     tokens.push(token(operator_lexeme, TokenType::AssignmentOperator));
                 } else {
                     tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
@@ -172,7 +177,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 position += 1;
 
                 while position < source_code.len() {
-                    let c = source_code.as_bytes()[position] as char;
+                    let c: char = source_code.as_bytes()[position] as char;
 
                     if c == '"' {
                         break;
