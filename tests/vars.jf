@@ -41,3 +41,8 @@ obj2= {};
 
 hey=23+40 
 hey=2+2
+
+
+fn hey(dudem, difjd, dfdf) {}
+
+class Human {}

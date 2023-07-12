@@ -14,7 +14,9 @@ pub enum TokenType {
     Array,
     Class,
     OpenParen,
+    OpenBrace,
     CloseParen,
+    CloseBrace,
     BinaryOperator,
     ComparisonOperator,
     LineComment,
@@ -39,7 +41,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
         let character: char = source_code.as_bytes()[position] as char;
 
         match character {
-            ' ' | '\n' | '\t' | ';' => (),
+            ' ' | '\n' | '\t' | ';' | ',' => (),
             '+' | '-' | '/' | '*' | '%' => {
                 // for binary and assignement operators
                 let operator_lexeme = match character {
@@ -192,6 +194,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             '`' => todo!(),
             '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
             ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
+            '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
+            '}' => tokens.push(token(character.to_string(), TokenType::CloseBrace)),
             '[' => {
                 // for arrays
                 let mut array_lexeme: String = String::new();
@@ -235,7 +239,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 tokens.push(token(array_lexeme, TokenType::Array));
             }
-            't' | 'f' | 'n' => {
+            't' | 'f' | 'n' | 'c' => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
 
@@ -256,6 +260,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 let token_type = match value_lexeme.as_str() {
                     "true" | "false" => TokenType::Boolean,
                     "null" => TokenType::Null,
+                    "fn" => TokenType::Function,
+                    "class" => TokenType::Class,
                     _ => TokenType::Identifier,
                 };
 
@@ -270,7 +276,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     let c = source_code.as_bytes()[position] as char;
 
                     match c {
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '<' | '>' | '!' => {position -= 1; break},
+                        c if !c.is_alphabetic() && !c.is_ascii_digit() => {
+                            position -= 1;
+                            break;
+                        }
                         _ => value_lexeme.push(c),
                     }
 
