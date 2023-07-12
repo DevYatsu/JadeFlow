@@ -9,14 +9,13 @@ pub enum TokenType {
     FormatedString, //format with #{} inside `` quote
     Boolean,
     Null,
-    Object,
     Function,
     Array,
     Class,
     OpenParen,
-    OpenBrace,
+    OpenBrace, OpenBracket,
     CloseParen,
-    CloseBrace,
+    CloseBrace, CloseBracket,
     BinaryOperator,
     ComparisonOperator,
     LineComment,
@@ -102,7 +101,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' => break,
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
                                 line: 9999,
@@ -197,7 +196,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
             '}' => tokens.push(token(character.to_string(), TokenType::CloseBrace)),
             '[' => {
+                tokens.push(token(character.to_string(), TokenType::OpenBracket))
                 // for arrays
+
+                /*
                 let mut array_lexeme: String = String::new();
                 position += 1;
 
@@ -219,7 +221,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     position += 1;
                 }
 
-                /*
                 let arr_vec: Vec<Token> = array_lexeme.split(',').map(|el| {
                     let tokens: Vec<Token> = match tokenize(el) {
                         Ok(t) => t,
@@ -235,10 +236,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 println!("{:?}", arr_vec);
 
                 tockenize values of an array
-                */
-
+                
                 tokens.push(token(array_lexeme, TokenType::Array));
+                */
             }
+            ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
             't' | 'f' | 'n' | 'c' => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
