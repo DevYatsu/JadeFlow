@@ -9,7 +9,6 @@ pub enum TokenType {
     FormatedString, //format with #{} inside `` quote
     Boolean,
     Null,
-    Undefined,
     Object,
     Function,
     Array,
@@ -209,10 +208,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
-                        _ => null_lexeme.push(c)
+                        _ => null_lexeme.push(c),
                     }
 
-                    position += 1; 
+                    position += 1;
                 }
 
                 if null_lexeme == "null" {
@@ -220,7 +219,29 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 } else {
                     tokens.push(token(&null_lexeme, TokenType::Identifier));
                 }
-            },
+            }
+            't' | 'f' => {
+                let mut bool_lexeme: String = character.to_string();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
+                        _ => bool_lexeme.push(c),
+                    }
+
+                    position += 1;
+                }
+
+                if bool_lexeme == "true" || bool_lexeme == "false" {
+                    tokens.push(token(&bool_lexeme, TokenType::Boolean));
+                } else {
+                    tokens.push(token(&bool_lexeme, TokenType::Identifier));
+                }
+            }
             _ => println!("{character}"),
         };
         position += 1;

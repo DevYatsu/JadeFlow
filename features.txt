@@ -1,15 +1,14 @@
 FEATURES OF JadeFlow PROGRAMMING LANGUAGE
 
 Variables:
-- declare a variable without keyword,similar to python
+- declare a variable without keyword, similarly to python
 
 DATA TYPES:
 - boolean
 - string
-- int/float
+- numbers (int/float)
 - Object (Class, Fn, Array)
 - Null
-- Undefined
 
 Declaring functions:
 - fn <name>(params) {}
