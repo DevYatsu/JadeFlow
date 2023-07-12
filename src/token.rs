@@ -1,6 +1,6 @@
 use crate::errors::{SyntaxError, TokenisationError};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum TokenType {
     Identifier,
     AssignmentOperator,
@@ -22,7 +22,7 @@ pub enum TokenType {
     BlockComment,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     value: String,
     token_type: TokenType,
@@ -164,7 +164,45 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 tokens.push(token(&string_lexeme, TokenType::String));
             },
-            '`' => {},
+            '`' => todo!(),
+            '(' => tokens.push(token(&character.to_string(), TokenType::OpenParen)),
+            ')' => tokens.push(token(&character.to_string(), TokenType::CloseParen)),
+            '[' => {
+                let mut array_lexeme: String = String::new();
+                position += 1;
+
+                while position < source_code.len() {
+                    let c: char = source_code.as_bytes()[position] as char;
+
+                    if c == ']' {
+                        break;
+                    }
+
+                    array_lexeme.push(c);
+                    position += 1;
+                }
+
+                /*                 
+                let arr_vec: Vec<Token> = array_lexeme.split(',').map(|el| {
+                    let tokens: Vec<Token> = match tokenize(el) {
+                        Ok(t) => t,
+                        Err(e) => panic!("{}", e)
+                    };
+                    
+                    if tokens.len() > 1 {
+                        panic!("Invalid array elements")
+                    }
+                    tokens[0].clone()
+                }).collect::<Vec<Token>>(); 
+
+                println!("{:?}", arr_vec); 
+
+                tockenize values of an array
+                */
+
+                tokens.push(token(&array_lexeme, TokenType::Array));
+
+            },
             _ => (),
         };
         position += 1;
