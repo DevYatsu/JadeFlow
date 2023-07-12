@@ -27,16 +27,13 @@ pub struct Token {
     token_type: TokenType,
 }
 
-fn token(value: &str, token_type: TokenType) -> Token {
-    Token {
-        value: value.to_string(),
-        token_type,
-    }
+fn token(value: String, token_type: TokenType) -> Token {
+    Token { value, token_type }
 }
 
 pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
     let mut tokens: Vec<Token> = vec![];
-    let mut position = 0;
+    let mut position: usize = 0;
 
     while position < source_code.len() {
         let character: char = source_code.chars().nth(position).unwrap();
@@ -55,9 +52,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 {
                     position += 1;
                     operator_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push(token(&operator_lexeme, TokenType::AssignmentOperator));
+                    tokens.push(token(operator_lexeme, TokenType::AssignmentOperator));
                 } else {
-                    tokens.push(token(&operator_lexeme, TokenType::BinaryOperator));
+                    tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
             '>' | '<' | '!' => {
@@ -69,7 +66,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     operator_lexeme.push('=');
                 }
 
-                tokens.push(token(&operator_lexeme, TokenType::ComparisonOperator));
+                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
             }
             '=' => {
                 // for equality and value assignement
@@ -81,9 +78,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push(token(&equal_lexeme, TokenType::ComparisonOperator));
+                    tokens.push(token(equal_lexeme, TokenType::ComparisonOperator));
                 } else {
-                    tokens.push(token(&equal_lexeme, TokenType::AssignmentOperator));
+                    tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
                 }
             }
             c if character.is_digit(10) => {
@@ -115,7 +112,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     }
                     .to_string());
                 }
-                tokens.push(token(&number_lexeme, TokenType::Number));
+                tokens.push(token(number_lexeme, TokenType::Number));
             }
             '#' => {
                 // for comments
@@ -141,7 +138,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                         position += 1;
                     }
 
-                    tokens.push(token(&comment_lexeme, TokenType::BlockComment));
+                    tokens.push(token(comment_lexeme, TokenType::BlockComment));
                 } else {
                     comment_lexeme.push(source_code.as_bytes()[position] as char);
 
@@ -164,7 +161,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                         }
                     }
 
-                    tokens.push(token(&comment_lexeme, TokenType::LineComment));
+                    tokens.push(token(comment_lexeme, TokenType::LineComment));
                 }
             }
             '"' => {
@@ -184,11 +181,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     position += 1;
                 }
 
-                tokens.push(token(&string_lexeme, TokenType::String));
+                tokens.push(token(string_lexeme, TokenType::String));
             }
             '`' => todo!(),
-            '(' => tokens.push(token(&character.to_string(), TokenType::OpenParen)),
-            ')' => tokens.push(token(&character.to_string(), TokenType::CloseParen)),
+            '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
+            ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
             '[' => {
                 // for arrays
                 let mut array_lexeme: String = String::new();
@@ -199,7 +196,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ']' => break,
-                        '\n' | ';' => return Err(SyntaxError::InvalidArray { line: 000, at: format!("[{array_lexeme}]") }.to_string()),
+                        '\n' | ';' => {
+                            return Err(SyntaxError::InvalidArray {
+                                line: 000,
+                                at: format!("[{array_lexeme}]"),
+                            }
+                            .to_string())
+                        }
                         _ => array_lexeme.push(c),
                     }
 
@@ -224,7 +227,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 tockenize values of an array
                 */
 
-                tokens.push(token(&array_lexeme, TokenType::Array));
+                tokens.push(token(array_lexeme, TokenType::Array));
             }
             't' | 'f' | 'n' => {
                 // for booleans and null values
@@ -236,7 +239,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     let c = source_code.as_bytes()[position] as char;
 
                     match c {
-                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`' | '(' | ')' | '[' => break,
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
+                        | '(' | ')' | '[' => break,
                         _ => value_lexeme.push(c),
                     }
 
@@ -249,7 +253,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     _ => TokenType::Identifier,
                 };
 
-                tokens.push(token(&value_lexeme, token_type));
+                tokens.push(token(value_lexeme, token_type));
             }
             _ => {
                 let mut value_lexeme: String = character.to_string();
@@ -267,7 +271,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     position += 1;
                 }
 
-                tokens.push(token(&value_lexeme, TokenType::Identifier));
+                tokens.push(token(value_lexeme, TokenType::Identifier));
             }
         };
 
