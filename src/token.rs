@@ -89,8 +89,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             c if character.is_digit(10) => {
                 // for numbers
                 let mut number_lexeme = c.to_string();
+                position += 1;
 
-                while let Some(next_char) = source_code.chars().nth(position + 1) {
+                while let Some(next_char) = source_code.chars().nth(position) {
                     match next_char {
                         _n if next_char.is_digit(10) || next_char == '.' => {
                             position += 1;
@@ -204,6 +205,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     position += 1;
                 }
 
+                if position >= source_code.len() {
+                    return Err("Missing closing ']' for the array".to_string());
+                }
+
                 /*
                 let arr_vec: Vec<Token> = array_lexeme.split(',').map(|el| {
                     let tokens: Vec<Token> = match tokenize(el) {
@@ -241,13 +246,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     position += 1;
                 }
 
-                if value_lexeme == "true" || value_lexeme == "false" {
-                    tokens.push(token(&value_lexeme, TokenType::Boolean));
-                } else if value_lexeme == "null" {
-                    tokens.push(token(&value_lexeme, TokenType::Null));
-                } else {
-                    tokens.push(token(&value_lexeme, TokenType::Identifier));
-                }
+                let token_type = match value_lexeme.as_str() {
+                    "true" | "false" => TokenType::Boolean,
+                    "null" => TokenType::Null,
+                    _ => TokenType::Identifier,
+                };
+
+                tokens.push(token(&value_lexeme, token_type));
             }
             _ => {
                 let mut value_lexeme: String = character.to_string();
