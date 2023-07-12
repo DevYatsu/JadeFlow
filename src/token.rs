@@ -42,7 +42,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
         let character: char = source_code.chars().nth(position).unwrap();
 
         match character {
-            '+' | '-' | '/' | '*' | '%' => {
+            '+' | '-' | '/' | '*' | '%' => { // for binary and assignement operators
                 let mut operator_lexeme = character.to_string();
 
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
@@ -53,18 +53,20 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(&operator_lexeme, TokenType::BinaryOperator));
                 }
             }
-            '=' => {
+            '=' => { // for equality and value assignement
                 let mut equal_lexeme = character.to_string();
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) 
+                    || source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) 
+                {
                     position += 1;
-                    equal_lexeme.push('=');
+                    equal_lexeme.push(source_code.as_bytes()[position] as char);
                     tokens.push(token(&equal_lexeme, TokenType::ComparisonOperator));
                 } else {
                     tokens.push(token(&equal_lexeme, TokenType::AssignmentOperator));
                 }
             }
-            c if character.is_digit(10) => {
+            c if character.is_digit(10) => { // for numbers
                 let mut number_lexeme = c.to_string();
 
                 while let Some(next_char) = source_code.chars().nth(position + 1) {
@@ -93,7 +95,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 }
                 tokens.push(token(&number_lexeme, TokenType::Number));
             }
-            '#' => {
+            '#' => { // for comments
                 let mut comment_lexeme = character.to_string();
                 position += 1;
 
@@ -142,7 +144,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(&comment_lexeme, TokenType::LineComment));
                 }
             }
-            '"' => {
+            '"' => { // for strings
                 let mut string_lexeme = String::new();
 
                 position += 1;
@@ -163,7 +165,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             '`' => todo!(),
             '(' => tokens.push(token(&character.to_string(), TokenType::OpenParen)),
             ')' => tokens.push(token(&character.to_string(), TokenType::CloseParen)),
-            '[' => {
+           '[' => { // for arrays 
                 let mut array_lexeme: String = String::new();
                 position += 1;
 
@@ -197,9 +199,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 */
 
                 tokens.push(token(&array_lexeme, TokenType::Array));
-            }
-            'n' => {
-                let mut null_lexeme = character.to_string();
+            },
+            't' | 'f' | 'n' => { // for booleans and null values
+                let mut value_lexeme: String = character.to_string();
 
                 position += 1;
 
@@ -208,40 +210,20 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
-                        _ => null_lexeme.push(c),
+                        _ => value_lexeme.push(c),
                     }
 
                     position += 1;
                 }
 
-                if null_lexeme == "null" {
-                    tokens.push(token(&null_lexeme, TokenType::Null));
-                } else {
-                    tokens.push(token(&null_lexeme, TokenType::Identifier));
+                if value_lexeme == "true" || value_lexeme == "false" {
+                    tokens.push(token(&value_lexeme, TokenType::Boolean));
+                } else if value_lexeme == "null" {
+                    tokens.push(token(&value_lexeme, TokenType::Null));
+                } else{
+                    tokens.push(token(&value_lexeme, TokenType::Identifier));
                 }
-            }
-            't' | 'f' => {
-                let mut bool_lexeme: String = character.to_string();
-
-                position += 1;
-
-                while position < source_code.len() {
-                    let c = source_code.as_bytes()[position] as char;
-
-                    match c {
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
-                        _ => bool_lexeme.push(c),
-                    }
-
-                    position += 1;
-                }
-
-                if bool_lexeme == "true" || bool_lexeme == "false" {
-                    tokens.push(token(&bool_lexeme, TokenType::Boolean));
-                } else {
-                    tokens.push(token(&bool_lexeme, TokenType::Identifier));
-                }
-            }
+            },
             _ => println!("{character}"),
         };
         position += 1;

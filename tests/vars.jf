@@ -1,16 +1,16 @@
 x = 5788887
 z =  2 + 9.3; # hey how + == -
+
+z += 7
 string = "test"
 arr2 = [2,4,"test",9.4];
 
 nonono = null; 
-
-
-###
 bool = true;
 bool2 = false;
 
 
+###
 str = str("haha");
 str2 = new str("hehe");
 obj = dict({});
