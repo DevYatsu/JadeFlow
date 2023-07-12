@@ -6,7 +6,7 @@ pub enum TokenType {
     AssignmentOperator,
     Number,
     String,
-    FormatedString, //format with #{} inside `` quote 
+    FormatedString, //format with #{} inside `` quote
     Boolean,
     Null,
     Undefined,
@@ -145,7 +145,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     tokens.push(token(&comment_lexeme, TokenType::LineComment));
                 }
-            },
+            }
             '"' => {
                 let mut string_lexeme = String::new();
 
@@ -163,7 +163,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 }
 
                 tokens.push(token(&string_lexeme, TokenType::String));
-            },
+            }
             '`' => todo!(),
             '(' => tokens.push(token(&character.to_string(), TokenType::OpenParen)),
             ')' => tokens.push(token(&character.to_string(), TokenType::CloseParen)),
@@ -182,25 +182,47 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     position += 1;
                 }
 
-                /*                 
+                /*
                 let arr_vec: Vec<Token> = array_lexeme.split(',').map(|el| {
                     let tokens: Vec<Token> = match tokenize(el) {
                         Ok(t) => t,
                         Err(e) => panic!("{}", e)
                     };
-                    
+
                     if tokens.len() > 1 {
                         panic!("Invalid array elements")
                     }
                     tokens[0].clone()
-                }).collect::<Vec<Token>>(); 
+                }).collect::<Vec<Token>>();
 
-                println!("{:?}", arr_vec); 
+                println!("{:?}", arr_vec);
 
                 tockenize values of an array
                 */
 
                 tokens.push(token(&array_lexeme, TokenType::Array));
+            }
+            'n' => {
+                let mut null_lexeme = character.to_string();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+                    null_lexeme.push(c);
+
+                    if null_lexeme.len() == 4 {
+                        break;
+                    }
+
+                    position += 1;
+                }
+
+                if null_lexeme == "null" {
+                    tokens.push(token(&null_lexeme, TokenType::Null));
+                } else {
+                    continue;
+                }
             },
             _ => (),
         };

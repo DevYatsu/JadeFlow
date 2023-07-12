@@ -3,13 +3,13 @@ z =  2 + 9.3; # hey how + == -
 string = "test"
 arr2 = [2,4,"test",9.4];
 
+t = null; 
 
 
 ###
 bool = true;
 bool2 = false;
 
-t = null; 
 
 str = str("haha");
 str2 = new str("hehe");
