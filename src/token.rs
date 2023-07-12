@@ -40,9 +40,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
     let mut position = 0;
 
     while position < source_code.len() {
-        println!("position {position}");
         let character: char = source_code.chars().nth(position).unwrap();
-        println!("{}", character);
 
         match character {
             '+' | '-' | '/' | '*' | '%' => {
@@ -55,7 +53,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 } else {
                     tokens.push(token(&operator_lexeme, TokenType::BinaryOperator));
                 }
-                println!("{operator_lexeme}");
             }
             '=' => {
                 let mut equal_lexeme = character.to_string();
@@ -207,19 +204,24 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 position += 1;
 
-                while position < source_code.len() && null_lexeme.len() < 4 {
+                while position < source_code.len() {
                     let c = source_code.as_bytes()[position] as char;
-                    null_lexeme.push(c);
-                    position += 1;
+
+                    match c {
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' => break,
+                        _ => null_lexeme.push(c)
+                    }
+
+                    position += 1; 
                 }
 
                 if null_lexeme == "null" {
                     tokens.push(token(&null_lexeme, TokenType::Null));
                 } else {
-                    continue;
+                    tokens.push(token(&null_lexeme, TokenType::Identifier));
                 }
             },
-            _ => (),
+            _ => println!("{character}"),
         };
         position += 1;
     }
