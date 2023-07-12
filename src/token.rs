@@ -269,7 +269,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             }
         };
 
-        println!("{position}");
         position += 1;
     }
 
