@@ -5,6 +5,8 @@ z += 7
 string="test"
 arr2=[2,4,"test",9.4];
 
+fstr = `hey dude {string}`
+
 nonono = null; 
 bool = true;
 bool2=false;

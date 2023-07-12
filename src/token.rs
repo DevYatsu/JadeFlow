@@ -10,7 +10,6 @@ pub enum TokenType {
     Boolean,
     Null,
     Function,
-    Array,
     Class,
     OpenParen,
     OpenBrace, OpenBracket,
@@ -190,7 +189,25 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 tokens.push(token(string_lexeme, TokenType::String));
             }
-            '`' => todo!(),
+            '`' => {
+                // for strings
+                let mut string_lexeme = String::new();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c: char = source_code.as_bytes()[position] as char;
+
+                    if c == '`' {
+                        break;
+                    }
+
+                    string_lexeme.push(c);
+                    position += 1;
+                }
+
+                tokens.push(token(string_lexeme, TokenType::FormatedString));
+            },
             '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
             ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
             '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
