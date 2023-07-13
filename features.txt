@@ -12,14 +12,14 @@ DATA TYPES:
 
 Declaring functions:
 - fn <name>(params) {}
-- (params:type)
+- (params:type) // future update
 
-Return statement in fn:
+Return statement in fn:// future update
 - return x;
 - >x;
 - x
 
-Conditional statements:
+Conditional statements:// future update
 - if x==x {} 
     else {}
 - switch {
@@ -34,7 +34,7 @@ Operators:
 - Assignment: =,+=,-=,*=,/=,%=
 - Increment/Decrement: ++,--
 
-Built-in Functions:
+Built-in Functions:// future update
 - Input/Output: print, read, prompt
 - Math Functions: sqrt, abs, pow, round
 - String Functions: length, substring, concat, indexOf
@@ -45,6 +45,6 @@ Comments:
 - Multi-line comments: ### comment ###
 
 
-Standard Libraries:
+Standard Libraries:// future update
 - Standard library functions and modules for common tasks
 - FS, networking, and data structures.
