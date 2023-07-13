@@ -52,7 +52,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
     let mut position: usize = 0;
 
     while position < source_code.len() {
-        let character: char = source_code.as_bytes()[position] as char;
+        let character: char = source_code.as_bytes()[position] as char; 
+        // most efficient way to retrieve a char at a given index
 
         match character {
             ' ' | '\t'  => (),
