@@ -345,7 +345,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 */
             }
             ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
-            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' | 'm' | 'f' => {
+            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' | 'm' => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
 
