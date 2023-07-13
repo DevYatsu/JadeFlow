@@ -30,7 +30,9 @@ pub enum TokenType {
     If,
     Else,
     While,
-    Match
+    Match,
+
+    Range
 }
 
 #[derive(Debug, Clone)]
@@ -54,14 +56,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             ' ' | '\t'  => (),
             '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
             ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
-            '+' | '-' | '/' | '*' | '%' => {
+            '+' | '/' | '*' | '%' => {
                 // for binary and assignement operators
                 let operator_lexeme = match character {
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
                         "++".to_string()
-                    }
-                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
-                        "--".to_string()
                     }
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
                         "+=".to_string()
@@ -75,6 +74,22 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 } else {
                     tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
+            }
+            '-' => {
+                // for equality and value assignement
+                match character {
+                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
+                        position += 1;
+                        tokens.push(token("--".to_string(), TokenType::AssignmentOperator));
+                    },
+                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
+                        position += 1;
+                        tokens.push(token("->".to_string(), TokenType::Range));
+                    }
+                    _ => {
+                        tokens.push(token(character.to_string(), TokenType::BinaryOperator));
+                    }
+                };
             }
             '<' => {
                 // for binary and assignement operators
@@ -144,13 +159,14 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 // for equality and value assignement
                 let mut equal_lexeme = character.to_string();
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8))
-                    || source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8))
-                    || source_code.as_bytes().get(position + 1) == Some(&(b'<' as u8))
-                {
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
                     tokens.push(token(equal_lexeme, TokenType::ComparisonOperator));
+                } else if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) {
+                    position += 1;
+                    equal_lexeme.push(source_code.as_bytes()[position] as char);
+                    tokens.push(token(equal_lexeme, TokenType::Range));
                 } else {
                     tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
                 }

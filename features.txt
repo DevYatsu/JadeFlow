@@ -22,14 +22,14 @@ Return statement in fn:// future update
 Conditional statements:// future update
 - if x==x {} 
     else {}
-- switch {
-    case x:
-    case y:
+- match var {
+    "val" {}
+    "other val: {}
 }
 
 Operators:
 - Arithmetic: +,-,*,/,%
-- Comparaison: ==,!=,>,<,>=,<= as well as => and =<
+- Comparaison: ==,!=,>,<,>=,<=
 - Logical: and,or,! 
 - Assignment: =,+=,-=,*=,/=,%=
 - Increment/Decrement: ++,--

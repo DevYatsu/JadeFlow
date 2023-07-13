@@ -142,7 +142,10 @@ fn fibonacci(n) {
 
 fn main() {
     num = 10
-    for i in 0..num {
+    for i in 0->num { # range non including 10
+        print(fibonacci(i))
+    }
+    for i in 0=>num { # range including 10
         print(fibonacci(i))
     }
 }
