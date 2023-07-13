@@ -354,7 +354,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' => break,
+                        | '(' | ')' | '[' => {
+                            position -= 1;
+                            break;
+                        },
                         _ => value_lexeme.push(c),
                     }
 
