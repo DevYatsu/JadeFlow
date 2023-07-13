@@ -22,12 +22,15 @@ pub enum TokenType {
     ComparisonOperator,
     AssignmentOperator,
     LogicalOperator,
+
+    Separator, 
+    Comma // specifically to simply arrays analysing
 }
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    value: String,
-    token_type: TokenType,
+    pub value: String,
+    pub token_type: TokenType,
 }
 
 fn token(value: String, token_type: TokenType) -> Token {
@@ -42,7 +45,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
         let character: char = source_code.as_bytes()[position] as char;
 
         match character {
-            ' ' | '\n' | '\t' | ';' | ',' => (),
+            ' ' | '\t'  => (),
+            '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
+            ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
             '+' | '-' | '/' | '*' | '%' => {
                 // for binary and assignement operators
                 let operator_lexeme = match character {
@@ -127,9 +132,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
                 }
             }
-            c if character.is_digit(10) => {
+            character if character.is_digit(10) => {
                 // for numbers
-                let mut number_lexeme = c.to_string();
+                let mut number_lexeme = character.to_string();
 
                 while let Some(&next_char) = source_code.as_bytes().get(position + 1) {
                     let next_char: char = next_char as char;
@@ -327,8 +332,12 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 tokens.push(token(value_lexeme, token_type));
             }
-            _ => {
+            character => {
                 let mut value_lexeme: String = character.to_string();
+
+                if !character.is_alphabetic() {
+                    return Err("Character must be alphabetic".to_string());
+                }
 
                 position += 1;
 
