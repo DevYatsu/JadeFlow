@@ -10,16 +10,16 @@ use crate::token::tokenize;
 const FILE_PATH: &str = "./tests/vars.jf";
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let start = Instant::now();
     let contents: String = fs::read_to_string(FILE_PATH)?;
-
+    
+    let start = Instant::now();
     let tokens: Vec<Token> = tokenize(&contents)?;
+    let end = Instant::now();
 
     for token in tokens {
         println!("{:?}", token)
     }
-
-    let end = Instant::now();
+    
 
     println!("{} seconds to execute", (end - start).as_secs_f64());
 
