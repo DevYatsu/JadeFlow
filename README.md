@@ -1,6 +1,6 @@
 # JadeFlow
 
-![Logo!](./logo_ideas/logo1.200x200.png)
+![Logo!](./logo_ideas/logo2.jpeg)
 
 A powerful, efficient, and simplified programming language. That is what I aspire to create in this github repository. I wish to create my own programming language to improve my competences as a developer and discover new programming concepts. I am looking to design a langage for low-level programming tasks, at least for now. JadeFlow would allow anyone to tackle complex challenges with ease. With a clear state of mind, I want to create nothing more than a language simple enough to be learned even by the worst programmer, yet useful enough to realise intellectually stimulating tasks with ease.
 
