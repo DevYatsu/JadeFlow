@@ -31,6 +31,8 @@ pub enum TokenType {
     Else,
     While,
     Match,
+    For,
+    In,
 
     Range
 }
@@ -343,7 +345,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 */
             }
             ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
-            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' | 'm' => {
+            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' | 'm' | 'f' => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
 
@@ -374,6 +376,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     "else" => TokenType::Else,
                     "while" => TokenType::While,
                     "match" => TokenType::Match,
+                    "for" => TokenType::For,
+                    "in" => TokenType::In,
                     _ => TokenType::Identifier,
                 };
 
