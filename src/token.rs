@@ -1,6 +1,6 @@
-use crate::errors::{SyntaxError, TokenisationError};
+use crate::errors::SyntaxError;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TokenType {
     Identifier,
     Number,
@@ -23,18 +23,21 @@ pub enum TokenType {
     AssignmentOperator,
     LogicalOperator,
 
-    Separator, 
+    Separator,
     Comma, // specifically to simply arrays analysing
 
     Return,
     If,
     Else,
     While,
+
     Match,
+    MatchArmSeparator,
+
     For,
     In,
 
-    Range
+    Range,
 }
 
 #[derive(Debug, Clone)]
@@ -52,15 +55,15 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
     let mut position: usize = 0;
 
     while position < source_code.len() {
-        let character: char = source_code.as_bytes()[position] as char; 
+        let character: char = source_code.as_bytes()[position] as char;
         // most efficient way to retrieve a char at a given index
 
         match character {
-            ' ' | '\t'  => (),
+            ' ' | '\t' => (),
             '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
             ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
             '+' | '/' | '*' | '%' => {
-                // for binary and assignement operators
+                // for binary and assignment operators
                 let operator_lexeme = match character {
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
                         "++".to_string()
@@ -79,12 +82,12 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 }
             }
             '-' => {
-                // for equality and value assignement
+                // for equality and value assignment
                 match character {
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
                         position += 1;
                         tokens.push(token("--".to_string(), TokenType::AssignmentOperator));
-                    },
+                    }
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
                         position += 1;
                         tokens.push(token("->".to_string(), TokenType::Range));
@@ -94,8 +97,19 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     }
                 };
             }
+            ':' => {
+                match character {
+                    ':' if source_code.as_bytes().get(position + 1) == Some(&(b':' as u8)) => {
+                        position += 1;
+                        tokens.push(token("::".to_string(), TokenType::MatchArmSeparator))
+                    },
+                    _ => {
+                        return Err("Invalid character".to_string())
+                    }
+                }
+            }
             '<' => {
-                // for binary and assignement operators
+                // for binary and assignment operators
                 let mut operator_lexeme = character.to_string();
 
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
@@ -159,7 +173,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 tokens.push(token(value_lexeme, token_type));
             }
             '=' => {
-                // for equality and value assignement
+                // for equality and value assignment
                 let mut equal_lexeme = character.to_string();
 
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
@@ -186,7 +200,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' => {
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' | ':' => {
                             break
                         }
                         _ => {
@@ -357,10 +371,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' => {
+                        | '(' | ')' | '[' | ':' => {
                             position -= 1;
                             break;
-                        },
+                        }
                         _ => value_lexeme.push(c),
                     }
 

@@ -1,5 +1,6 @@
 mod errors;
 mod token;
+mod parser;
 
 use std::{error::Error, fs, time::Instant};
 

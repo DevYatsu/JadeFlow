@@ -1,5 +1,5 @@
 x    =       5788887
-z =  2 + 9.3; # hey how + == -
+z =  2 + 9.3 # hey how + == -
 
 z += 7
 string="test"
@@ -14,12 +14,18 @@ bool2=false
 test and dude
 hey or dude
 
-if bool>=bool2 {
+if z>=x {
     x++
 } else if z<=x {
     z--
 }
 
+match bool {
+    true::{
+        # do something
+    }
+    false:: print("false"),
+}
 
 ###
 str = str("haha")

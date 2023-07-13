@@ -61,13 +61,13 @@ while x == y {
 }
 
 match z {
-    "test" {
+    "test"::{
         // Code block for "test" case
     }
-    "hey" {
+    "hey"::{
         // Code block for "hey" case
     }
-    _ {
+    _::{
         // block code for other cases
     }
 }
