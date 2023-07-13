@@ -5,4 +5,3 @@ edition = "2021"
 
 [dependencies]
 custom_error = "1.9.2"
-regex = "1.8.4"
