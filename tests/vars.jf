@@ -48,6 +48,8 @@ hey=23+40
 hey=2+2
 
 
-fn hey(dudem, difjd, dfdf) {}
+fn hey(dudem, difjd, dfdf) {
+    return "test";
+}
 
 class Human {}
