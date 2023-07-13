@@ -24,7 +24,9 @@ pub enum TokenType {
     LogicalOperator,
 
     Separator, 
-    Comma // specifically to simply arrays analysing
+    Comma, // specifically to simply arrays analysing
+
+    Return
 }
 
 #[derive(Debug, Clone)]
@@ -304,7 +306,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 */
             }
             ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
-            't' | 'f' | 'n' | 'c' => {
+            't' | 'f' | 'n' | 'c' | 'r' => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
 
@@ -327,6 +329,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     "null" => TokenType::Null,
                     "fn" => TokenType::Function,
                     "class" => TokenType::Class,
+                    "return" => TokenType::Return,
                     _ => TokenType::Identifier,
                 };
 
