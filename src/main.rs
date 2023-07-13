@@ -1,7 +1,9 @@
 mod errors;
 mod token;
 
-use std::{error::Error, fs};
+use std::{error::Error, fs, time::Instant};
+
+use token::Token;
 
 use crate::token::tokenize;
 
@@ -10,6 +12,20 @@ const FILE_PATH: &str = "./tests/vars.jf";
 fn main() -> Result<(), Box<dyn Error>> {
     let contents: String = fs::read_to_string(FILE_PATH)?;
 
-    println!("{:?}", tokenize(contents)?);
+    let tokens = time(&contents, tokenize);
+
+    for token in tokens {
+        println!("{:?}", token)
+    }
+
     Ok(())
+}
+
+fn time(content: &str, func: impl Fn(&str) -> Result<Vec<Token>, String>) -> Vec<Token> {
+    let start = Instant::now();
+    let result: Result<Vec<Token>, String> = func(content);
+    let end = Instant::now();
+
+    println!("{} seconds to execute", (end - start).as_secs_f64());
+    result.unwrap()
 }

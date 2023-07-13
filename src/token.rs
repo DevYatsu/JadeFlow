@@ -1,632 +1,365 @@
-use crate::errors::{find_line, SyntaxError, TokenisationError};
-use regex::Regex;
+use crate::errors::{SyntaxError, TokenisationError};
 
-const TYPE_ASSERTIONS: [&str; 8] = [
-    "string",
-    "boolean",
-    "int",
-    "float",
-    "null",
-    "undefined",
-    "{}",
-    "[]",
-];
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum TokenType {
-    Let,
-    MutLet,
     Identifier,
-    TypeAssertion,
-    AssignmentOperator,
-    Int,
-    Float,
+    Number,
     String,
+    FormatedString, //format with #{} inside `` quote
     Boolean,
     Null,
-    Undefined,
-    Object,
     Function,
-    Array,
     Class,
     OpenParen,
+    OpenBrace,
+    OpenBracket,
     CloseParen,
+    CloseBrace,
+    CloseBracket,
+    BlockComment,
+    LineComment,
     BinaryOperator,
-    Separator,
+    ComparisonOperator,
+    AssignmentOperator,
+    LogicalOperator,
+
+    Separator, 
+    Comma // specifically to simply arrays analysing
 }
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    value: String,
-    type_: TokenType,
+    pub value: String,
+    pub token_type: TokenType,
 }
 
-fn token(value: &str, type_: TokenType) -> Token {
-    Token {
-        value: value.to_string(),
-        type_,
-    }
+fn token(value: String, token_type: TokenType) -> Token {
+    Token { value, token_type }
 }
 
-fn is_bool(str: &str) -> bool {
-    str == "false" || str == "true"
-}
-fn is_float(str: &str) -> bool {
-    str.parse::<f64>().is_ok()
-}
-fn is_int(str: &str) -> bool {
-    str.parse::<i64>().is_ok()
-}
-fn is_string(str: &str) -> bool {
-    str.starts_with('\"') || str.starts_with("String(") || str.starts_with("new String(")
-}
-fn is_object(str: &str) -> bool {
-    str.starts_with('{') || str.starts_with("Object(") || str.starts_with("new Object(")
-}
-fn is_array(str: &str) -> bool {
-    str.starts_with('[') || str.starts_with("Array(") || str.starts_with("new Array(")
-}
-fn is_fn_declaration(str: &str) -> bool {
-    str.starts_with("fn")
-}
-fn is_class_init(str: &str) -> bool {
-    str.starts_with("new") || str.starts_with(" new") || str.starts_with("new ")
-}
-
-fn is_type_coherent(type_assertion: &str, value: &str) -> bool {
-    match type_assertion {
-        "" => true,
-        "string" => is_string(value),
-        "int" => is_int(value),
-        "float" => is_float(value),
-        "boolean" => is_bool(value),
-        "{}" => {
-            if is_object(value) || is_class_init(value) {
-                return true;
-            }
-            false
-        }
-        "[]" => is_array(value),
-        "null" => value == "null",
-        "undefined" => value == "undefined",
-        _ => false,
-    }
-}
-
-fn replace_sequence_outside_quotes(input: &str, sequence: &str, replacement: &str) -> String {
-    let mut output = String::new();
-    let mut inside_quotes = false;
-
-    let sequence_chars: Vec<char> = sequence.chars().collect();
-    let sequence_len = sequence_chars.len();
-
-    for (i, c) in input.chars().enumerate() {
-        if c == '"' {
-            inside_quotes = !inside_quotes;
-        }
-
-        if i + sequence_len <= input.len() {
-            let current_sequence: String = input.chars().skip(i).take(sequence_len).collect();
-            if current_sequence == sequence && !inside_quotes {
-                output.push_str(replacement);
-                continue; // Skip the sequence if not inside quotes
-            }
-        }
-        println!("{}",c);
-        output.push(c);
-    }
-
-    output
-}
-
-
-pub fn tokenize(source_code: String) -> Result<Vec<Token>, String> {
-    let reg = Regex::new(r#"(?:"[^"]*[";])|\b(\+=|\-=|\*=|/=|%=|=[^;=])\b"#).unwrap();
-
-    // println!("{}", replace_sequence_outside_quotes(&source_code, "=", " = "));
-
-    let formatted_src: String = reg.replace_all(&source_code, |caps: &regex::Captures<'_>| {
-        caps[0].to_string().replace("=", " = ")
-    })
-        .replace(";", " ; ").replace("  ", " ").to_string();
-
-    let mut src: Vec<&str> = formatted_src
-        .split_whitespace()
-        .filter(|x| !x.is_empty())
-        .collect();
-
+pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
     let mut tokens: Vec<Token> = vec![];
+    let mut position: usize = 0;
 
-    let mut is_after_let: bool = false;
-    let mut is_after_fn: bool = false;
-    let mut is_a_type: bool = false;
-    let mut is_after_new: bool = false;
-    let mut is_after_semicollon: bool = false;
-    let mut is_after_identifier: bool = false;
+    while position < source_code.len() {
+        let character: char = source_code.as_bytes()[position] as char;
 
-    let mut last_variable_type: Option<TokenType> = None;
-    let mut is_after_collon: bool = false;
-
-    let mut type_assertion: &str = "";
-
-    while !src.is_empty() {
-        let val: &str = src.remove(0);
-
-        match val {
-            ";" => {
-                if is_after_let {
-                    return Err(SyntaxError::MissingVariableName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
+        match character {
+            ' ' | '\t'  => (),
+            '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
+            ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
+            '+' | '-' | '/' | '*' | '%' => {
+                // for binary and assignement operators
+                let operator_lexeme = match character {
+                    '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
+                        "++".to_string()
                     }
-                    .to_string());
-                }
-
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
+                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
+                        "--".to_string()
                     }
-                    .to_string());
-                }
-
-                if is_after_semicollon {
-                    return Err(SyntaxError::SeveralSemiCollon {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
+                    '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        "+=".to_string()
                     }
-                    .to_string());
-                }
-
-                if is_after_identifier {
-                    tokens.push(token("=", TokenType::AssignmentOperator));
-                    tokens.push(token("undefined", TokenType::Undefined));
-                }
-
-                tokens.push(token(val, TokenType::Separator));
-                is_after_semicollon = true;
-                last_variable_type = None;
-            }
-            "(" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-                tokens.push(token(val, TokenType::OpenParen));
-            }
-            ")" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-                tokens.push(token(val, TokenType::CloseParen));
-            }
-            "new" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
+                    _ => character.to_string(),
                 };
-                is_after_new = true
+
+                if operator_lexeme.len() == 2 {
+                    position += 1;
+                    tokens.push(token(operator_lexeme, TokenType::AssignmentOperator));
+                } else {
+                    tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
+                }
             }
-            "let" | "nl" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
+            '>' | '<' => {
+                // for binary and assignement operators
+                let mut operator_lexeme = character.to_string();
+
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                    position += 1;
+                    operator_lexeme.push('=');
                 }
 
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
-                }
-                tokens.push(token(val, TokenType::Let));
-                is_after_let = true;
-                is_after_semicollon = false;
-                last_variable_type = Some(TokenType::Let);
+                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
             }
-            "letmut" | "ml" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
+            '!' => {
+                let mut operator_lexeme = character.to_string();
+
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                    position += 1;
+                    operator_lexeme.push('=');
+                    tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+                } else {
+                    tokens.push(token(operator_lexeme, TokenType::LogicalOperator))
+                }
+            }
+            'a' | 'o' => {
+                // for 'and' and 'or' logical operators
+                let mut value_lexeme: String = character.to_string();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
+                        | '(' | ')' | '[' => break,
+                        _ => value_lexeme.push(c),
                     }
-                    .to_string());
+
+                    position += 1;
                 }
 
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
-                }
-                tokens.push(token(val, TokenType::MutLet));
-                is_after_let = true;
-                is_after_semicollon = false;
-                last_variable_type = Some(TokenType::MutLet);
-            }
-            "+" | "-" | "*" | "/" | "%" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
+                let token_type = match value_lexeme.as_str() {
+                    "and" | "or" => TokenType::LogicalOperator,
+                    _ => TokenType::Identifier,
                 };
-                tokens.push(token(val, TokenType::BinaryOperator))
+
+                tokens.push(token(value_lexeme, token_type));
             }
-            "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
-                if is_after_let {
-                    return Err(SyntaxError::MissingVariableName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
+            '=' => {
+                // for equality and value assignement
+                let mut equal_lexeme = character.to_string();
 
-                if is_a_type {
-                    return Err(TokenisationError::MissingTypeError {
-                        line: find_line(&source_code, val),
-                    }
-                    .to_string());
-                }
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
-                }
-
-                tokens.push(token(val, TokenType::AssignmentOperator));
-                is_after_identifier = false;
-            }
-            "true" | "false" | "true," | "false," => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
-                }
-
-                if val.ends_with(",") {
-                    tokens.push(token(&val[0..val.len() - 1], TokenType::Boolean));
-                    is_after_collon = true;
+                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8))
+                    || source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8))
+                    || source_code.as_bytes().get(position + 1) == Some(&(b'<' as u8))
+                {
+                    position += 1;
+                    equal_lexeme.push(source_code.as_bytes()[position] as char);
+                    tokens.push(token(equal_lexeme, TokenType::ComparisonOperator));
                 } else {
-                    tokens.push(token(val, TokenType::Boolean));
+                    tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
                 }
-                if !is_type_coherent(type_assertion, val) {
-                    return Err(TokenisationError::TypeAssertionError {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-                type_assertion = "";
             }
-            "null" | "null," => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
+            character if character.is_digit(10) => {
+                // for numbers
+                let mut number_lexeme = character.to_string();
+
+                while let Some(&next_char) = source_code.as_bytes().get(position + 1) {
+                    let next_char: char = next_char as char;
+
+                    match next_char {
+                        _n if next_char.is_digit(10) || next_char == '.' => {
+                            position += 1;
+                            number_lexeme.push(next_char);
+                        }
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' => {
+                            break
+                        }
+                        _ => {
+                            return Err(SyntaxError::InvalidNumber {
+                                line: 9999,
+                                at: format!("{}{}", number_lexeme, next_char),
+                            }
+                            .to_string())
+                        }
+                    }
+                }
+
+                if number_lexeme.ends_with(".") {
+                    return Err(SyntaxError::InvalidNumber {
+                        line: 9999,
+                        at: number_lexeme.clone(),
                     }
                     .to_string());
                 }
+                tokens.push(token(number_lexeme, TokenType::Number));
+            }
+            '#' => {
+                // for comments
+                let mut comment_lexeme = character.to_string();
+                position += 1;
 
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
+                if source_code.as_bytes().get(position) == Some(&(b'#' as u8))
+                    && source_code.as_bytes().get(position + 1) == Some(&(b'#' as u8))
+                // if "###" then block comment
+                {
+                    position += 2;
+                    comment_lexeme.push_str("##");
+                    //jumping next chars and adding the ## cause we know the next two chars are #
+
+                    while position < source_code.len() {
+                        comment_lexeme.push(source_code.as_bytes()[position] as char);
+
+                        if comment_lexeme.ends_with("###") {
+                            position += 2; //to get past the two #
+                            break;
+                        }
+
+                        position += 1;
                     }
-                    .to_string());
-                }
 
-                if val.ends_with(",") {
-                    tokens.push(token(&val[0..val.len() - 1], TokenType::Null));
-                    is_after_collon = true;
+                    tokens.push(token(comment_lexeme, TokenType::BlockComment));
                 } else {
-                    tokens.push(token(val, TokenType::Null));
-                }
+                    comment_lexeme.push(source_code.as_bytes()[position] as char);
 
-                if !is_type_coherent(type_assertion, val) {
-                    return Err(TokenisationError::TypeAssertionError {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-                type_assertion = "";
-            }
-            "undefined" | "undefined," => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
+                    while position < source_code.len() {
+                        comment_lexeme.push(source_code.as_bytes()[position + 1] as char);
+                        position += 1;
 
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
-                }
-
-                if val.ends_with(",") {
-                    tokens.push(token(&val[0..val.len() - 1], TokenType::Undefined));
-                    is_after_collon = true;
-                } else {
-                    tokens.push(token(val, TokenType::Undefined));
-                }
-                if !is_type_coherent(type_assertion, val) {
-                    return Err(TokenisationError::TypeAssertionError {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-                type_assertion = "";
-            }
-            ":" | ": " | " :" => {
-                if is_after_let {
-                    return Err(SyntaxError::ForbiddenIdentifierName {
-                        line: find_line(&source_code, val),
-                        at: val.to_string(),
-                    }
-                    .to_string());
-                }
-
-                if is_after_new {
-                    return Err(SyntaxError::ClassInstance {
-                        line: find_line(&source_code, val),
-                        at: format!("new {}", val.replace("\"", "")),
-                    }
-                    .to_string());
-                };
-                is_a_type = true;
-            }
-            mut x => {
-                if is_after_collon {
-                    if let Some(x) = &last_variable_type {
-                        tokens.push(token(";", TokenType::Separator));
-                        tokens.push(token(
-                            if x == &TokenType::Let {
-                                "let"
-                            } else {
-                                "letmut"
-                            },
-                            *x,
-                        ));
-                        is_after_let = true;
-                        is_after_collon = false;
-                    }
-                    //next things are managed
-                }
-
-                if x.ends_with(",") && !is_a_type {
-                    x = &x[0..x.len() - 1];
-                    is_after_collon = true;
-                }
-
-                if is_a_type {
-                    //retrieves the type assigned by the user to the variable
-                    if !TYPE_ASSERTIONS.contains(&val) {
-                        return Err(TokenisationError::TypeAssertionError {
-                            line: find_line(&source_code, x),
-                            at: x.to_string(),
-                        }
-                        .to_string());
-                    }
-
-                    type_assertion = val;
-                    tokens.push(token(val, TokenType::TypeAssertion));
-                    is_a_type = false;
-                } else if is_after_new {
-                    if !x.contains("(") || !x.contains(")") {
-                        return Err(SyntaxError::ClassInstance {
-                            line: find_line(&source_code, x),
-                            at: format!("new {}", x.replace("\"", "'")),
-                        }
-                        .to_string());
-                    }
-
-                    tokens.push(token(val, TokenType::Class));
-
-                    if !is_type_coherent(type_assertion, "new") {
-                        return Err(TokenisationError::TypeInferenceError {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                            assigned: type_assertion.to_string(),
-                        }
-                        .to_string());
-                    }
-                    type_assertion = "";
-                    is_after_new = false;
-                } else if is_int(x) {
-                    if is_after_let {
-                        return Err(SyntaxError::ForbiddenIdentifierName {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                        }
-                        .to_string());
-                    }
-
-                    tokens.push(token(val, TokenType::Int));
-                    if !is_type_coherent(type_assertion, val) {
-                        return Err(TokenisationError::TypeInferenceError {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                            assigned: type_assertion.to_string(),
-                        }
-                        .to_string());
-                    }
-                    type_assertion = "";
-                } else if is_float(x) {
-                    if is_after_let {
-                        return Err(SyntaxError::ForbiddenIdentifierName {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                        }
-                        .to_string());
-                    }
-
-                    tokens.push(token(val, TokenType::Float));
-
-                    if !is_type_coherent(type_assertion, val) {
-                        return Err(TokenisationError::TypeInferenceError {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                            assigned: type_assertion.to_string(),
-                        }
-                        .to_string());
-                    }
-                    type_assertion = "";
-                } else if is_after_let || is_after_fn {
-                    if is_after_let && x.starts_with(":") {
-                        return Err(SyntaxError::StartCollon {
-                            line: find_line(&source_code, x),
-                            at: x.to_string(),
-                        }
-                        .to_string());
-                    } else if is_after_let && x.contains(":") {
-                        let vec: Vec<&str> = x.split(":").collect();
-
-                        if vec.len() > 2 {
-                            return Err(SyntaxError::MiddleCollon {
-                                line: find_line(&source_code, x),
-                                at: x.to_string(),
+                        if comment_lexeme.ends_with('#') {
+                            return Err(SyntaxError::Comment {
+                                line: 000,
+                                message: format!(
+                                    "Cannot start a comment in another comment: '{comment_lexeme}'"
+                                ),
                             }
                             .to_string());
                         }
 
-                        if x.ends_with(":") {
-                            is_a_type = true;
-                            tokens.push(token(&val[..val.len() - 1], TokenType::Identifier));
-                            is_after_let = false;
-                            is_after_identifier = true;
-                            continue;
+                        if comment_lexeme.ends_with('\n') {
+                            break;
                         }
-
-                        if !TYPE_ASSERTIONS.contains(&vec[1]) {
-                            return Err(TokenisationError::TypeAssertionError {
-                                line: find_line(&source_code, vec[1]),
-                                at: vec[1].to_string(),
-                            }
-                            .to_string());
-                        }
-
-                        tokens.push(token(vec[0], TokenType::Identifier));
-                        tokens.push(token(vec[1], TokenType::TypeAssertion));
-
-                        type_assertion = vec[1];
-                    } else if is_after_let {
-                        tokens.push(token(val, TokenType::Identifier));
-                        is_after_identifier = true;
-                    } else {
-                        tokens.push(token(val, TokenType::Identifier));
-                        is_after_identifier = true;
                     }
 
-                    is_after_fn = false;
-                    is_after_let = false;
-                } else if is_string(x) {
-                    tokens.push(token(val, TokenType::String));
-
-                    if !is_type_coherent(type_assertion, val) {
-                        return Err(TokenisationError::TypeInferenceError {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                            assigned: type_assertion.to_string(),
-                        }
-                        .to_string());
-                    }
-                    type_assertion = "";
-                } else if is_object(x) {
-                    if is_after_let {
-                        return Err(SyntaxError::ForbiddenIdentifierName {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                        }
-                        .to_string());
-                    }
-
-                    tokens.push(token(val, TokenType::Object));
-
-                    if !is_type_coherent(type_assertion, val) {
-                        return Err(TokenisationError::TypeInferenceError {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                            assigned: type_assertion.to_string(),
-                        }
-                        .to_string());
-                    }
-
-                    type_assertion = "";
-                } else if is_array(x) {
-                    if is_after_let {
-                        return Err(SyntaxError::ForbiddenIdentifierName {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                        }
-                        .to_string());
-                    }
-
-                    tokens.push(token(val, TokenType::Array));
-
-                    if !is_type_coherent(type_assertion, val) {
-                        return Err(TokenisationError::TypeInferenceError {
-                            line: find_line(&source_code, val),
-                            at: val.to_string(),
-                            assigned: type_assertion.to_string(),
-                        }
-                        .to_string());
-                    }
-                    type_assertion = "";
-                } else if is_fn_declaration(x) {
-                    tokens.push(token(val, TokenType::Function));
-                    is_after_fn = true;
-                } else {
-                    return Err(SyntaxError::Default {
-                        line: find_line(&source_code, x),
-                        at: x.to_string(),
-                    }
-                    .to_string());
+                    tokens.push(token(comment_lexeme, TokenType::LineComment));
                 }
             }
-        }
+            '"' => {
+                // for strings
+                let mut string_lexeme = String::new();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c: char = source_code.as_bytes()[position] as char;
+
+                    if c == '"' {
+                        break;
+                    }
+
+                    string_lexeme.push(c);
+                    position += 1;
+                }
+
+                tokens.push(token(string_lexeme, TokenType::String));
+            }
+            '`' => {
+                // for strings
+                let mut string_lexeme = String::new();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c: char = source_code.as_bytes()[position] as char;
+
+                    if c == '`' {
+                        break;
+                    }
+
+                    string_lexeme.push(c);
+                    position += 1;
+                }
+
+                tokens.push(token(string_lexeme, TokenType::FormatedString));
+            }
+            '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
+            ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
+            '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
+            '}' => tokens.push(token(character.to_string(), TokenType::CloseBrace)),
+            '[' => {
+                tokens.push(token(character.to_string(), TokenType::OpenBracket))
+                // for arrays
+
+                /*
+                let mut array_lexeme: String = String::new();
+                position += 1;
+
+                while position < source_code.len() {
+                    let c: char = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        ']' => break,
+                        '\n' | ';' => {
+                            return Err(SyntaxError::InvalidArray {
+                                line: 000,
+                                at: format!("[{array_lexeme}]"),
+                            }
+                            .to_string())
+                        }
+                        _ => array_lexeme.push(c),
+                    }
+
+                    position += 1;
+                }
+
+                let arr_vec: Vec<Token> = array_lexeme.split(',').map(|el| {
+                    let tokens: Vec<Token> = match tokenize(el) {
+                        Ok(t) => t,
+                        Err(e) => panic!("{}", e)
+                    };
+
+                    if tokens.len() > 1 {
+                        panic!("Invalid array elements")
+                    }
+                    tokens[0].clone()
+                }).collect::<Vec<Token>>();
+
+                println!("{:?}", arr_vec);
+
+                tockenize values of an array
+
+                tokens.push(token(array_lexeme, TokenType::Array));
+                */
+            }
+            ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
+            't' | 'f' | 'n' | 'c' => {
+                // for booleans and null values
+                let mut value_lexeme: String = character.to_string();
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
+                        | '(' | ')' | '[' => break,
+                        _ => value_lexeme.push(c),
+                    }
+
+                    position += 1;
+                }
+
+                let token_type = match value_lexeme.as_str() {
+                    "true" | "false" => TokenType::Boolean,
+                    "null" => TokenType::Null,
+                    "fn" => TokenType::Function,
+                    "class" => TokenType::Class,
+                    _ => TokenType::Identifier,
+                };
+
+                tokens.push(token(value_lexeme, token_type));
+            }
+            character => {
+                let mut value_lexeme: String = character.to_string();
+
+                if !character.is_alphabetic() {
+                    return Err("Character must be alphabetic".to_string());
+                }
+
+                position += 1;
+
+                while position < source_code.len() {
+                    let c = source_code.as_bytes()[position] as char;
+
+                    match c {
+                        c if !c.is_alphabetic() && !c.is_ascii_digit() => {
+                            position -= 1;
+                            break;
+                        }
+                        _ => value_lexeme.push(c),
+                    }
+
+                    position += 1;
+                }
+
+                tokens.push(token(value_lexeme, TokenType::Identifier));
+            }
+        };
+
+        position += 1;
     }
 
     Ok(tokens)
