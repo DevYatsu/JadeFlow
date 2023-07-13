@@ -3,37 +3,37 @@ z =  2 + 9.3; # hey how + == -
 
 z += 7
 string="test"
-arr2=[2,4**2,"test",9.4, [3]];
+arr2=[2,4**2,"test",9.4, [3]]
 
 fstr = `hey dude {string}`
 
-nonono = null; 
-bool = true;
-bool2=false;
+nonono = null
+bool = true
+bool2=false
 
 test and dude
 hey or dude
 
-if bool==bool2 {}
+if bool==bool2 {
     x++
-else if z<=x {
+} else if z<=x {
     z--
 }
 
 
 ###
-str = str("haha");
-str2 = new str("hehe");
-obj = dict({});
-obj2 = {};
+str = str("haha")
+str2 = new str("hehe")
+obj = dict({})
+obj2 = {}
 
-arr = array([2,3,4]);
+arr = array([2,3,4])
 
-x = 5;
-z = 9.1;
+x = 5
+z = 9.1
 
-bool = true;
-bool2 = false;
+bool = true
+bool2 = false
 
 str = str("test");
 str2 = "test";
@@ -50,7 +50,7 @@ hey=2+2
 
 
 fn hey(dudem, difjd, dfdf) {
-    return "test";
+    return "test"
 }
 
 class Human {}

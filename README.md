@@ -36,20 +36,28 @@ fn functionName(params) {
 JadeFlow allows you to return values from functions using the return statement:
 
 ```rust
-return x;
+return x
 ```
 
-**_Note:_** Alternatively, you can use `>x;` or simply `x` to indicate the return value as JadeFlow possesses implicit value return.
+**_Note:_** Alternatively, you can use `>x` or simply `x` to indicate the return value as JadeFlow possesses implicit value return.
 
 ### Conditional Statements
 
-In a future update, JadeFlow will support conditional statements like if and switch. Here's a preview of the syntax:
+In a future update, JadeFlow will support conditional statements like if, while and switch. Here's a preview of the syntax:
 
 ```rust
 if x == x {
     // Code block for true condition
 } else {
     // Code block for false condition
+}
+
+while x == y {
+    if y > x {
+        y--
+    }else{
+        y++
+    }
 }
 
 switch {
@@ -115,22 +123,22 @@ Here are some examples to get you started with JadeFlow:
 
 ```python
 # Example 1: Hello World
-fn main() {
-    print("Hello, world!");
+fn hello() {
+    print("Hello, world!")
 }
 
 # Example 2: Fibonacci Series
 fn fibonacci(n) {
     if n <= 1 {
-        return n;
+        return n
     }
-    return fibonacci(n - 1) + fibonacci(n - 2);
+    return fibonacci(n - 1) + fibonacci(n - 2)
 }
 
 fn main() {
-    let num = 10;
+    num = 10
     for i in 0..num {
-        print(fibonacci(i));
+        print(fibonacci(i))
     }
 }
 ```
