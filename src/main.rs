@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
     let contents: String = fs::read_to_string(FILE_PATH)?;
 
-    let tokens: Vec<Token> = tokenize(&contents).unwrap();
+    let tokens: Vec<Token> = tokenize(&contents)?;
 
     for token in tokens {
 
