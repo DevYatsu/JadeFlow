@@ -43,7 +43,7 @@ return x
 
 ### Conditional Statements
 
-In a future update, JadeFlow will support conditional statements like if, while and switch. Here's a preview of the syntax:
+In a future update, JadeFlow will support conditional statements like if, while and match (similar to switch in javascript). Here's a preview of the syntax:
 
 ```rust
 if x == x {
@@ -60,11 +60,16 @@ while x == y {
     }
 }
 
-switch {
-    case x:
-        // Code block for x case
-    case y:
-        // Code block for y case
+match z {
+    "test" {
+        // Code block for "test" case
+    }
+    "hey" {
+        // Code block for "hey" case
+    }
+    _ {
+        // block code for other cases
+    }
 }
 ```
 
