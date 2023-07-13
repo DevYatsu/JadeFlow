@@ -14,11 +14,12 @@ bool2=false;
 test and dude
 hey or dude
 
-bool==bool2
-z<=x
+if bool==bool2 {}
+    x++
+else if z<=x {
+    z--
+}
 
-z--
-x++
 
 ###
 str = str("haha");
