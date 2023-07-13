@@ -29,7 +29,8 @@ pub enum TokenType {
     Return,
     If,
     Else,
-    While
+    While,
+    Match
 }
 
 #[derive(Debug, Clone)]
@@ -75,13 +76,30 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
-            '>' | '<' => {
+            '<' => {
                 // for binary and assignement operators
                 let mut operator_lexeme = character.to_string();
 
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     operator_lexeme.push('=');
+                }
+
+                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+            }
+            '>' => {
+                let mut operator_lexeme = character.to_string();
+                position += 1;
+
+                if let Some(next_char) = source_code.as_bytes().get(position) {
+                    if *next_char == b'=' {
+                        operator_lexeme.push('=');
+                    } else if *next_char == b'>' {
+                        position += 1; //position increased here cause we continue in the while and what comes next is jumped
+                        operator_lexeme.push('>');
+                        tokens.push(token(operator_lexeme, TokenType::Return));
+                        continue; // continue in the while
+                    }
                 }
 
                 tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
@@ -309,7 +327,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 */
             }
             ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
-            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' => {
+            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' | 'm' => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
 
@@ -336,6 +354,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     "if" => TokenType::If,
                     "else" => TokenType::Else,
                     "while" => TokenType::While,
+                    "match" => TokenType::Match,
                     _ => TokenType::Identifier,
                 };
 

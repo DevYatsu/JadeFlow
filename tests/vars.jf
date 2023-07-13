@@ -14,7 +14,7 @@ bool2=false
 test and dude
 hey or dude
 
-if bool==bool2 {
+if bool>=bool2 {
     x++
 } else if z<=x {
     z--
@@ -52,5 +52,7 @@ hey=2+2
 fn hey(dudem, difjd, dfdf) {
     return "test"
 }
-
+fn test() {
+    >>"hello"
+}
 class Human {}
