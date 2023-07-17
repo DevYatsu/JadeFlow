@@ -29,7 +29,7 @@ fn functionName(params) {
 }
 ```
 
-**_Note:_** Parameter type annotations will be introduced in a future update.
+> **_Note:_** Parameter type annotations will be introduced in a future update.
 
 ### Return Statement in Functions
 
@@ -39,7 +39,7 @@ JadeFlow allows you to return values from functions using the return statement:
 return x
 ```
 
-**_Note:_** Alternatively, you can use `>>x` or simply `x` to indicate the return value as JadeFlow possesses implicit value return.
+> **_Note:_** Alternatively, you can use `>>x` or simply `x` to indicate the return value as JadeFlow possesses implicit value return.
 
 ### Conditional Statements
 
