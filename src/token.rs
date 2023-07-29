@@ -3,11 +3,14 @@ use crate::errors::SyntaxError;
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TokenType {
     Const,
-    Mut, 
+    Mut,
     Identifier,
     Number,
+
     String,
     FormatedString, //format with #{} inside `` quote
+    StringWithEscape,
+
     Boolean,
     Null,
     Function,
@@ -46,7 +49,7 @@ pub enum TokenType {
     TypeBool,
     TypeString,
     TypeVec,
-    TypeDict
+    TypeDict,
 }
 
 #[derive(Debug, Clone)]
@@ -96,9 +99,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
-            ':' => {
-                tokens.push(token(":".to_string(), TokenType::Colon))
-            }
+            ':' => tokens.push(token(":".to_string(), TokenType::Colon)),
             '-' => {
                 // for equality and value assignment
                 match character {
@@ -152,9 +153,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                         question_lexeme.push('=');
                     } else if *next_char == b'>' {
                         question_lexeme.push('>');
-                    }else if *next_char == b'<' {
-                        question_lexeme.push('<');                    
-                    }else {
+                    } else if *next_char == b'<' {
+                        question_lexeme.push('<');
+                    } else {
                         tokens.push(token(question_lexeme, TokenType::QuestionMarkMatch));
                         continue;
                     }
@@ -201,9 +202,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' | ':' => {
-                            break
-                        }
+                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']'
+                        | ':' => break,
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
                                 line: 9999,
@@ -247,7 +247,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     }
 
                     tokens.push(token(slash_lexeme, TokenType::BlockComment));
-                }else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
+                } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
                     position += 1;
                     slash_lexeme.push_str("/");
 
@@ -275,8 +275,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     if source_code.as_bytes().get(position) == Some(&(b'=' as u8)) {
                         slash_lexeme.push('=');
                         tokens.push(token(slash_lexeme, TokenType::AssignmentOperator));
-                    }else {
-                        tokens.push(token(slash_lexeme, TokenType::BinaryOperator)); 
+                    } else {
+                        tokens.push(token(slash_lexeme, TokenType::BinaryOperator));
                     }
                 }
             }

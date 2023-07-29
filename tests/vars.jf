@@ -5,7 +5,7 @@ z += 7
 const string: str="test"
 const arr2: vec=[2,4**2,"test",9.4, [3], x]
 
-const fstr: str = `hey dude {string}`
+const fstr: str = `hey dude #{string}`
 
 const nonono: num = null
 const bool: bool = true
