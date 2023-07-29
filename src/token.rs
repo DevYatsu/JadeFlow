@@ -9,7 +9,6 @@ pub enum TokenType {
 
     String,
     FormatedString, //format with #{} inside `` quote
-    StringWithEscape,
 
     Boolean,
     Null,
