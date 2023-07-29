@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
     let tokens: Vec<Token> = tokenize(&contents)?;
     let end = Instant::now();
+    println!("{:?}", tokens);
 
     for token in tokens {
         println!("{:?}", token)
