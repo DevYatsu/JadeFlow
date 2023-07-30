@@ -1,28 +1,37 @@
 mod errors;
 mod parser;
+mod select_test;
 mod token;
 
 use std::{error::Error, fs, time::Instant};
 
 use token::Token;
 
-use crate::token::tokenize;
-
-const FILE_PATH: &str = "./tests/vars.jf";
+use crate::{parser::parse, select_test::run_file, token::tokenize};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let contents: String = fs::read_to_string(FILE_PATH)?;
+    let contents: String = fs::read_to_string(run_file()?)?;
 
     let start = Instant::now();
-    let tokens: Vec<Token> = tokenize(&contents)?;
+    let mut tokens: Vec<Token> = tokenize(&contents)?;
     let end = Instant::now();
-    println!("{:?}", tokens);
 
-    for token in tokens {
+    for token in &tokens {
         println!("{:?}", token)
     }
 
-    println!("{} seconds to execute", (end - start).as_secs_f64());
+    println!(
+        "{} seconds to execute tokenisation",
+        (end - start).as_secs_f64()
+    );
+
+    let start = Instant::now();
+    let program = parse(&mut tokens)?;
+    let end = Instant::now();
+
+    println!("{:?}", program);
+
+    println!("{} seconds to execute parsing", (end - start).as_secs_f64());
 
     Ok(())
 }

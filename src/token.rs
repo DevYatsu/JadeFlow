@@ -2,8 +2,8 @@ use crate::errors::SyntaxError;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TokenType {
-    Const,
-    Mut,
+    Var,
+
     Identifier,
     Number,
 
@@ -22,10 +22,13 @@ pub enum TokenType {
     CloseBracket,
     BlockComment,
     LineComment,
+
     BinaryOperator,
     ComparisonOperator,
     AssignmentOperator,
     LogicalOperator,
+    DecrementOperator,
+    IncrementOperator,
 
     Separator,
     Comma, // specifically to simply arrays analysing
@@ -77,7 +80,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 // for binary and assignment operators
                 let operator_lexeme = match character {
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
-                        "++".to_string()
+                        position += 1;
+                        tokens.push(token("++".to_string(), TokenType::IncrementOperator));
+                        continue;
                     }
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
                         "+=".to_string()
@@ -104,7 +109,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 match character {
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
                         position += 1;
-                        tokens.push(token("--".to_string(), TokenType::AssignmentOperator));
+                        tokens.push(token("--".to_string(), TokenType::DecrementOperator));
                     }
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
                         position += 1;
@@ -378,7 +383,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' | ':' | '?' => {
+                        | '(' | ')' | '[' | ':' | '?' | ',' => {
                             position -= 1;
                             break;
                         }
@@ -400,8 +405,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     "match" => TokenType::Match,
                     "for" => TokenType::For,
                     "in" => TokenType::In,
-                    "mut" => TokenType::Mut,
-                    "const" => TokenType::Const,
+                    "mut" => TokenType::Var,
+                    "const" => TokenType::Var,
                     "bool" => TokenType::TypeBool,
                     "num" => TokenType::TypeNumber,
                     "str" => TokenType::TypeString,

@@ -1,0 +1,6 @@
+const var:str, test = 2;
+const hey = 2+4;
+const obj = {
+    hey: "eded",
+    test: true
+}

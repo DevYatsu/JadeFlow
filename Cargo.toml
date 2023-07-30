@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 custom_error = "1.9.2"
+dialoguer = "0.10.4"
