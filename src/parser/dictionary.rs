@@ -1,13 +1,19 @@
-use super::{architecture::Expression, parse_expression, ParsingError};
+use super::{
+    architecture::{Expression, SymbolTable},
+    expression::parse_expression,
+    ParsingError,
+};
 use crate::token::{Token, TokenType};
 use std::collections::HashMap;
 
 pub fn parse_dictionary_expression(
     tokens: &[Token],
     position: &mut usize,
+    symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut expressions: HashMap<String, Expression> = HashMap::new();
     let mut temp_key: Option<String> = None;
+    *position += 1;
 
     while let Some(token) = tokens.get(*position) {
         match token.token_type {
@@ -15,6 +21,11 @@ pub fn parse_dictionary_expression(
                 *position += 1;
             }
             TokenType::Comma => {
+                if let Some(key) = temp_key.take() {
+                    symbol_table
+                        .get_variable(&key)
+                        .map(|_| expressions.insert(key.clone(), Expression::Variable(key)));
+                }
                 handle_missing_value_dict(&temp_key)?;
                 *position += 1;
             }
@@ -29,11 +40,26 @@ pub fn parse_dictionary_expression(
             }
             _ => {
                 if temp_key.is_some() {
-                    let value = parse_expression(tokens, position)?;
+                    let value = parse_expression(tokens, position, symbol_table)?;
+
+                    match &value {
+                        Expression::Variable(name) => {
+                            if symbol_table.get_variable(name).is_none() {
+                                return Err(ParsingError::UseOfUndefinedVariable {
+                                    name: name.to_string(),
+                                });
+                            }
+                        }
+                        _ => (),
+                    }
+
                     expressions.insert(temp_key.take().unwrap(), value);
                     *position += 1;
                 } else {
-                    temp_key = Some(parse_expression(tokens, position)?.string_from_expression()?);
+                    temp_key = Some(
+                        parse_expression(tokens, position, symbol_table)?
+                            .string_from_expression()?,
+                    );
                     handle_invalid_string_dict_key(&temp_key, &token.value)?;
                     skip_to_colon(tokens, position, &temp_key)?;
                 }
@@ -76,6 +102,10 @@ fn skip_to_colon(
                 continue;
             }
             TokenType::Colon => {
+                break;
+            }
+            TokenType::Comma => {
+                *position -= 1;
                 break;
             }
             _ => {

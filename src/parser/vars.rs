@@ -1,20 +1,24 @@
-use crate::token::{Token, TokenType};
+use crate::{
+    parser::expression::parse_expression,
+    token::{Token, TokenType},
+};
 
 use super::{
     architecture::{Declaration, Expression, SymbolTable},
-    parse_expression, parse_type, type_from_expression, ParsingError,
+    parse_type, type_from_expression, ParsingError,
 };
 
 pub fn parse_var_declaration(
     tokens: &[Token],
     position: &mut usize,
     value: &str,
-    symbole_table: &SymbolTable,
+    symbol_table: &SymbolTable,
 ) -> Result<Declaration, ParsingError> {
     *position += 1;
 
     let is_mutable = value == "mut";
 
+    // Expect an identifier token (variable name)
     if let Some(Token {
         token_type: TokenType::Identifier,
         value,
@@ -23,6 +27,7 @@ pub fn parse_var_declaration(
         *position += 1;
         let name = value;
 
+        // Check if the next token is a colon (':')
         if let Some(Token {
             token_type: TokenType::Colon,
             ..
@@ -31,11 +36,13 @@ pub fn parse_var_declaration(
             *position += 1;
             let var_type = parse_type(tokens, position)?;
 
+            // Check if the next token is an assignment operator ('=')
             if let Some(Token {
                 token_type: TokenType::AssignmentOperator,
                 value,
             }) = tokens.get(*position)
             {
+                // Ensure the assignment operator is '='
                 if value != "=" {
                     return Err(ParsingError::CannotReassignIfNotAssigned {
                         operator: value.to_string(),
@@ -45,11 +52,13 @@ pub fn parse_var_declaration(
 
                 *position += 1;
 
-                let expression = parse_expression(tokens, position)?;
+                // Parse the expression following the assignment operator
+                let expression = parse_expression(tokens, position, symbol_table)?;
 
+                // Check if the expression type matches the declared variable type
                 match &expression {
                     Expression::Variable(var_name) => {
-                        if let Some(t) = type_from_expression(&expression, symbole_table) {
+                        if let Some(t) = type_from_expression(&expression, symbol_table) {
                             if var_type != t {
                                 return Err(ParsingError::AssignedTypeNotFound {
                                     assigned_t: var_type,
@@ -57,13 +66,13 @@ pub fn parse_var_declaration(
                                 });
                             }
                         } else {
-                            return Err(ParsingError::UseOfUndefinedVariabl {
+                            return Err(ParsingError::UseOfUndefinedVariable {
                                 name: var_name.to_string(),
                             });
                         }
                     }
                     _ => {
-                        if let Some(t) = type_from_expression(&expression, symbole_table) {
+                        if let Some(t) = type_from_expression(&expression, symbol_table) {
                             if var_type != t {
                                 return Err(ParsingError::AssignedTypeNotFound {
                                     assigned_t: var_type,
@@ -81,6 +90,7 @@ pub fn parse_var_declaration(
                     is_mutable,
                 });
             } else {
+                // If no assignment operator is found, the variable is declared but not assigned a value.
                 let value = Expression::Null;
 
                 return Ok(Declaration {
@@ -95,6 +105,7 @@ pub fn parse_var_declaration(
             value,
         }) = tokens.get(*position)
         {
+            // If there is an assignment operator without a preceding colon, it's an error.
             if value != "=" {
                 return Err(ParsingError::CannotReassignIfNotAssigned {
                     operator: value.to_string(),
@@ -104,24 +115,27 @@ pub fn parse_var_declaration(
 
             *position += 1;
 
-            let expression = parse_expression(tokens, position)?;
+            // Parse the expression following the assignment operator
+            let expression = parse_expression(tokens, position, symbol_table)?;
 
             match &expression {
                 Expression::Variable(var_name) => {
-                    if let Some(_) = type_from_expression(&expression, &symbole_table) {
+                    // If the expression is a variable, check if it's already declared in the symbol table
+                    if let Some(_) = type_from_expression(&expression, symbol_table) {
                         return Ok(Declaration {
                             name: name.to_string(),
                             is_mutable,
-                            ..symbole_table.get_variable(&var_name).unwrap()
+                            ..symbol_table.get_variable(&var_name).unwrap()
                         });
                     } else {
-                        return Err(ParsingError::UseOfUndefinedVariabl {
+                        return Err(ParsingError::UseOfUndefinedVariable {
                             name: var_name.to_string(),
                         });
                     }
                 }
                 _ => {
-                    if let Some(var_type) = type_from_expression(&expression, &symbole_table) {
+                    // For non-variable expressions, get the type from the expression and create the declaration.
+                    if let Some(var_type) = type_from_expression(&expression, symbol_table) {
                         return Ok(Declaration {
                             name: name.to_string(),
                             var_type,
@@ -136,11 +150,13 @@ pub fn parse_var_declaration(
                 }
             }
         } else {
+            // If there's no colon or assignment operator, it's an error.
             return Err(ParsingError::UnknownVariableType {
                 var_name: name.to_string(),
             });
         }
     } else {
+        // If no identifier is found, it's an error.
         return Err(ParsingError::ExpectedVarInitialization {
             var_value: value.to_string(),
         });

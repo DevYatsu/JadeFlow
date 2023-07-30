@@ -96,9 +96,9 @@ impl Expression {
                 Ok(val.to_string())
             }
             Expression::String(val) => Ok(val.to_string()),
-            Expression => {
+            expression => {
                 return Err(ParsingError::InvalidKeyDict {
-                    key_type: Expression,
+                    key_type: expression,
                 })
             }
         }

@@ -28,7 +28,7 @@ pub enum TokenType {
     IncrementOperator,
 
     Separator,
-    Comma, // specifically to simply arrays analysing
+    Comma,
 
     Return,
     If,

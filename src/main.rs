@@ -3,7 +3,7 @@ mod parser;
 mod select_test;
 mod token;
 
-use std::{error::Error, fs, time::Instant};
+use std::{fs, time::Instant};
 
 use token::Token;
 
@@ -15,14 +15,14 @@ fn main() {
         Err(e) => {
             println!("ERROR: {}", e.to_string());
             return;
-        },
+        }
     };
     let contents: String = match fs::read_to_string(file_name) {
         Ok(c) => c,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
             return;
-        },
+        }
     };
 
     let start = Instant::now();
@@ -31,15 +31,12 @@ fn main() {
         Err(e) => {
             println!("ERROR: {}", e.to_string());
             return;
-        },
+        }
     };
     let end = Instant::now();
 
     let first_timer = (end - start).as_secs_f64();
-    println!(
-        "{} seconds to execute tokenisation",
-        first_timer
-    );
+    println!("{} seconds to execute tokenisation", first_timer);
 
     let start = Instant::now();
     let program = match parse(&mut tokens) {
@@ -47,14 +44,12 @@ fn main() {
         Err(e) => {
             println!("ERROR: {}", e.to_string());
             return;
-        },
+        }
     };
     let end = Instant::now();
-
-    println!("{:?}", program);
 
     let second_timer = (end - start).as_secs_f64();
     println!("{} seconds to execute parsing", second_timer);
 
-    println!("total time {}", first_timer + second_timer);
+    println!("total time: {}", first_timer + second_timer);
 }

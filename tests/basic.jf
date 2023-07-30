@@ -1,10 +1,18 @@
+const e = 2.4
+
 const obj = {
-    hey: "eded",
+    b: "true",
     test: true,
-    efef: "ef",
-    "efefe": efef, 
-    test: trs
+    e,
+    two: 3 + 2, 
+    test: 2
 }
 
-const arr = ["test", "efef", 2]
-const arr = ["test", "efef", 2]
+const arr = ["test", obj, 2]
+const s = "string"
+const b = true
+const n = e + 2
+const nullNum: num = null
+const nullNum: num = 2
+
+const add_test = 2 + 3

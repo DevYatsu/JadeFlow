@@ -1,6 +1,9 @@
 mod architecture;
 mod dictionary;
+mod expression;
+mod operations;
 mod vars;
+mod vectors;
 
 use std::io::Error;
 
@@ -15,6 +18,7 @@ use self::{
     },
     dictionary::parse_dictionary_expression,
     vars::parse_var_declaration,
+    vectors::parse_array_expression,
 };
 
 custom_error! {pub ParsingError
@@ -36,14 +40,15 @@ custom_error! {pub ParsingError
     ExpectedStringAsDictKey = "Expected string as dictionary key",
     AssignedTypeNotFound{assigned_t: VariableType, found_t: VariableType} = "Assigned type '{assigned_t}' is different from found type '{found_t}'",
     InvalidStringDictKey{key: String} = "Expected a string or number as dictionary key, not '{key}'",
-    UseOfUndefinedVariabl{name: String} = "\"{name}\" is not defined",
+    UseOfUndefinedVariable{name: String} = "\"{name}\" is not defined",
+    UnexpectedToken{expected: String, found: String} = "Expected '{expected}, found {found}'"
 }
 
 pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut position = 0;
     let mut statements = Vec::new();
     let mut symbol_table = SymbolTable::new();
-
+    println!("working");
     while position < tokens.len() {
         let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
         statements.push(statement);
@@ -103,6 +108,8 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
             return Err(ParsingError::UnexpectedEndOfInput);
         }
     }
+
+    println!("symbol {:?}", symbol_table);
     Ok(ASTNode::Program(statements))
 }
 
@@ -171,6 +178,7 @@ fn parse_statement(
     {
         let declaration = parse_var_declaration(tokens, position, value, symbol_table)?;
         symbol_table.insert_variable(declaration.clone());
+
         return Ok(variable(declaration));
     }
 
@@ -196,105 +204,6 @@ fn type_from_expression(expr: &Expression, symbol_table: &SymbolTable) -> Option
             operator,
             right,
         } => type_from_expression(&*left, symbol_table),
-    }
-}
-
-fn parse_expression(tokens: &[Token], position: &mut usize) -> Result<Expression, ParsingError> {
-    tokens
-        .get(*position)
-        .ok_or(ParsingError::UnexpectedEndOfInput)
-        .and_then(|token| {
-            *position += 1;
-
-            let expression =
-                match &token.token_type {
-                    TokenType::Identifier => Ok(Expression::Variable(token.value.clone())),
-                    TokenType::Number => token
-                        .value
-                        .parse::<f64>()
-                        .map(Expression::Number)
-                        .map_err(|_| ParsingError::InvalidNumber {
-                            value: token.value.clone(),
-                        }),
-                    TokenType::String => Ok(Expression::String(token.value.clone())),
-                    TokenType::Null => Ok(Expression::Null),
-                    TokenType::Boolean => {
-                        let b = token.value == "true";
-                        Ok(Expression::Boolean(b))
-                    }
-                    TokenType::OpenParen => parse_parenthesized_expression(tokens, position),
-                    TokenType::OpenBracket => parse_array_expression(tokens, position),
-                    TokenType::OpenBrace => parse_dictionary_expression(tokens, position),
-                    TokenType::BinaryOperator => {
-                        let operator = match token.value.as_str() {
-                            "+" => BinaryOperator::Plus,
-                            "-" => BinaryOperator::Minus,
-                            "*" => BinaryOperator::Multiply,
-                            "/" => BinaryOperator::Divide,
-                            _ => {
-                                return Err(ParsingError::InvalidExpression {
-                                    value: token.value.clone(),
-                                });
-                            }
-                        };
-
-                        let left = parse_expression(tokens, position)?;
-                        let right = parse_expression(tokens, position)?;
-
-                        Ok(Expression::BinaryOperation {
-                            left: Box::new(left),
-                            operator,
-                            right: Box::new(right),
-                        })
-                    }
-                    _ => Err(ParsingError::InvalidExpression {
-                        value: token.value.clone(),
-                    }),
-                };
-
-            expression
-        })
-}
-
-fn parse_array_expression(
-    tokens: &[Token],
-    position: &mut usize,
-) -> Result<Expression, ParsingError> {
-    let mut vec_expressions = vec![];
-
-    for token in tokens.iter().skip(*position) {
-        match &token.token_type {
-            TokenType::CloseBracket => {
-                *position += 1;
-                break;
-            }
-            TokenType::Comma => {
-                *position += 1;
-                continue;
-            }
-            _ => vec_expressions.push(parse_expression(tokens, position)?),
-        }
-    }
-
-    Ok(Expression::ArrayExpression(vec_expressions))
-}
-
-fn parse_parenthesized_expression(
-    tokens: &[Token],
-    position: &mut usize,
-) -> Result<Expression, ParsingError> {
-    let expression = parse_expression(tokens, position)?;
-
-    if let Some(Token {
-        token_type: TokenType::CloseParen,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-
-        Ok(expression)
-    } else {
-        Err(ParsingError::MissingClosingParenthesis)
     }
 }
 
