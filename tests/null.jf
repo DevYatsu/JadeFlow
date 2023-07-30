@@ -1,5 +1,5 @@
 const test: str = null, hey: num;
-mut hihi: str, d: num, aie: bool;
+mut test2: str, d: num, aie: bool;
 
 const test: vec = null, hey: dict
-mut hihi: str = null, d: num, aie: str
+mut test2: str = null, d: num, aie: str

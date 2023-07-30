@@ -16,13 +16,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut tokens: Vec<Token> = tokenize(&contents)?;
     let end = Instant::now();
 
-    for token in &tokens {
-        println!("{:?}", token)
-    }
-
+    let first_timer = (end - start).as_secs_f64();
     println!(
         "{} seconds to execute tokenisation",
-        (end - start).as_secs_f64()
+        first_timer
     );
 
     let start = Instant::now();
@@ -31,7 +28,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("{:?}", program);
 
-    println!("{} seconds to execute parsing", (end - start).as_secs_f64());
+    let second_timer = (end - start).as_secs_f64();
+    println!("{} seconds to execute parsing", second_timer);
 
+    println!("total time {}", first_timer + second_timer);
     Ok(())
 }

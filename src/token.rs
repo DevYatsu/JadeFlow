@@ -20,9 +20,6 @@ pub enum TokenType {
     CloseParen,
     CloseBrace,
     CloseBracket,
-    BlockComment,
-    LineComment,
-
     BinaryOperator,
     ComparisonOperator,
     AssignmentOperator,
