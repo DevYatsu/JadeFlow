@@ -250,7 +250,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                         position += 1;
                     }
 
-                    tokens.push(token(slash_lexeme, TokenType::BlockComment));
+                    //tokens.push(token(slash_lexeme, TokenType::BlockComment));
+                    // no need to push as there is nothing to analyse
                 } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
                     position += 1;
                     slash_lexeme.push_str("/");
@@ -273,8 +274,8 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             break;
                         }
                     }
-
-                    tokens.push(token(slash_lexeme, TokenType::LineComment));
+                    // no need to push as there is nothing to analyse
+                    // tokens.push(token(slash_lexeme, TokenType::LineComment));
                 } else {
                     if source_code.as_bytes().get(position) == Some(&(b'=' as u8)) {
                         slash_lexeme.push('=');

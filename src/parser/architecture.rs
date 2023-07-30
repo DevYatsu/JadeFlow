@@ -13,8 +13,14 @@ pub enum ASTNode {
 pub struct Statement {
     pub node: ASTNode,
 }
+
 pub fn statement(node: ASTNode) -> Statement {
     Statement { node }
+}
+pub fn variable(declaration: Declaration) -> Statement {
+    Statement {
+        node: ASTNode::VariableDeclaration(declaration),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -163,5 +169,27 @@ impl fmt::Display for VariableType {
             VariableType::Vector => write!(f, "Vector"),
             VariableType::Dictionary => write!(f, "Dictionary"),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SymbolTable {
+    //struct to keep track of variables, fns and everything created
+    variables: HashMap<String, Declaration>,
+}
+impl SymbolTable {
+    pub fn new() -> Self {
+        SymbolTable {
+            variables: HashMap::new(),
+        }
+    }
+
+    pub fn insert_variable(&mut self, declaration: Declaration) {
+        self.variables
+            .insert(declaration.name.to_string(), declaration);
+    }
+
+    pub fn get_variable(&self, name: &str) -> Option<Declaration> {
+        self.variables.get(name).cloned()
     }
 }

@@ -5,3 +5,6 @@ const obj = {
     "efefe": efef, 
     test: trs
 }
+
+const arr = ["test", "efef", 2];
+mut void = arr;

@@ -10,7 +10,7 @@ use crate::token::{Token, TokenType};
 
 use self::{
     architecture::{
-        statement, ASTNode, BinaryOperator, Declaration, Expression, FormattedSegment, Statement,
+        variable, ASTNode, BinaryOperator, Expression, FormattedSegment, Statement, SymbolTable,
         VariableType,
     },
     dictionary::parse_dictionary_expression,
@@ -35,16 +35,17 @@ custom_error! {pub ParsingError
     InvalidKeyDict{key_type: Expression} = "\"{key_type}\" is not a handled key variant",
     ExpectedStringAsDictKey = "Expected string as dictionary key",
     AssignedTypeNotFound{assigned_t: VariableType, found_t: VariableType} = "Assigned type '{assigned_t}' is different from found type '{found_t}'",
-    InvalidStringDictKey{key: String} = "Expected a string or number as dictionary key, not '{key}'"
+    InvalidStringDictKey{key: String} = "Expected a string or number as dictionary key, not '{key}'",
+    UseOfUndefinedVariabl{name: String} = "\"{name}\" is not defined",
 }
 
 pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut position = 0;
     let mut statements = Vec::new();
+    let mut symbol_table = SymbolTable::new();
 
     while position < tokens.len() {
-        let statement = parse_statement(&tokens, &mut position)?;
-        println!("statement {:?}", statement);
+        let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
         statements.push(statement);
 
         if let Some(Token {
@@ -102,7 +103,6 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
             return Err(ParsingError::UnexpectedEndOfInput);
         }
     }
-
     Ok(ASTNode::Program(statements))
 }
 
@@ -151,7 +151,11 @@ fn formatted_string_segments(input: &str) -> Vec<FormattedSegment> {
     segments
 }
 
-fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, ParsingError> {
+fn parse_statement(
+    tokens: &[Token],
+    position: &mut usize,
+    symbol_table: &mut SymbolTable,
+) -> Result<Statement, ParsingError> {
     while let Some(Token {
         token_type: TokenType::Separator,
         ..
@@ -165,7 +169,9 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
         value,
     }) = tokens.get(*position)
     {
-        return Ok(parse_var_declaration(tokens, position, value)?);
+        let declaration = parse_var_declaration(tokens, position, value, symbol_table)?;
+        symbol_table.insert_variable(declaration.clone());
+        return Ok(variable(declaration));
     }
 
     Ok(Statement {
@@ -173,7 +179,7 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
     })
 }
 
-fn type_from_expression(expr: &Expression) -> Option<VariableType> {
+fn type_from_expression(expr: &Expression, symbol_table: &SymbolTable) -> Option<VariableType> {
     match expr {
         Expression::Number(_) => Some(VariableType::Number),
         Expression::String(_) => Some(VariableType::String),
@@ -183,14 +189,13 @@ fn type_from_expression(expr: &Expression) -> Option<VariableType> {
         Expression::Null => None,
         Expression::DictionaryExpression(_) => Some(VariableType::Dictionary),
         Expression::Variable(var_name) => {
-            // retrieve variable type from name
-            None
+            symbol_table.get_variable(var_name).map(|var| var.var_type)
         }
         Expression::BinaryOperation {
             left,
             operator,
             right,
-        } => type_from_expression(&*left),
+        } => type_from_expression(&*left, symbol_table),
     }
 }
 
@@ -257,17 +262,18 @@ fn parse_array_expression(
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = vec![];
 
-    while let Some(token) = tokens.get(*position) {
-        if token.token_type == TokenType::CloseBracket {
-            break;
+    for token in tokens.iter().skip(*position) {
+        match &token.token_type {
+            TokenType::CloseBracket => {
+                *position += 1;
+                break;
+            }
+            TokenType::Comma => {
+                *position += 1;
+                continue;
+            }
+            _ => vec_expressions.push(parse_expression(tokens, position)?),
         }
-        if token.token_type == TokenType::Comma {
-            *position += 1;
-            continue;
-        }
-
-        vec_expressions.push(parse_expression(tokens, position)?);
-        *position += 1;
     }
 
     Ok(Expression::ArrayExpression(vec_expressions))
