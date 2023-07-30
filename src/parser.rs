@@ -9,13 +9,14 @@ custom_error! {pub ParsingError
     Default = "Failed to parse tokens",
     UnexpectedEndOfInput = "No more token left to parse",
     ExpectedVarInitialization{var_value: String} = "Expected valid variable name after \"{var_value}\"",
-    ExpectedTypeAfterColon{value: String} = "Expected valid type after \"{value}\"",
+    ExpectedType{value: String} = "Expected valid type after \"{value}\"",
     UnknownVariableType{var_name: String} = "Impossible to guess {var_name} type",
     CannotReassignIfNotAssigned{operator: String, var_name: String} = "Must first assign value to \"{var_name}\" with '=' before using '{operator}'",
     CannotReassignConst{var_name: String} = "Cannot reassign \"{var_name}\" as it is a 'const'",
     InvalidNumber{value: String} = "\"{value}\" is an invalid number!",
     InvalidExpression{value: String} = "\"{value}\" is an invalid expression!",
-    MissingClosingParenthesis = "Expected a closing parenthesis!"
+    MissingClosingParenthesis = "Expected a closing parenthesis!",
+    ExpectedSeparator{value: String} = "Expected new line or semicolon after \"{value}\""
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +47,7 @@ pub enum Expression {
     Variable(String),
     Number(f64),
     String(String),
+    Boolean(bool),
     Null,
     ArrayExpression(Vec<Expression>),
     DictionaryExpression(Vec<(Expression, Expression)>),
@@ -145,6 +147,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
 
     while position < tokens.len() {
         let statement = parse_statement(&tokens, &mut position)?;
+        println!("statement {:?}", statement);
         statements.push(statement);
 
         if let Some(Token {
@@ -179,7 +182,25 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     continue;
                 }
             }
+            ASTNode::FunctionDeclaration(_) => {
+                position += 1;
+                continue;
+            }
+            ASTNode::ClassDeclaration(_)  => {
+                position += 1;
+                continue;
+            }
             _ => (),
+        }
+
+        if tokens.len() == position {
+            break;
+        }
+    
+        if let Some(token) = tokens.get(position) {
+            return Err(ParsingError::ExpectedSeparator { value: token.value.to_string() })
+        }else {
+            return Err(ParsingError::UnexpectedEndOfInput)
         }
     }
 
@@ -209,7 +230,6 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
                 ..
             }) = tokens.get(*position)
             {
-                println!("{:?}", tokens.get(*position));
                 *position += 1;
                 let var_type = parse_type(tokens, position)?;
 
@@ -227,7 +247,9 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
 
                     *position += 1;
 
-                    let expression = parse_expression(tokens, position);
+                    let expression = parse_expression(tokens, position)?;
+
+                    return Ok(statement(ASTNode::VariableDeclaration(Declaration { name: name.to_string(), var_type, value: expression, is_mutable })))   
                 } else {
                     let value = Expression::Null;
 
@@ -240,10 +262,9 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
                 }
             } else if let Some(Token {
                 token_type: TokenType::AssignmentOperator,
-                ..
+                value
             }) = tokens.get(*position)
             {                                       
-
                 if value != "=" {
                     return Err(ParsingError::CannotReassignIfNotAssigned {
                         operator: value.to_string(),
@@ -252,7 +273,14 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
                 }
 
                 *position += 1;
-                let expression = parse_expression(tokens, position);
+
+                let expression = parse_expression(tokens, position)?;
+                if let Some(var_type) = type_from_expression(&expression) {
+                    return Ok(statement(ASTNode::VariableDeclaration(Declaration { name: name.to_string(), var_type, value: expression, is_mutable })))   
+                }else {
+                    return Err(ParsingError::ExpectedType { value: name.to_string() })
+                }
+
             } else {
                 return Err(ParsingError::UnknownVariableType {
                     var_name: name.to_string(),
@@ -269,6 +297,25 @@ fn parse_statement(tokens: &[Token], position: &mut usize) -> Result<Statement, 
     Ok(Statement {
         node: ASTNode::Expression(Expression::Null),
     })
+}
+
+fn type_from_expression(expr: &Expression) -> Option<VariableType> {
+    match expr {
+        Expression::Number(_) => Some(VariableType::Number),
+        Expression::String(_) => Some(VariableType::String),
+        Expression::ArrayExpression(_) => Some(VariableType::Vector),
+        Expression::FormatedString(_) => Some(VariableType::String),
+        Expression::Boolean(_) => Some(VariableType::Boolean),
+        Expression::Null => None,
+        Expression::DictionaryExpression(_) => Some(VariableType::Dictionary),
+        Expression::Variable(var_name) => {
+            // retrieve variable type from name
+            None
+        }
+        Expression::BinaryOperation { left, operator, right } => {
+            type_from_expression(&*left)
+        }
+    }
 }
 
 fn parse_expression(tokens: &[Token], position: &mut usize) -> Result<Expression, ParsingError> {
@@ -297,6 +344,11 @@ fn parse_expression(tokens: &[Token], position: &mut usize) -> Result<Expression
             TokenType::Null => {
                 *position += 1;
                 Ok(Expression::Null)
+            }
+            TokenType::Boolean => {
+                *position += 1;
+                let b = if token.value == "true" {true}else{false};
+                Ok(Expression::Boolean(b))
             }
             TokenType::OpenParen => parse_parenthesized_expression(tokens, position),
             TokenType::OpenBracket => parse_array_expression(tokens, position),
@@ -415,7 +467,7 @@ fn parse_type(tokens: &[Token], position: &mut usize) -> Result<VariableType, Pa
         *position += 1;
         Ok(VariableType::Vector)
     } else if let Some(Token { value, .. }) = tokens.get(*position) {
-        return Err(ParsingError::ExpectedTypeAfterColon {
+        return Err(ParsingError::ExpectedType {
             value: value.to_string(),
         });
     } else {

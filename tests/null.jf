@@ -1,1 +1,1 @@
-const test: str, hey: bool;mut hihi: str, d: num, aie: str
+const test = 2, hey = true;mut hihi: str = null, d: num, aie: str
