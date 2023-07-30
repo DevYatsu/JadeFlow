@@ -9,11 +9,30 @@ use token::Token;
 
 use crate::{parser::parse, select_test::run_file, token::tokenize};
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let contents: String = fs::read_to_string(run_file()?)?;
+fn main() {
+    let file_name = match run_file() {
+        Ok(f) => f,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        },
+    };
+    let contents: String = match fs::read_to_string(file_name) {
+        Ok(c) => c,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        },
+    };
 
     let start = Instant::now();
-    let mut tokens: Vec<Token> = tokenize(&contents)?;
+    let mut tokens: Vec<Token> = match tokenize(&contents) {
+        Ok(t) => t,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        },
+    };
     let end = Instant::now();
 
     let first_timer = (end - start).as_secs_f64();
@@ -23,7 +42,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let start = Instant::now();
-    let program = parse(&mut tokens)?;
+    let program = match parse(&mut tokens) {
+        Ok(p) => p,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        },
+    };
     let end = Instant::now();
 
     println!("{:?}", program);
@@ -32,5 +57,4 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{} seconds to execute parsing", second_timer);
 
     println!("total time {}", first_timer + second_timer);
-    Ok(())
 }
