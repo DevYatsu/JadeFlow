@@ -1,1 +1,5 @@
-const test = 2, hey = true;mut hihi: str = null, d: num, aie: str
+const test: str = null, hey: num;
+mut hihi: str, d: num, aie: bool;
+
+const test: vec = null, hey: dict
+mut hihi: str = null, d: num, aie: str

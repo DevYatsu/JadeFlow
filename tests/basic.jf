@@ -1,6 +1,7 @@
-const var:str, test = 2
-const hey = 2
 const obj = {
     hey: "eded",
-    test: true
+    test: true,
+    efef: "ef",
+    "efefe": efef, 
+    test: trs
 }

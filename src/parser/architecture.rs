@@ -1,0 +1,167 @@
+use super::ParsingError;
+use std::{collections::HashMap, fmt};
+
+#[derive(Debug, Clone)]
+pub enum ASTNode {
+    Program(Vec<Statement>),
+    VariableDeclaration(Declaration),
+    FunctionDeclaration(Function),
+    ClassDeclaration(Class),
+    Expression(Expression),
+}
+#[derive(Debug, Clone)]
+pub struct Statement {
+    pub node: ASTNode,
+}
+pub fn statement(node: ASTNode) -> Statement {
+    Statement { node }
+}
+
+#[derive(Debug, Clone)]
+pub enum Expression {
+    Variable(String),
+    Number(f64),
+    String(String),
+    Boolean(bool),
+    Null,
+    ArrayExpression(Vec<Expression>),
+    DictionaryExpression(HashMap<String, Expression>),
+    BinaryOperation {
+        left: Box<Expression>,
+        operator: BinaryOperator,
+        right: Box<Expression>,
+    },
+    FormatedString(Vec<FormattedSegment>),
+}
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expression::Variable(val) => write!(f, "{}", val),
+            Expression::Number(val) => write!(f, "{}", val),
+            Expression::String(val) => write!(f, "\"{}\"", val),
+            Expression::Boolean(val) => write!(f, "{}", val),
+            Expression::Null => write!(f, "null"),
+            Expression::ArrayExpression(values) => {
+                write!(f, "[")?;
+                for (i, value) in values.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", value)?;
+                }
+                write!(f, "]")
+            }
+            Expression::DictionaryExpression(entries) => {
+                write!(f, "{{")?;
+                for (i, (key, value)) in entries.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "\"{}\": {}", key, value)?;
+                }
+                write!(f, "}}")
+            }
+            Expression::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
+                write!(f, "({} {} {})", left, operator, right)
+            }
+            Expression::FormatedString(segments) => {
+                write!(f, "\"")?;
+                for segment in segments {
+                    match segment {
+                        FormattedSegment::Literal(text) => write!(f, "{}", text)?,
+                        FormattedSegment::Expression(expr) => write!(f, "{}", expr)?,
+                    }
+                }
+                write!(f, "\"")
+            }
+        }
+    }
+}
+impl Expression {
+    pub fn string_from_expression(self) -> Result<String, ParsingError> {
+        match self {
+            Expression::Variable(val) => Ok(val.to_string()),
+            Expression::Number(val) => {
+                let val = val as i64;
+                Ok(val.to_string())
+            }
+            Expression::String(val) => Ok(val.to_string()),
+            Expression => {
+                return Err(ParsingError::InvalidKeyDict {
+                    key_type: Expression,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Declaration {
+    pub name: String,
+    pub var_type: VariableType,
+    pub value: Expression,
+    pub is_mutable: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum FormattedSegment {
+    // exemple "hey #{2 + 3} how r u ?"
+    Literal(String),        // (ex: "hey " and " how r u ?")
+    Expression(Expression), // (ex: 2 + 3 -> 5)
+}
+
+#[derive(Debug, Clone)]
+pub enum BinaryOperator {
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+}
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BinaryOperator::Plus => write!(f, "+"),
+            BinaryOperator::Minus => write!(f, "-"),
+            BinaryOperator::Multiply => write!(f, "*"),
+            BinaryOperator::Divide => write!(f, "/"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub name: String,
+    pub arguments: Vec<(String, VariableType)>,
+    pub context: Vec<Statement>,
+    pub return_type: VariableType,
+}
+#[derive(Debug, Clone)]
+pub struct Class {
+    pub name: String,
+    pub arguments: Vec<(String, VariableType)>,
+    pub context: Vec<Vec<Statement>>, // methods and declarations
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VariableType {
+    String,
+    Number,
+    Boolean,
+    Vector,
+    Dictionary,
+}
+impl fmt::Display for VariableType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            VariableType::String => write!(f, "String"),
+            VariableType::Number => write!(f, "Number"),
+            VariableType::Boolean => write!(f, "Boolean"),
+            VariableType::Vector => write!(f, "Vector"),
+            VariableType::Dictionary => write!(f, "Dictionary"),
+        }
+    }
+}
