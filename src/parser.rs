@@ -48,7 +48,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut position = 0;
     let mut statements = Vec::new();
     let mut symbol_table = SymbolTable::new();
-    println!("working");
+
     while position < tokens.len() {
         let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
         statements.push(statement);

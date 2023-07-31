@@ -20,23 +20,27 @@ pub fn parse_dictionary_expression(
             TokenType::Separator => {
                 *position += 1;
             }
-            TokenType::Comma => {
-                if let Some(key) = temp_key.take() {
+            TokenType::Comma | TokenType::CloseBrace => {
+                if temp_key.is_some() {
                     symbol_table
-                        .get_variable(&key)
-                        .map(|_| expressions.insert(key.clone(), Expression::Variable(key)));
+                        .get_variable(&temp_key.clone().unwrap())
+                        .and_then(|dec| {
+                            expressions.insert(
+                                dec.name.clone(),
+                                Expression::Variable(temp_key.take().unwrap().to_string()),
+                            )
+                        });
                 }
                 handle_missing_value_dict(&temp_key)?;
                 *position += 1;
+
+                if token.token_type == TokenType::CloseBrace {
+                    break;
+                }
             }
             TokenType::Colon => {
                 handle_missing_value_dict(&temp_key)?;
                 *position += 1;
-            }
-            TokenType::CloseBrace => {
-                handle_missing_value_dict(&temp_key)?;
-                *position += 1;
-                break;
             }
             _ => {
                 if temp_key.is_some() {
@@ -104,7 +108,7 @@ fn skip_to_colon(
             TokenType::Colon => {
                 break;
             }
-            TokenType::Comma => {
+            TokenType::Comma | TokenType::CloseBrace => {
                 *position -= 1;
                 break;
             }

@@ -3,9 +3,9 @@ const e = 2.4
 const obj = {
     b: "true",
     test: true,
-    e,
     two: 3 + 2, 
-    test: 2
+    test: 2,
+    e
 }
 
 const arr = ["test", obj, 2]

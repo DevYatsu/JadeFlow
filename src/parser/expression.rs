@@ -12,7 +12,7 @@ pub fn parse_expression(
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let expression = parse_primary_expression(tokens, position, symbol_table)?;
-    println!("prim expr: {}", expression);
+
     if let Some(token) = tokens.get(*position) {
         match &token.token_type {
             TokenType::BinaryOperator => {
