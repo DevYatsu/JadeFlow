@@ -14,4 +14,5 @@ custom_error! {pub SyntaxError
     InvalidNumber{line:usize, at:String} = "Syntax Error: Invalid number '{at}' [at line: {line}]",
     Comment{line:usize, message:String} = "Syntax Error: {message} [at line: {line}]",
     InvalidArray{line:usize, at:String} = "Syntax Error: Invalid Array '{at}' [at line: {line}]",
+    NonAlphabeticCharacter = "Character must be alphabetic"
 }

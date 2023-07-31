@@ -12,8 +12,8 @@ use crate::token::{Token, TokenType};
 
 use self::{
     architecture::{
-        variable, ASTNode, Expression, FormattedSegment, Statement, SymbolTable,
-        VariableType, reassignment,
+        reassignment, variable, ASTNode, BinaryOperator, Expression, FormattedSegment, Statement,
+        SymbolTable, VariableType,
     },
     vars::{parse_var_declaration, parse_var_reassignment},
 };
@@ -23,6 +23,7 @@ custom_error! {pub ParsingError
     Default = "Failed to parse tokens",
     UnexpectedEndOfInput = "No more token left to parse",
     ExpectedVarInitialization{var_value: String} = "Expected valid variable name after \"{var_value}\"",
+    ExpectedReassignment{var_name: String} = "Expected assignment of new value to \"{var_name}\"",
     ExpectedType{value: String} = "Expected valid type after \"{value}\"",
     UnknownVariableType{var_name: String} = "Impossible to guess {var_name} type",
     CannotReassignIfNotAssigned{operator: String, var_name: String} = "Must first assign value to \"{var_name}\" with '=' before using '{operator}'",
@@ -38,10 +39,13 @@ custom_error! {pub ParsingError
     AssignedTypeNotFound{assigned_t: VariableType, found_t: VariableType} = "Assigned type '{assigned_t}' is different from found type '{found_t}'",
     InvalidStringDictKey{key: String} = "Expected a string or number as dictionary key, not '{key}'",
     UseOfUndefinedVariable{name: String} = "\"{name}\" is not defined",
-    UnexpectedToken{expected: String, found: String} = "Expected '{expected}, found {found}'",
+    UnexpectedToken{expected: String, found: String} = "Expected '{expected}', found '{found}'",
     CannotReassignVar{name: String} = "Cannot reassign \"{name}\" as it is not defined",
-    CannotChangeAssignedType{assigned_t: VariableType, found_t: VariableType} = "Expected type '{assigned_t}', found '{found_t}'",
+    CannotChangeAssignedType{assigned_t: VariableType, found_t: VariableType, var_name: String, at: String} = "Expected type '{assigned_t}', found '{found_t}' for '{var_name}' at: {at}",
+    CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}"
 }
+
+// add support for formatted string, and errors when we expect a token and it is not present
 
 pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut position = 0;
@@ -51,6 +55,10 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     while position < tokens.len() {
         let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
         statements.push(statement);
+
+        if tokens.len() == position {
+            break;
+        }
 
         if let Some(Token {
             token_type: TokenType::Separator,
@@ -63,6 +71,9 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
 
         match &statements[statements.len() - 1].node {
             ASTNode::VariableDeclaration(declaration) => {
+                // in case several vars are declaring one after another
+                // with the comma notation: const x: num, y: num
+
                 if let Some(Token {
                     token_type: TokenType::Comma,
                     ..
@@ -92,19 +103,15 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                 position += 1;
                 continue;
             }
-            _ => (),
-        }
-
-        if tokens.len() == position {
-            break;
-        }
-
-        if let Some(token) = tokens.get(position) {
-            return Err(ParsingError::ExpectedSeparator {
-                value: token.value.to_string(),
-            });
-        } else {
-            return Err(ParsingError::UnexpectedEndOfInput);
+            _ => {
+                if let Some(token) = tokens.get(position) {
+                    return Err(ParsingError::ExpectedSeparator {
+                        value: token.value.to_string(),
+                    });
+                } else {
+                    return Err(ParsingError::UnexpectedEndOfInput);
+                }
+            }
         }
     }
 
@@ -224,7 +231,44 @@ fn type_from_expression(expr: &Expression, symbol_table: &SymbolTable) -> Option
             left,
             operator,
             right,
-        } => type_from_expression(&*left, symbol_table),
+        } => {
+            let left_type = type_from_expression(left, symbol_table);
+            let right_type = type_from_expression(right, symbol_table);
+
+            match operator {
+                BinaryOperator::Plus => {
+                    match (left_type, right_type) {
+                        (Some(VariableType::Vector), _) => Some(VariableType::Vector),
+                        (_, Some(VariableType::Vector)) => Some(VariableType::Vector),
+
+                        (Some(VariableType::Boolean), Some(VariableType::Boolean)) => {
+                            Some(VariableType::Boolean)
+                        }
+
+                        (Some(VariableType::Dictionary), Some(VariableType::Dictionary)) => {
+                            Some(VariableType::Dictionary)
+                        }
+
+                        (Some(VariableType::String), Some(VariableType::String)) => {
+                            Some(VariableType::String)
+                        }
+                        (Some(VariableType::Number), Some(VariableType::Number)) => {
+                            Some(VariableType::Number)
+                        }
+                        _ => None, // Invalid binary operation, return None for other cases.
+                    }
+                }
+                _ => {
+                    match (left_type, right_type) {
+                        (Some(VariableType::Number), Some(VariableType::Number)) => {
+                            Some(VariableType::Number)
+                        }
+                        _ => None,
+                        // return None for every other operation cause we can only use these operations on numbers
+                    }
+                }
+            }
+        }
     }
 }
 

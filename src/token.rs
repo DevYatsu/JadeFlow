@@ -64,7 +64,7 @@ fn token(value: String, token_type: TokenType) -> Token {
     Token { value, token_type }
 }
 
-pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
+pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
     let mut tokens: Vec<Token> = vec![];
     let mut position: usize = 0;
 
@@ -78,7 +78,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
             '*' => {
                 let operator_lexeme = match character {
-                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) => {
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8))
+                        && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
+                    {
                         position += 2;
                         tokens.push(token("**=".to_string(), TokenType::AssignmentOperator));
                         continue;
@@ -94,7 +96,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     _ => character.to_string(),
                 };
                 position += 1;
-                
+
                 tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
             }
             '+' | '%' => {
@@ -135,6 +137,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
                         position += 1;
                         tokens.push(token("->".to_string(), TokenType::Range));
+                    }
+                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        position += 1;
+                        tokens.push(token("-=".to_string(), TokenType::AssignmentOperator));
                     }
                     _ => {
                         tokens.push(token(character.to_string(), TokenType::BinaryOperator));
@@ -234,7 +240,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                                 line: get_line(position, source_code),
                                 at: format!("{}{}", number_lexeme, next_char),
                             }
-                            .to_string())
+                            )
                         }
                     }
                 }
@@ -280,13 +286,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                                     "Cannot start a comment in another comment: '{slash_lexeme}'"
                                 ),
                             }
-                            .to_string());
+                            );
                         }
 
                         if slash_lexeme.ends_with('\n') {
                             break;
                         }
-                        position+= 1;
+                        position += 1;
                     }
                     // no need to push as there is nothing to analyse
                     // tokens.push(token(slash_lexeme, TokenType::LineComment));
@@ -434,7 +440,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 tokens.push(token(value_lexeme, token_type));
             }
             _ => {
-                return Err("Character must be alphabetic".to_string());
+                return Err(SyntaxError::NonAlphabeticCharacter);
             }
         };
 

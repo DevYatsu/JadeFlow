@@ -14,6 +14,32 @@ pub fn parse_expression(
     parse_expression_with_precedence(tokens, position, symbol_table, 0)
 }
 
+pub fn parse_with_operator(
+    operator: &str,
+    expr: &Expression,
+    initial_var_name: &str,
+) -> Expression {
+    // we assume the fn is used for reassigment with these operators:
+    // +=, -=, *=, %= or **=
+
+    let operator = match operator {
+        "=" => return expr.clone(),
+        "+=" => BinaryOperator::Plus,
+        "-=" => BinaryOperator::Minus,
+        "*=" => BinaryOperator::Multiply,
+        "**=" => BinaryOperator::Exponential,
+        "/=" => BinaryOperator::Divide,
+        "%=" => BinaryOperator::Modulo,
+        _ => unreachable!(), // no other operator
+    };
+
+    Expression::BinaryOperation {
+        left: Box::new(Expression::Variable(initial_var_name.to_string())),
+        operator,
+        right: Box::new(expr.clone()),
+    }
+}
+
 fn parse_expression_with_precedence(
     tokens: &[Token],
     position: &mut usize,
@@ -26,12 +52,14 @@ fn parse_expression_with_precedence(
         match &token.token_type {
             TokenType::BinaryOperator => {
                 let operator_precedence = match token.value.as_str() {
-                    "**" => 3,  // Highest precedence for exponentiation
+                    "**" => 3,            // Highest precedence for exponentiation
                     "*" | "/" | "%" => 2, // Multiplication, Division, and Modulo
-                    "+" | "-" => 1, // Addition and Subtraction
-                    _ => return Err(ParsingError::InvalidExpression {
-                        value: token.value.clone(),
-                    }),
+                    "+" | "-" => 1,       // Addition and Subtraction
+                    _ => {
+                        return Err(ParsingError::InvalidExpression {
+                            value: token.value.clone(),
+                        })
+                    }
                 };
 
                 if operator_precedence < precedence {
@@ -49,14 +77,30 @@ fn parse_expression_with_precedence(
                     _ => unreachable!(), // This should never happen due to the match above
                 };
 
-                let right_expr = parse_expression_with_precedence(tokens, position, symbol_table, operator_precedence + 1)?;
+                let right_expr = parse_expression_with_precedence(
+                    tokens,
+                    position,
+                    symbol_table,
+                    operator_precedence + 1,
+                )?;
                 expression = Expression::BinaryOperation {
                     left: Box::new(expression),
                     operator,
                     right: Box::new(right_expr),
                 };
             }
-            _ => break,
+            TokenType::Separator
+            | TokenType::CloseParen
+            | TokenType::CloseBracket
+            | TokenType::CloseBrace
+            | TokenType::Colon
+            | TokenType::Comma => break,
+            _ => {
+                return Err(ParsingError::UnexpectedToken {
+                    expected: String::from("; or new line"),
+                    found: token.value.to_string(),
+                })
+            }
         }
     }
 

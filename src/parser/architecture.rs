@@ -134,7 +134,7 @@ pub enum BinaryOperator {
     Multiply,
     Divide,
     Modulo,
-    Exponential
+    Exponential,
 }
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -145,6 +145,18 @@ impl fmt::Display for BinaryOperator {
             BinaryOperator::Divide => write!(f, "/"),
             BinaryOperator::Modulo => write!(f, "%"),
             BinaryOperator::Exponential => write!(f, "**"),
+        }
+    }
+}
+impl BinaryOperator {
+    pub fn operator_as_verb(&self) -> String {
+        match self {
+            BinaryOperator::Plus => "add".to_string(),
+            BinaryOperator::Minus => "substract".to_string(),
+            BinaryOperator::Multiply => "multiply".to_string(),
+            BinaryOperator::Divide => "divide".to_string(),
+            BinaryOperator::Modulo => "modulate".to_string(),
+            BinaryOperator::Exponential => "exponentiate".to_string(),
         }
     }
 }
@@ -182,6 +194,17 @@ impl fmt::Display for VariableType {
         }
     }
 }
+impl VariableType {
+    pub fn as_assignment(&self) -> &str {
+        match self {
+            VariableType::String => "str",
+            VariableType::Number => "num",
+            VariableType::Boolean => "bool",
+            VariableType::Vector => "vec",
+            VariableType::Dictionary => "dict",
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
@@ -202,8 +225,15 @@ impl SymbolTable {
     pub fn reassign_variable(&mut self, reassignement: Reassignment) {
         let initial_var = self.get_variable(&reassignement.name).unwrap();
 
-        self.variables
-            .insert(reassignement.name.to_string(), Declaration { name: initial_var.name, var_type: initial_var.var_type, value: reassignement.value, is_mutable: true });
+        self.variables.insert(
+            reassignement.name.to_string(),
+            Declaration {
+                name: initial_var.name,
+                var_type: initial_var.var_type,
+                value: reassignement.value,
+                is_mutable: true,
+            },
+        );
     }
 
     pub fn get_variable(&self, name: &str) -> Option<Declaration> {

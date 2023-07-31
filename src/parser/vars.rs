@@ -4,7 +4,8 @@ use crate::{
 };
 
 use super::{
-    architecture::{Declaration, Expression, SymbolTable, Reassignment},
+    architecture::{Declaration, Expression, Reassignment, SymbolTable},
+    expression::parse_with_operator,
     parse_type, type_from_expression, ParsingError,
 };
 
@@ -143,9 +144,7 @@ pub fn parse_var_declaration(
                             is_mutable,
                         });
                     } else {
-                        return Err(ParsingError::ExpectedType {
-                            value: name.to_string(),
-                        });
+                        return Err(type_expression_error(&expression, symbol_table, None).unwrap());
                     }
                 }
             }
@@ -163,7 +162,6 @@ pub fn parse_var_declaration(
     }
 }
 
-// ADD SUPPORT FOR different operators (+=, -=, *=, /=)
 // prevent concatenation of objects {} + 2 but allow it for vectors
 
 pub fn parse_var_reassignment(
@@ -184,22 +182,32 @@ pub fn parse_var_reassignment(
         *position += 1;
         let var_type = parse_type(tokens, position)?;
 
-        if var_type != initial_var.var_type {
-            return Err(ParsingError::CannotChangeAssignedType {
-                assigned_t: initial_var.var_type,
-                found_t: var_type,
-            });
-        }
-
         if let Some(Token {
             token_type: TokenType::AssignmentOperator,
             value,
         }) = tokens.get(*position)
         {
+            let operator = value;
             *position += 1;
 
+            let after_assignment_expression = parse_expression(tokens, position, symbol_table)?;
+
+            if var_type != initial_var.var_type {
+                return Err(ParsingError::CannotChangeAssignedType {
+                    assigned_t: initial_var.var_type,
+                    at: format!(
+                        "{}: {} {operator} {}",
+                        name,
+                        var_type.to_string(),
+                        after_assignment_expression
+                    ),
+                    found_t: var_type,
+                    var_name: name.to_string(),
+                });
+            }
+
             // Parse the expression following the assignment operator
-            let expression = parse_expression(tokens, position, symbol_table)?;
+            let expression = parse_with_operator(operator, &after_assignment_expression, name);
 
             // Check if the expression type matches the declared variable type
             match &expression {
@@ -231,15 +239,20 @@ pub fn parse_var_reassignment(
 
             return Ok(Reassignment {
                 value: expression,
-                name: initial_var.name
+                name: initial_var.name,
             });
         } else {
-            // If no assignment operator is found, the variable is declared but not assigned a value.
-            let value = Expression::Null;
+            if var_type != initial_var.var_type {
+                return Err(ParsingError::CannotChangeAssignedType {
+                    assigned_t: initial_var.var_type,
+                    at: format!("{}: {}", name, var_type.to_string()),
+                    found_t: var_type,
+                    var_name: name.to_string(),
+                });
+            }
 
-            return Ok(Reassignment {
-                value: value.clone(),
-                name: initial_var.name
+            return Err(ParsingError::ExpectedReassignment {
+                var_name: name.to_string(),
             });
         }
     } else if let Some(Token {
@@ -247,11 +260,13 @@ pub fn parse_var_reassignment(
         value,
     }) = tokens.get(*position)
     {
-        //manage the different operators
         *position += 1;
+        let operator = value;
+
+        let after_operator_expr = parse_expression(tokens, position, symbol_table)?;
 
         // Parse the expression following the assignment operator
-        let expression = parse_expression(tokens, position, symbol_table)?;
+        let expression = parse_with_operator(operator, &after_operator_expr, name);
 
         match &expression {
             Expression::Variable(var_name) => {
@@ -261,11 +276,13 @@ pub fn parse_var_reassignment(
                         return Err(ParsingError::CannotChangeAssignedType {
                             assigned_t: initial_var.var_type,
                             found_t: var_type,
+                            var_name: name.to_string(),
+                            at: format!("{} {operator} {}", name, after_operator_expr),
                         });
                     }
                     return Ok(Reassignment {
                         value: Expression::Variable(var_name.to_string()),
-                        name: initial_var.name
+                        name: initial_var.name,
                     });
                 } else {
                     return Err(ParsingError::UseOfUndefinedVariable {
@@ -279,18 +296,34 @@ pub fn parse_var_reassignment(
                         return Err(ParsingError::CannotChangeAssignedType {
                             assigned_t: initial_var.var_type,
                             found_t: var_type,
+                            var_name: name.to_string(),
+                            at: format!("{} {operator} {}", name, after_operator_expr),
                         });
                     }
 
                     return Ok(Reassignment {
-                value: expression.clone(),
-                name: initial_var.name
-            });
+                        value: expression.clone(),
+                        name: initial_var.name,
+                    });
                 } else {
-                    return Ok(Reassignment {
-                value: expression.clone(),
-                name: initial_var.name
-            });
+                    return Err(type_expression_error(
+                        &after_operator_expr,
+                        symbol_table,
+                        Some(format!("{} {operator} {}", name, after_operator_expr)),
+                    )
+                    .unwrap_or_else(|| {
+                        type_expression_error(
+                            expression,
+                            symbol_table,
+                            Some(format!(
+                                "{}: {} {operator} {}",
+                                name,
+                                initial_var.var_type.as_assignment(),
+                                after_operator_expr
+                            )),
+                        )
+                        .unwrap()
+                    }));
                 }
             }
         }
@@ -299,5 +332,54 @@ pub fn parse_var_reassignment(
         return Err(ParsingError::UnknownVariableType {
             var_name: name.to_string(),
         });
+    }
+}
+
+fn type_expression_error(
+    expr: &Expression,
+    symbol_table: &SymbolTable,
+    error_expr: Option<String>,
+) -> Option<ParsingError> {
+    // we assume there is an error
+    // only for a type error when assigning/reassigning value to a variable
+    // and expression is a binary operation
+
+    match expr.clone() {
+        Expression::BinaryOperation { left, .. } => {
+            let mut final_expr: Box<Expression> = left;
+            let mut not_left: bool = false;
+
+            while let Some(_) = type_from_expression(&final_expr, symbol_table) {
+                final_expr = if not_left {
+                    match *final_expr {
+                        Expression::BinaryOperation { right, .. } => Box::new(*right.clone()),
+                        _ => return None,
+                    }
+                } else {
+                    match *final_expr {
+                        Expression::BinaryOperation { left, .. } => Box::new(*left.clone()),
+                        _ => {
+                            not_left = true;
+                            Box::new(expr.clone())
+                        }
+                    }
+                }
+            }
+
+            match *final_expr.clone() {
+                Expression::BinaryOperation {
+                    left,
+                    operator,
+                    right,
+                } => Some(ParsingError::CannotOperationTypeWithType {
+                    expr: error_expr.unwrap_or((*final_expr).to_string()),
+                    first_type: type_from_expression(&left, symbol_table).unwrap(),
+                    second_type: type_from_expression(&right, symbol_table).unwrap(),
+                    operator: operator.operator_as_verb(),
+                }),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
