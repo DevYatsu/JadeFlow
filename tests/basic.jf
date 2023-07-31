@@ -16,4 +16,3 @@ const s = "string"
 const b = true
 const n = e + 2
 const nullNum: num = null
-const nullNum: num = 2

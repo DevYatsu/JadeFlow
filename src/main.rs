@@ -1,4 +1,3 @@
-mod errors;
 mod parser;
 mod select_test;
 mod token;
@@ -35,6 +34,10 @@ fn main() {
     };
     let end = Instant::now();
 
+    for token in &tokens {
+        println!("{:?}", token)
+    }
+
     let first_timer = (end - start).as_secs_f64();
     println!("{} seconds to execute tokenisation", first_timer);
 
@@ -48,6 +51,7 @@ fn main() {
     };
     let end = Instant::now();
 
+    println!("{:?}", program);
     let second_timer = (end - start).as_secs_f64();
     println!("{} seconds to execute parsing", second_timer);
 

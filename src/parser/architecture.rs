@@ -5,6 +5,7 @@ use std::{collections::HashMap, fmt};
 pub enum ASTNode {
     Program(Vec<Statement>),
     VariableDeclaration(Declaration),
+    VariableReassignment(Reassignment),
     FunctionDeclaration(Function),
     ClassDeclaration(Class),
     Expression(Expression),
@@ -13,13 +14,14 @@ pub enum ASTNode {
 pub struct Statement {
     pub node: ASTNode,
 }
-
-pub fn statement(node: ASTNode) -> Statement {
-    Statement { node }
-}
 pub fn variable(declaration: Declaration) -> Statement {
     Statement {
         node: ASTNode::VariableDeclaration(declaration),
+    }
+}
+pub fn reassignment(reassignement: Reassignment) -> Statement {
+    Statement {
+        node: ASTNode::VariableReassignment(reassignement),
     }
 }
 
@@ -112,6 +114,11 @@ pub struct Declaration {
     pub value: Expression,
     pub is_mutable: bool,
 }
+#[derive(Debug, Clone)]
+pub struct Reassignment {
+    pub name: String,
+    pub value: Expression,
+}
 
 #[derive(Debug, Clone)]
 pub enum FormattedSegment {
@@ -126,6 +133,8 @@ pub enum BinaryOperator {
     Minus,
     Multiply,
     Divide,
+    Modulo,
+    Exponential
 }
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -134,6 +143,8 @@ impl fmt::Display for BinaryOperator {
             BinaryOperator::Minus => write!(f, "-"),
             BinaryOperator::Multiply => write!(f, "*"),
             BinaryOperator::Divide => write!(f, "/"),
+            BinaryOperator::Modulo => write!(f, "%"),
+            BinaryOperator::Exponential => write!(f, "**"),
         }
     }
 }
@@ -187,6 +198,12 @@ impl SymbolTable {
     pub fn insert_variable(&mut self, declaration: Declaration) {
         self.variables
             .insert(declaration.name.to_string(), declaration);
+    }
+    pub fn reassign_variable(&mut self, reassignement: Reassignment) {
+        let initial_var = self.get_variable(&reassignement.name).unwrap();
+
+        self.variables
+            .insert(reassignement.name.to_string(), Declaration { name: initial_var.name, var_type: initial_var.var_type, value: reassignement.value, is_mutable: true });
     }
 
     pub fn get_variable(&self, name: &str) -> Option<Declaration> {

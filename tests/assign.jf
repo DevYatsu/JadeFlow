@@ -1,2 +1,4 @@
 mut test1 = 23
 test1 = 2
+
+const t = true

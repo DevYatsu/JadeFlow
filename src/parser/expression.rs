@@ -11,38 +11,57 @@ pub fn parse_expression(
     position: &mut usize,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    let expression = parse_primary_expression(tokens, position, symbol_table)?;
+    parse_expression_with_precedence(tokens, position, symbol_table, 0)
+}
 
-    if let Some(token) = tokens.get(*position) {
+fn parse_expression_with_precedence(
+    tokens: &[Token],
+    position: &mut usize,
+    symbol_table: &SymbolTable,
+    precedence: u8,
+) -> Result<Expression, ParsingError> {
+    let mut expression = parse_primary_expression(tokens, position, symbol_table)?;
+
+    while let Some(token) = tokens.get(*position) {
         match &token.token_type {
             TokenType::BinaryOperator => {
+                let operator_precedence = match token.value.as_str() {
+                    "**" => 3,  // Highest precedence for exponentiation
+                    "*" | "/" | "%" => 2, // Multiplication, Division, and Modulo
+                    "+" | "-" => 1, // Addition and Subtraction
+                    _ => return Err(ParsingError::InvalidExpression {
+                        value: token.value.clone(),
+                    }),
+                };
+
+                if operator_precedence < precedence {
+                    break; // Exit the loop if the operator has lower precedence
+                }
+
                 *position += 1;
                 let operator = match token.value.as_str() {
                     "+" => BinaryOperator::Plus,
                     "-" => BinaryOperator::Minus,
                     "*" => BinaryOperator::Multiply,
                     "/" => BinaryOperator::Divide,
-                    _ => {
-                        return Err(ParsingError::InvalidExpression {
-                            value: token.value.clone(),
-                        });
-                    }
+                    "%" => BinaryOperator::Modulo,
+                    "**" => BinaryOperator::Exponential,
+                    _ => unreachable!(), // This should never happen due to the match above
                 };
 
-                let right_expr = parse_expression(tokens, position, symbol_table)?;
-                Ok(Expression::BinaryOperation {
+                let right_expr = parse_expression_with_precedence(tokens, position, symbol_table, operator_precedence + 1)?;
+                expression = Expression::BinaryOperation {
                     left: Box::new(expression),
                     operator,
                     right: Box::new(right_expr),
-                })
+                };
             }
-            _ => Ok(expression),
+            _ => break,
         }
-    } else {
-        Ok(expression)
     }
-}
 
+    Ok(expression)
+}
 fn parse_primary_expression(
     tokens: &[Token],
     position: &mut usize,
@@ -103,41 +122,4 @@ fn parse_primary_expression(
     } else {
         Err(ParsingError::UnexpectedEndOfInput)
     }
-}
-
-fn parse_binary_operation(
-    tokens: &[Token],
-    position: &mut usize,
-    symbol_table: &SymbolTable,
-) -> Result<Expression, ParsingError> {
-    let mut left_expr = parse_primary_expression(tokens, position, symbol_table)?;
-
-    while let Some(token) = tokens.get(*position) {
-        match &token.token_type {
-            TokenType::BinaryOperator => {
-                *position += 1;
-                let operator = match token.value.as_str() {
-                    "+" => BinaryOperator::Plus,
-                    "-" => BinaryOperator::Minus,
-                    "*" => BinaryOperator::Multiply,
-                    "/" => BinaryOperator::Divide,
-                    _ => {
-                        return Err(ParsingError::InvalidExpression {
-                            value: token.value.clone(),
-                        });
-                    }
-                };
-
-                let right_expr = parse_primary_expression(tokens, position, symbol_table)?;
-                left_expr = Expression::BinaryOperation {
-                    left: Box::new(left_expr),
-                    operator,
-                    right: Box::new(right_expr),
-                };
-            }
-            _ => break, // Break the loop if the next token is not a binary operator
-        }
-    }
-
-    Ok(left_expr)
 }

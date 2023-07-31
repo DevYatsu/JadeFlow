@@ -1,4 +1,7 @@
-use crate::errors::SyntaxError;
+use self::{errors::SyntaxError, line::get_line};
+
+mod errors;
+mod line;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TokenType {
@@ -73,7 +76,28 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
             ' ' | '\t' => (),
             '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
             ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
-            '+' | '*' | '%' => {
+            '*' => {
+                let operator_lexeme = match character {
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) => {
+                        position += 2;
+                        tokens.push(token("**=".to_string(), TokenType::AssignmentOperator));
+                        continue;
+                    }
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) => {
+                        "**".to_string()
+                    }
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        position += 2;
+                        tokens.push(token("*=".to_string(), TokenType::AssignmentOperator));
+                        continue;
+                    }
+                    _ => character.to_string(),
+                };
+                position += 1;
+                
+                tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
+            }
+            '+' | '%' => {
                 // for binary and assignment operators
                 let operator_lexeme = match character {
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
@@ -207,7 +231,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                         | ':' => break,
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
-                                line: 9999,
+                                line: get_line(position, source_code),
                                 at: format!("{}{}", number_lexeme, next_char),
                             }
                             .to_string())
@@ -215,13 +239,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     }
                 }
 
-                if number_lexeme.ends_with(".") {
-                    return Err(SyntaxError::InvalidNumber {
-                        line: 9999,
-                        at: number_lexeme.clone(),
-                    }
-                    .to_string());
-                }
                 tokens.push(token(number_lexeme, TokenType::Number));
             }
             '/' => {
@@ -250,16 +267,15 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     //tokens.push(token(slash_lexeme, TokenType::BlockComment));
                     // no need to push as there is nothing to analyse
                 } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
-                    position += 1;
                     slash_lexeme.push_str("/");
+                    position += 1;
 
                     while position < source_code.len() {
-                        slash_lexeme.push(source_code.as_bytes()[position + 1] as char);
-                        position += 1;
+                        slash_lexeme.push(source_code.as_bytes()[position] as char);
 
                         if slash_lexeme.ends_with("//") {
                             return Err(SyntaxError::Comment {
-                                line: 000,
+                                line: get_line(position, source_code),
                                 message: format!(
                                     "Cannot start a comment in another comment: '{slash_lexeme}'"
                                 ),
@@ -270,6 +286,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                         if slash_lexeme.ends_with('\n') {
                             break;
                         }
+                        position+= 1;
                     }
                     // no need to push as there is nothing to analyse
                     // tokens.push(token(slash_lexeme, TokenType::LineComment));

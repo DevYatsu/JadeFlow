@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    architecture::{Declaration, Expression, SymbolTable},
+    architecture::{Declaration, Expression, SymbolTable, Reassignment},
     parse_type, type_from_expression, ParsingError,
 };
 
@@ -171,7 +171,7 @@ pub fn parse_var_reassignment(
     position: &mut usize,
     name: &str,
     symbol_table: &SymbolTable,
-) -> Result<Declaration, ParsingError> {
+) -> Result<Reassignment, ParsingError> {
     *position += 1;
     let initial_var = symbol_table.get_variable(name).unwrap();
 
@@ -229,17 +229,17 @@ pub fn parse_var_reassignment(
                 }
             }
 
-            return Ok(Declaration {
+            return Ok(Reassignment {
                 value: expression,
-                ..initial_var
+                name: initial_var.name
             });
         } else {
             // If no assignment operator is found, the variable is declared but not assigned a value.
             let value = Expression::Null;
 
-            return Ok(Declaration {
+            return Ok(Reassignment {
                 value: value.clone(),
-                ..initial_var
+                name: initial_var.name
             });
         }
     } else if let Some(Token {
@@ -263,9 +263,9 @@ pub fn parse_var_reassignment(
                             found_t: var_type,
                         });
                     }
-                    return Ok(Declaration {
+                    return Ok(Reassignment {
                         value: Expression::Variable(var_name.to_string()),
-                        ..initial_var
+                        name: initial_var.name
                     });
                 } else {
                     return Err(ParsingError::UseOfUndefinedVariable {
@@ -282,19 +282,19 @@ pub fn parse_var_reassignment(
                         });
                     }
 
-                    return Ok(Declaration {
-                        value: expression.clone(),
-                        ..initial_var
-                    });
+                    return Ok(Reassignment {
+                value: expression.clone(),
+                name: initial_var.name
+            });
                 } else {
-                    return Ok(Declaration {
-                        value: expression.clone(),
-                        ..initial_var
-                    });
+                    return Ok(Reassignment {
+                value: expression.clone(),
+                name: initial_var.name
+            });
                 }
             }
         }
-    } else {        
+    } else {
         // If there's no colon or assignment operator, it's an error.
         return Err(ParsingError::UnknownVariableType {
             var_name: name.to_string(),

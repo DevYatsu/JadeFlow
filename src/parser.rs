@@ -1,7 +1,6 @@
 mod architecture;
 mod dictionary;
 mod expression;
-mod operations;
 mod vars;
 mod vectors;
 
@@ -13,12 +12,10 @@ use crate::token::{Token, TokenType};
 
 use self::{
     architecture::{
-        variable, ASTNode, BinaryOperator, Expression, FormattedSegment, Statement, SymbolTable,
-        VariableType,
+        variable, ASTNode, Expression, FormattedSegment, Statement, SymbolTable,
+        VariableType, reassignment,
     },
-    dictionary::parse_dictionary_expression,
     vars::{parse_var_declaration, parse_var_reassignment},
-    vectors::parse_array_expression,
 };
 
 custom_error! {pub ParsingError
@@ -195,10 +192,10 @@ fn parse_statement(
                 });
             }
 
-            let declaration = parse_var_reassignment(tokens, position, value, symbol_table)?;
-            symbol_table.insert_variable(declaration.clone());
+            let assignment = parse_var_reassignment(tokens, position, value, symbol_table)?;
+            symbol_table.reassign_variable(assignment.clone());
 
-            return Ok(variable(declaration));
+            return Ok(reassignment(assignment));
         } else {
             return Err(ParsingError::CannotReassignVar {
                 name: value.to_string(),
