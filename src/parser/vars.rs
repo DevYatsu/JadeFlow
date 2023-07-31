@@ -154,7 +154,7 @@ pub fn parse_var_declaration(
                 var_name: name.to_string(),
             });
         }
-    } else {
+    } else {    
         // If no identifier is found, it's an error.
         return Err(ParsingError::ExpectedVarInitialization {
             var_value: value.to_string(),

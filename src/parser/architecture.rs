@@ -10,6 +10,7 @@ pub enum ASTNode {
     ClassDeclaration(Class),
     Expression(Expression),
 }
+
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub node: ASTNode,
@@ -114,6 +115,13 @@ pub struct Declaration {
     pub value: Expression,
     pub is_mutable: bool,
 }
+impl fmt::Display for Declaration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let var = if self.is_mutable {"mut"}else{"const"};
+        write!(f, "{} {}: {} = {}", var, self.name, self.var_type.as_assignment(), self.value)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Reassignment {
     pub name: String,

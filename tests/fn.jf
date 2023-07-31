@@ -1,0 +1,5 @@
+fn print (s: str, s2: str): str {
+    >> s + s2 
+}
+
+print ( "str", "efef" )

@@ -86,17 +86,17 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                         continue;
                     }
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) => {
+                        position += 1;
                         "**".to_string()
                     }
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
-                        position += 2;
+                        position += 1;
                         tokens.push(token("*=".to_string(), TokenType::AssignmentOperator));
                         continue;
                     }
                     _ => character.to_string(),
                 };
-                position += 1;
-
+                
                 tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
             }
             '+' | '%' => {
@@ -233,14 +233,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']'
-                        | ':' => break,
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
+                        | ')' | ':' | '?' | ',' | '}' | ']' => break,
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
                                 line: get_line(position, source_code),
                                 at: format!("{}{}", number_lexeme, next_char),
-                            }
-                            )
+                            })
                         }
                     }
                 }
@@ -270,8 +269,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                         position += 1;
                     }
 
-                    //tokens.push(token(slash_lexeme, TokenType::BlockComment));
-                    // no need to push as there is nothing to analyse
+                    tokens.push(token(slash_lexeme, TokenType::Separator));
                 } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
                     slash_lexeme.push_str("/");
                     position += 1;
@@ -285,8 +283,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                                 message: format!(
                                     "Cannot start a comment in another comment: '{slash_lexeme}'"
                                 ),
-                            }
-                            );
+                            });
                         }
 
                         if slash_lexeme.ends_with('\n') {
@@ -295,7 +292,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                         position += 1;
                     }
                     // no need to push as there is nothing to analyse
-                    // tokens.push(token(slash_lexeme, TokenType::LineComment));
+                    tokens.push(token(slash_lexeme, TokenType::Separator));
                 } else {
                     if source_code.as_bytes().get(position) == Some(&(b'=' as u8)) {
                         slash_lexeme.push('=');
@@ -404,7 +401,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' | ':' | '?' | ',' | '{' | '}' => {
+                        | '(' | ')' | '[' | ']' | ':' | '?' | ',' | '{' | '}' => {
                             position -= 1;
                             break;
                         }

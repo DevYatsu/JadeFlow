@@ -22,7 +22,7 @@ custom_error! {pub ParsingError
     Io{source: Error} = "{source}",
     Default = "Failed to parse tokens",
     UnexpectedEndOfInput = "No more token left to parse",
-    ExpectedVarInitialization{var_value: String} = "Expected valid variable name after \"{var_value}\"",
+    ExpectedVarInitialization{var_value: String} = "Expected identifier after \"{var_value}\"",
     ExpectedReassignment{var_name: String} = "Expected assignment of new value to \"{var_name}\"",
     ExpectedType{value: String} = "Expected valid type after \"{value}\"",
     UnknownVariableType{var_name: String} = "Impossible to guess {var_name} type",
@@ -43,6 +43,8 @@ custom_error! {pub ParsingError
     CannotReassignVar{name: String} = "Cannot reassign \"{name}\" as it is not defined",
     CannotChangeAssignedType{assigned_t: VariableType, found_t: VariableType, var_name: String, at: String} = "Expected type '{assigned_t}', found '{found_t}' for '{var_name}' at: {at}",
     CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}"
+,
+    ExpectedIdentifier{after: String} = "Expected identifier after: {after}"
 }
 
 // add support for formatted string, and errors when we expect a token and it is not present
@@ -84,13 +86,25 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     } else {
                         "const"
                     };
-                    tokens.insert(
-                        position + 1,
-                        Token {
-                            token_type: TokenType::Var,
-                            value: var_keyword.to_string(),
-                        },
-                    );
+                    if let Some(Token {
+                        token_type,
+                        ..
+                    }) = tokens.get(position + 1)
+                    {
+                        if token_type == &TokenType::Identifier {
+                            tokens.insert(
+                            position + 1,
+                            Token {
+                                token_type: TokenType::Var,
+                                value: var_keyword.to_string(),
+                            },
+                        );
+                        }else {
+                            return Err(ParsingError::ExpectedIdentifier { after: format!("{},", declaration.to_string()) })
+                        }
+
+                    } 
+
                     position += 1;
                     continue;
                 }
@@ -192,6 +206,23 @@ fn parse_statement(
         value,
     }) = tokens.get(*position)
     {
+        if let Some(next_token) = tokens.get(*position + 1) {
+            if !(next_token.token_type == TokenType::Colon
+                || next_token.token_type == TokenType::AssignmentOperator)
+            {
+                while let Some(Token { token_type, .. }) = tokens.get(*position) {
+                    if token_type != &TokenType::Separator {
+                        *position += 1;
+                    } else {
+                        break;
+                    }
+                }
+                return Ok(Statement {
+                    node: ASTNode::Expression(Expression::Null),
+                });
+            }
+        }
+
         if let Some(var) = symbol_table.get_variable(value) {
             if !var.is_mutable {
                 return Err(ParsingError::CannotReassignConst {
@@ -209,7 +240,7 @@ fn parse_statement(
             });
         }
     }
-
+    println!("t");
     Ok(Statement {
         node: ASTNode::Expression(Expression::Null),
     })
