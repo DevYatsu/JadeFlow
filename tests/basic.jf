@@ -7,13 +7,13 @@ const obj = {
     test: 2,
     e
 }
-const eObj = {e}
+
+const eObj = { e }
 
 const arr = ["test", obj, 2]
+
 const s = "string"
 const b = true
 const n = e + 2
 const nullNum: num = null
 const nullNum: num = 2
-
-const add_test = 2 + 3

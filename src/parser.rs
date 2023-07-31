@@ -17,7 +17,7 @@ use self::{
         VariableType,
     },
     dictionary::parse_dictionary_expression,
-    vars::parse_var_declaration,
+    vars::{parse_var_declaration, parse_var_reassignment},
     vectors::parse_array_expression,
 };
 
@@ -41,7 +41,9 @@ custom_error! {pub ParsingError
     AssignedTypeNotFound{assigned_t: VariableType, found_t: VariableType} = "Assigned type '{assigned_t}' is different from found type '{found_t}'",
     InvalidStringDictKey{key: String} = "Expected a string or number as dictionary key, not '{key}'",
     UseOfUndefinedVariable{name: String} = "\"{name}\" is not defined",
-    UnexpectedToken{expected: String, found: String} = "Expected '{expected}, found {found}'"
+    UnexpectedToken{expected: String, found: String} = "Expected '{expected}, found {found}'",
+    CannotReassignVar{name: String} = "Cannot reassign \"{name}\" as it is not defined",
+    CannotChangeAssignedType{assigned_t: VariableType, found_t: VariableType} = "Expected type '{assigned_t}', found '{found_t}'",
 }
 
 pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
@@ -180,6 +182,28 @@ fn parse_statement(
         symbol_table.insert_variable(declaration.clone());
 
         return Ok(variable(declaration));
+    }
+    if let Some(Token {
+        token_type: TokenType::Identifier,
+        value,
+    }) = tokens.get(*position)
+    {
+        if let Some(var) = symbol_table.get_variable(value) {
+            if !var.is_mutable {
+                return Err(ParsingError::CannotReassignConst {
+                    var_name: value.to_string(),
+                });
+            }
+
+            let declaration = parse_var_reassignment(tokens, position, value, symbol_table)?;
+            symbol_table.insert_variable(declaration.clone());
+
+            return Ok(variable(declaration));
+        } else {
+            return Err(ParsingError::CannotReassignVar {
+                name: value.to_string(),
+            });
+        }
     }
 
     Ok(Statement {
