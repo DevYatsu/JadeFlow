@@ -7,6 +7,7 @@ const obj = {
     test: 2,
     e
 }
+const eObj = {e}
 
 const arr = ["test", obj, 2]
 const s = "string"

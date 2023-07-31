@@ -381,7 +381,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' | ':' | '?' | ',' => {
+                        | '(' | ')' | '[' | ':' | '?' | ',' | '{' | '}' => {
                             position -= 1;
                             break;
                         }
