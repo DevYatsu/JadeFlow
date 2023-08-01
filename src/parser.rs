@@ -12,7 +12,7 @@ use crate::token::{Token, TokenType};
 
 use self::{
     architecture::{
-        reassignment, variable, ASTNode, BinaryOperator, Expression, FormattedSegment, Statement,
+        reassignment, variable, ASTNode, BinaryOperator, Expression, Statement,
         SymbolTable, VariableType,
     },
     vars::{parse_var_declaration, parse_var_reassignment},
@@ -76,6 +76,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
         }
 
         let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
+        println!("{:?}", statement);
         statements.push(statement);
 
         if let Some(Token { token_type, .. }) = tokens.get(position) {
@@ -227,7 +228,7 @@ fn type_from_expression(expr: &Expression, symbol_table: &SymbolTable) -> Option
         Expression::Number(_) => Some(VariableType::Number),
         Expression::String(_) => Some(VariableType::String),
         Expression::ArrayExpression(_) => Some(VariableType::Vector),
-        Expression::FormatedString(_) => Some(VariableType::String),
+        Expression::FormattedString(_) => Some(VariableType::String),
         Expression::Boolean(_) => Some(VariableType::Boolean),
         Expression::Null => None,
         Expression::DictionaryExpression(_) => Some(VariableType::Dictionary),

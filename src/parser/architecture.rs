@@ -42,7 +42,7 @@ pub enum Expression {
         operator: BinaryOperator,
         right: Box<Expression>,
     },
-    FormatedString(Vec<FormattedSegment>),
+    FormattedString(Vec<FormattedSegment>),
 }
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -79,7 +79,7 @@ impl fmt::Display for Expression {
             } => {
                 write!(f, "({} {} {})", left, operator, right)
             }
-            Expression::FormatedString(segments) => {
+            Expression::FormattedString(segments) => {
                 write!(f, "\"")?;
                 for segment in segments {
                     match segment {
@@ -152,30 +152,31 @@ impl FormattedSegment {
         let mut current_part = String::new();
         let mut inside_expression = false;
         let mut expression = String::new();
-
-        for c in input.chars() {
+        
+        for (i, c) in input.chars().enumerate() {
             if inside_expression {
                 if c == '}' {
                     // Finished parsing the expression, add it to the result
                     inside_expression = false;
-                    let t = match tokenize(&expression) {
+                    let t = match tokenize(&expression[1..]) {
                         Ok(t) => t,
                         Err(_) => {
                             return Err(ParsingError::ExpectedValidExpressionInFormattedString)
                         }
                     };
+
                     let expr =
                         FormattedSegment::Expression(parse_expression(&t, &mut 0, symbol_table)?);
                     result.push(expr);
                     expression.clear();
                 } else {
-                    // Continue building the expression
                     expression.push(c);
                 }
             } else {
                 if c == '#' {
                     // Check if this is the start of an expression
-                    let next_char = input.chars().next();
+                    let next_char = input.chars().nth(i + 1);       
+
                     if let Some('{') = next_char {
                         // This is the start of an expression
                         inside_expression = true;

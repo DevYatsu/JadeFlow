@@ -1,5 +1,5 @@
 use super::{
-    architecture::{BinaryOperator, Expression, SymbolTable},
+    architecture::{BinaryOperator, Expression, SymbolTable, FormattedSegment},
     dictionary::parse_dictionary_expression,
     ignore_whitespace,
     vectors::parse_array_expression,
@@ -140,6 +140,10 @@ fn parse_primary_expression(
                 *position += 1;
 
                 Ok(Expression::String(token.value.clone()))
+            }
+            TokenType::FormatedString => {
+                *position += 1;
+                Ok(Expression::FormattedString(FormattedSegment::from_str(&token.value, symbol_table)?))
             }
             TokenType::Null => {
                 *position += 1;

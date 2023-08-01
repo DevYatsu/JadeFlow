@@ -1,2 +1,4 @@
-let test = "string for test" 
-let formatted = `e`
+const test = "string for test" 
+
+const formatted = `hey dude #{test}`
+const calc3 = `3 = #{1 + 2}`
