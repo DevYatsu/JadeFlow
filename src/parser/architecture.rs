@@ -1,4 +1,6 @@
-use super::ParsingError;
+use crate::token::tokenize;
+
+use super::{expression::parse_expression, ParsingError};
 use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone)]
@@ -140,6 +142,67 @@ pub enum FormattedSegment {
     // exemple "hey #{2 + 3} how r u ?"
     Literal(String),        // (ex: "hey " and " how r u ?")
     Expression(Expression), // (ex: 2 + 3 -> 5)
+}
+impl FormattedSegment {
+    pub fn from_str(
+        input: &str,
+        symbol_table: &SymbolTable,
+    ) -> Result<Vec<FormattedSegment>, ParsingError> {
+        let mut result: Vec<FormattedSegment> = Vec::new();
+        let mut current_part = String::new();
+        let mut inside_expression = false;
+        let mut expression = String::new();
+
+        for c in input.chars() {
+            if inside_expression {
+                if c == '}' {
+                    // Finished parsing the expression, add it to the result
+                    inside_expression = false;
+                    let t = match tokenize(&expression) {
+                        Ok(t) => t,
+                        Err(_) => {
+                            return Err(ParsingError::ExpectedValidExpressionInFormattedString)
+                        }
+                    };
+                    let expr =
+                        FormattedSegment::Expression(parse_expression(&t, &mut 0, symbol_table)?);
+                    result.push(expr);
+                    expression.clear();
+                } else {
+                    // Continue building the expression
+                    expression.push(c);
+                }
+            } else {
+                if c == '#' {
+                    // Check if this is the start of an expression
+                    let next_char = input.chars().next();
+                    if let Some('{') = next_char {
+                        // This is the start of an expression
+                        inside_expression = true;
+
+                        // Add the current string part to the result
+                        if !current_part.is_empty() {
+                            result.push(FormattedSegment::Literal(current_part.to_string()));
+                        }
+                        current_part.clear();
+                    } else {
+                        // Just a regular '#' character, add it to the current part
+                        current_part.push(c);
+                    }
+                } else {
+                    // Add the character to the current part
+                    current_part.push(c);
+                }
+            }
+        }
+
+        // Add the remaining string part to the result
+        if !current_part.is_empty() {
+            result.push(FormattedSegment::Literal(current_part));
+        }
+
+        Ok(result)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

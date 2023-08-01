@@ -49,7 +49,8 @@ custom_error! {pub ParsingError
     IncompleteDeclaration{keyword: String, name: String} = "Incomplete declaration: {keyword} {name} requires a value assignment",
     IncompleteReassagnment{keyword: String, name: String} = "Incomplete reassignment: {keyword} {name} requires a value assignment",
 
-    ExpectedSomething = "Expected a value, found nothing"
+    ExpectedSomething = "Expected a value, found nothing",
+    ExpectedValidExpressionInFormattedString = "Expected a valid expression in formatted string argument"
 }
 
 // add support for formatted string, and errors when we expect a token and it is not present
@@ -60,20 +61,32 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut symbol_table = SymbolTable::new();
 
     while position < tokens.len() {
+        if let Some(Token { token_type, .. }) = tokens.get(position) {
+            if token_type == &TokenType::Separator
+                || ((token_type != &TokenType::Var)
+                    && (token_type != &TokenType::Function)
+                    && (token_type != &TokenType::For)
+                    && (token_type != &TokenType::While)
+                    && (token_type != &TokenType::Match)
+                    && (token_type != &TokenType::Class) && (token_type != &TokenType::Identifier))
+            {
+                position += 1;
+                continue;
+            }
+        }
+
         let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
         statements.push(statement);
 
-        if tokens.len() == position {
-            break;
+        if let Some(Token { token_type, .. }) = tokens.get(position) {
+            if token_type == &TokenType::Separator {
+                position += 1;
+                continue;
+            }
         }
 
-        if let Some(Token {
-            token_type: TokenType::Separator,
-            ..
-        }) = tokens.get(position)
-        {
-            position += 1;
-            continue;
+        if tokens.len() == position {
+            break;
         }
 
         match &statements[statements.len() - 1].node {
@@ -94,6 +107,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     };
 
                     ignore_whitespace(tokens, &mut position);
+                    println!("dec {}", declaration);
 
                     if let Some(Token { token_type, .. }) = tokens.get(position) {
                         if token_type == &TokenType::Identifier {
@@ -138,51 +152,6 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     Ok(ASTNode::Program(statements))
 }
 
-fn formatted_string_segments(input: &str) -> Vec<FormattedSegment> {
-    let mut segments = Vec::new();
-    let mut current_literal = String::new();
-    let mut inside_expression = false;
-    let mut after_hashtag = false;
-    let mut expression = String::new();
-    let mut open_par_num = 0;
-
-    for c in input.chars() {
-        if c == '#' {
-            after_hashtag = true;
-        } else if c == '{' {
-            if after_hashtag {
-                current_literal.pop();
-                segments.push(FormattedSegment::Literal(current_literal.to_string()));
-                current_literal.clear();
-
-                inside_expression = true;
-                open_par_num += 1;
-            }
-        } else if c == '}' {
-            if inside_expression {
-                open_par_num -= 1;
-                if open_par_num == 0 {
-                    //      segments.push(FormattedSegment::Expression(Expression::parse(&expression)));
-                    expression.clear();
-                    inside_expression = false;
-                }
-            }
-        } else {
-            if inside_expression {
-                expression.push(c);
-            } else {
-                current_literal.push(c);
-            }
-        }
-    }
-
-    if !current_literal.is_empty() {
-        segments.push(FormattedSegment::Literal(current_literal));
-    }
-
-    segments
-}
-
 fn parse_statement(
     tokens: &[Token],
     position: &mut usize,
@@ -212,6 +181,7 @@ fn parse_statement(
         value,
     }) = tokens.get(*position)
     {
+
         if let Some(next_token) = tokens.get(*position + 1) {
             if !(next_token.token_type == TokenType::Colon
                 || next_token.token_type == TokenType::AssignmentOperator)

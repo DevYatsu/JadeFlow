@@ -81,7 +81,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8))
                         && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
                     {
-                        position += 2;
+                        position += 3;
                         tokens.push(token("**=".to_string(), TokenType::AssignmentOperator));
                         continue;
                     }
@@ -90,7 +90,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                         "**".to_string()
                     }
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
-                        position += 1;
+                        position += 2;
                         tokens.push(token("*=".to_string(), TokenType::AssignmentOperator));
                         continue;
                     }
@@ -314,6 +314,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     if c == '"' {
                         break;
                     }
+                    if position == source_code.len() - 1 {
+                        return Err(SyntaxError::UnclosedString);
+                    }
 
                     string_lexeme.push(c);
                     position += 1;
@@ -332,6 +335,9 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
 
                     if c == '`' {
                         break;
+                    }
+                    if position == source_code.len() - 1 {
+                        return Err(SyntaxError::UnclosedString);
                     }
 
                     string_lexeme.push(c);

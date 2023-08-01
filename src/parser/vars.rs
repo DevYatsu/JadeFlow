@@ -167,6 +167,7 @@ pub fn parse_var_declaration(
                         });
                     }
                 }
+                Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name.to_string() }),
                 _ => {
                     // For non-variable expressions, get the type from the expression and create the declaration.
                     if let Some(var_type) = type_from_expression(&expression, symbol_table) {
@@ -263,7 +264,7 @@ pub fn parse_var_reassignment(
             }
 
             // Parse the expression following the assignment operator
-            let expression = parse_with_operator(operator, &after_assignment_expression, name);
+            let expression = parse_with_operator(operator, after_assignment_expression, name);
 
             // Check if the expression type matches the declared variable type
             match &expression {
@@ -338,7 +339,7 @@ pub fn parse_var_reassignment(
         };
 
         // Parse the expression following the assignment operator
-        let expression = parse_with_operator(operator, &after_operator_expr, name);
+        let expression = parse_with_operator(operator, after_operator_expr.clone(), name);
 
         match &expression {
             Expression::Variable(var_name) => {

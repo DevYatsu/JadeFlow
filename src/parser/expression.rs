@@ -15,11 +15,7 @@ pub fn parse_expression(
     parse_expression_with_precedence(tokens, position, symbol_table, 0)
 }
 
-pub fn parse_with_operator(
-    operator: &str,
-    expr: &Expression,
-    initial_var_name: &str,
-) -> Expression {
+pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {
     // we assume the fn is used for reassigment with these operators:
     // +=, -=, *=, %= or **=
 
@@ -37,7 +33,7 @@ pub fn parse_with_operator(
     Expression::BinaryOperation {
         left: Box::new(Expression::Variable(initial_var_name.to_string())),
         operator,
-        right: Box::new(expr.clone()),
+        right: Box::new(expr),
     }
 }
 
@@ -126,13 +122,11 @@ fn parse_primary_expression(
         match &token.token_type {
             TokenType::Identifier => {
                 *position += 1;
-                ignore_whitespace(tokens, position);
 
                 Ok(Expression::Variable(token.value.clone()))
             }
             TokenType::Number => {
                 *position += 1;
-                ignore_whitespace(tokens, position);
 
                 token
                     .value
@@ -144,7 +138,6 @@ fn parse_primary_expression(
             }
             TokenType::String => {
                 *position += 1;
-                ignore_whitespace(tokens, position);
 
                 Ok(Expression::String(token.value.clone()))
             }

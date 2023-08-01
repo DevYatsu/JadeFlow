@@ -10,4 +10,6 @@ add += 3
 add -= 2
 add *= 3
 add /= 1
+add **= 1
+add %= 1
 // need to resolve all errors regarding handling quote without end quote 
