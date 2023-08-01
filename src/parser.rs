@@ -42,9 +42,14 @@ custom_error! {pub ParsingError
     UnexpectedToken{expected: String, found: String} = "Expected '{expected}', found '{found}'",
     CannotReassignVar{name: String} = "Cannot reassign \"{name}\" as it is not defined",
     CannotChangeAssignedType{assigned_t: VariableType, found_t: VariableType, var_name: String, at: String} = "Expected type '{assigned_t}', found '{found_t}' for '{var_name}' at: {at}",
-    CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}"
-,
-    ExpectedIdentifier{after: String} = "Expected identifier after: {after}"
+    CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}",
+
+    ExpectedIdentifier{after: String} = "Expected identifier after: '{after}'",
+    MissingInitializer{keyword: String, name: String} = "Missing initializer for {keyword} {name}",
+    IncompleteDeclaration{keyword: String, name: String} = "Incomplete declaration: {keyword} {name} requires a value assignment",
+    IncompleteReassagnment{keyword: String, name: String} = "Incomplete reassignment: {keyword} {name} requires a value assignment",
+
+    ExpectedSomething = "Expected a value, found nothing"
 }
 
 // add support for formatted string, and errors when we expect a token and it is not present
@@ -81,31 +86,31 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     ..
                 }) = tokens.get(position)
                 {
+                    position += 1;
                     let var_keyword = if declaration.is_mutable {
                         "mut"
                     } else {
                         "const"
                     };
-                    if let Some(Token {
-                        token_type,
-                        ..
-                    }) = tokens.get(position + 1)
-                    {
+
+                    ignore_whitespace(tokens, &mut position);
+
+                    if let Some(Token { token_type, .. }) = tokens.get(position) {
                         if token_type == &TokenType::Identifier {
                             tokens.insert(
-                            position + 1,
-                            Token {
-                                token_type: TokenType::Var,
-                                value: var_keyword.to_string(),
-                            },
-                        );
-                        }else {
-                            return Err(ParsingError::ExpectedIdentifier { after: format!("{},", declaration.to_string()) })
+                                position,
+                                Token {
+                                    token_type: TokenType::Var,
+                                    value: var_keyword.to_string(),
+                                },
+                            );
+                        } else {
+                            return Err(ParsingError::ExpectedIdentifier {
+                                after: format!("{},", declaration.to_string()),
+                            });
                         }
+                    }
 
-                    } 
-
-                    position += 1;
                     continue;
                 }
             }
@@ -201,6 +206,7 @@ fn parse_statement(
 
         return Ok(variable(declaration));
     }
+
     if let Some(Token {
         token_type: TokenType::Identifier,
         value,
@@ -240,7 +246,7 @@ fn parse_statement(
             });
         }
     }
-    println!("t");
+
     Ok(Statement {
         node: ASTNode::Expression(Expression::Null),
     })
@@ -346,5 +352,15 @@ fn parse_type(tokens: &[Token], position: &mut usize) -> Result<VariableType, Pa
         });
     } else {
         return Err(ParsingError::UnexpectedEndOfInput);
+    }
+}
+
+pub fn ignore_whitespace(tokens: &[Token], position: &mut usize) {
+    while let Some(Token {
+        token_type: TokenType::Separator,
+        ..
+    }) = tokens.get(*position)
+    {
+        *position += 1;
     }
 }

@@ -1,5 +1,5 @@
-const test: str = null, hey: num;
-mut test2: str, d: num, aie: bool;
+const test: str = null, hey: num = null;
+mut test2: str = null, d: num = null, aie: bool = null;
 
-const test3: vec = null, hey: dict
-mut test4: str = null, d: num, aie: str
+const test3: vec = null, hey: dict = {}
+mut test4: str = null, d: num = null, aie: str = ""

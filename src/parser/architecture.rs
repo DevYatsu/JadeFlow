@@ -26,7 +26,7 @@ pub fn reassignment(reassignement: Reassignment) -> Statement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Variable(String),
     Number(f64),
@@ -117,8 +117,15 @@ pub struct Declaration {
 }
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let var = if self.is_mutable {"mut"}else{"const"};
-        write!(f, "{} {}: {} = {}", var, self.name, self.var_type.as_assignment(), self.value)
+        let var = if self.is_mutable { "mut" } else { "const" };
+        write!(
+            f,
+            "{} {}: {} = {}",
+            var,
+            self.name,
+            self.var_type.as_assignment(),
+            self.value
+        )
     }
 }
 
@@ -128,14 +135,14 @@ pub struct Reassignment {
     pub value: Expression,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FormattedSegment {
     // exemple "hey #{2 + 3} how r u ?"
     Literal(String),        // (ex: "hey " and " how r u ?")
     Expression(Expression), // (ex: 2 + 3 -> 5)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
     Plus,
     Minus,

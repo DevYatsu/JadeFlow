@@ -96,7 +96,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     }
                     _ => character.to_string(),
                 };
-                
+
                 tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
             }
             '+' | '%' => {

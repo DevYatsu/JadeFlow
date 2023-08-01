@@ -3,3 +3,4 @@ fn print (s: str, s2: str): str {
 }
 
 print ( "str", "efef" )
+

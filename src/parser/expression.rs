@@ -1,6 +1,7 @@
 use super::{
     architecture::{BinaryOperator, Expression, SymbolTable},
     dictionary::parse_dictionary_expression,
+    ignore_whitespace,
     vectors::parse_array_expression,
     ParsingError,
 };
@@ -89,15 +90,25 @@ fn parse_expression_with_precedence(
                     right: Box::new(right_expr),
                 };
             }
-            TokenType::Separator
-            | TokenType::CloseParen
+            TokenType::CloseParen
             | TokenType::CloseBracket
             | TokenType::CloseBrace
             | TokenType::Colon
-            | TokenType::Comma => break,
+            | TokenType::Comma
+            | TokenType::Separator => break,
+
+            TokenType::Var
+            | TokenType::For
+            | TokenType::Function
+            | TokenType::While
+            | TokenType::Match
+            | TokenType::Identifier => {
+                *position -= 1;
+                break;
+            }
             _ => {
                 return Err(ParsingError::UnexpectedToken {
-                    expected: String::from("; or new line"),
+                    expected: ";".to_string(),
                     found: token.value.to_string(),
                 })
             }
@@ -115,10 +126,14 @@ fn parse_primary_expression(
         match &token.token_type {
             TokenType::Identifier => {
                 *position += 1;
+                ignore_whitespace(tokens, position);
+
                 Ok(Expression::Variable(token.value.clone()))
             }
             TokenType::Number => {
                 *position += 1;
+                ignore_whitespace(tokens, position);
+
                 token
                     .value
                     .parse::<f64>()
@@ -129,6 +144,8 @@ fn parse_primary_expression(
             }
             TokenType::String => {
                 *position += 1;
+                ignore_whitespace(tokens, position);
+
                 Ok(Expression::String(token.value.clone()))
             }
             TokenType::Null => {
@@ -144,7 +161,11 @@ fn parse_primary_expression(
             TokenType::OpenBrace => parse_dictionary_expression(tokens, position, symbol_table),
             TokenType::OpenParen => {
                 *position += 1;
+                ignore_whitespace(tokens, position);
+
                 let expr = parse_expression(tokens, position, symbol_table)?;
+                ignore_whitespace(tokens, position);
+
                 if let Some(close_paren) = tokens.get(*position) {
                     if close_paren.token_type == TokenType::CloseParen {
                         *position += 1;
@@ -159,6 +180,7 @@ fn parse_primary_expression(
                     Err(ParsingError::UnexpectedEndOfInput)
                 }
             }
+            TokenType::Separator => Err(ParsingError::ExpectedSomething),
             _ => Err(ParsingError::InvalidExpression {
                 value: token.value.clone(),
             }),

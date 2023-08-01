@@ -54,7 +54,23 @@ pub fn parse_var_declaration(
                 *position += 1;
 
                 // Parse the expression following the assignment operator
-                let expression = parse_expression(tokens, position, symbol_table)?;
+                let expression = match parse_expression(tokens, position, symbol_table) {
+                    Ok(r) => r,
+                    Err(e) => match e {
+                        ParsingError::ExpectedSomething => {
+                            let keyword = if is_mutable {
+                                "mut".to_string()
+                            } else {
+                                "const".to_string()
+                            };
+                            return Err(ParsingError::IncompleteDeclaration {
+                                keyword,
+                                name: name.to_string(),
+                            });
+                        }
+                        _ => return Err(e),
+                    },
+                };
 
                 // Check if the expression type matches the declared variable type
                 match &expression {
@@ -91,14 +107,14 @@ pub fn parse_var_declaration(
                     is_mutable,
                 });
             } else {
-                // If no assignment operator is found, the variable is declared but not assigned a value.
-                let value = Expression::Null;
-
-                return Ok(Declaration {
+                let keyword = if is_mutable {
+                    "mut".to_string()
+                } else {
+                    "const".to_string()
+                };
+                return Err(ParsingError::MissingInitializer {
+                    keyword,
                     name: name.to_string(),
-                    var_type,
-                    value,
-                    is_mutable,
                 });
             }
         } else if let Some(Token {
@@ -117,7 +133,23 @@ pub fn parse_var_declaration(
             *position += 1;
 
             // Parse the expression following the assignment operator
-            let expression = parse_expression(tokens, position, symbol_table)?;
+            let expression = match parse_expression(tokens, position, symbol_table) {
+                Ok(r) => r,
+                Err(e) => match e {
+                    ParsingError::ExpectedSomething => {
+                        let keyword = if is_mutable {
+                            "mut".to_string()
+                        } else {
+                            "const".to_string()
+                        };
+                        return Err(ParsingError::IncompleteDeclaration {
+                            keyword,
+                            name: name.to_string(),
+                        });
+                    }
+                    _ => return Err(e),
+                },
+            };
 
             match &expression {
                 Expression::Variable(var_name) => {
@@ -126,6 +158,7 @@ pub fn parse_var_declaration(
                         return Ok(Declaration {
                             name: name.to_string(),
                             is_mutable,
+                            value: Expression::Variable(var_name.to_string()),
                             ..symbol_table.get_variable(&var_name).unwrap()
                         });
                     } else {
@@ -150,11 +183,17 @@ pub fn parse_var_declaration(
             }
         } else {
             // If there's no colon or assignment operator, it's an error.
-            return Err(ParsingError::UnknownVariableType {
-                var_name: name.to_string(),
+            let keyword = if is_mutable {
+                "mut".to_string()
+            } else {
+                "const".to_string()
+            };
+            return Err(ParsingError::MissingInitializer {
+                keyword,
+                name: name.to_string(),
             });
         }
-    } else {    
+    } else {
         // If no identifier is found, it's an error.
         return Err(ParsingError::ExpectedVarInitialization {
             var_value: value.to_string(),
@@ -190,7 +229,24 @@ pub fn parse_var_reassignment(
             let operator = value;
             *position += 1;
 
-            let after_assignment_expression = parse_expression(tokens, position, symbol_table)?;
+            let after_assignment_expression = match parse_expression(tokens, position, symbol_table)
+            {
+                Ok(r) => r,
+                Err(e) => match e {
+                    ParsingError::ExpectedSomething => {
+                        let keyword = if initial_var.is_mutable {
+                            "mut".to_string()
+                        } else {
+                            "const".to_string()
+                        };
+                        return Err(ParsingError::IncompleteReassagnment {
+                            keyword,
+                            name: name.to_string(),
+                        });
+                    }
+                    _ => return Err(e),
+                },
+            };
 
             if var_type != initial_var.var_type {
                 return Err(ParsingError::CannotChangeAssignedType {
@@ -263,7 +319,23 @@ pub fn parse_var_reassignment(
         *position += 1;
         let operator = value;
 
-        let after_operator_expr = parse_expression(tokens, position, symbol_table)?;
+        let after_operator_expr = match parse_expression(tokens, position, symbol_table) {
+            Ok(r) => r,
+            Err(e) => match e {
+                ParsingError::ExpectedSomething => {
+                    let keyword = if initial_var.is_mutable {
+                        "mut".to_string()
+                    } else {
+                        "const".to_string()
+                    };
+                    return Err(ParsingError::IncompleteReassagnment {
+                        keyword,
+                        name: name.to_string(),
+                    });
+                }
+                _ => return Err(e),
+            },
+        };
 
         // Parse the expression following the assignment operator
         let expression = parse_with_operator(operator, &after_operator_expr, name);
