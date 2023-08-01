@@ -1,5 +1,7 @@
 fn print (s: str, s2: str): str {
-    >> s + s2 
+    let o = s + str
+
+    >> o
 }
 
 print ( "str", "efef" )

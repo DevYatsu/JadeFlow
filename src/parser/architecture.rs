@@ -1,4 +1,4 @@
-use crate::token::tokenize;
+use crate::token::{tokenize, Token};
 
 use super::{expression::parse_expression, ParsingError};
 use std::{collections::HashMap, fmt};
@@ -25,6 +25,11 @@ pub fn variable(declaration: Declaration) -> Statement {
 pub fn reassignment(reassignement: Reassignment) -> Statement {
     Statement {
         node: ASTNode::VariableReassignment(reassignement),
+    }
+}
+pub fn function(f: Function) -> Statement {
+    Statement {
+        node: ASTNode::FunctionDeclaration(f),
     }
 }
 
@@ -119,7 +124,7 @@ pub struct Declaration {
 }
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let var = if self.is_mutable { "mut" } else { "const" };
+        let var = self.get_var_keyword();
         write!(
             f,
             "{} {}: {} = {}",
@@ -128,6 +133,20 @@ impl fmt::Display for Declaration {
             self.var_type.as_assignment(),
             self.value
         )
+    }
+}
+impl Declaration {
+    pub fn equivalent_tokens(&self) -> Vec<Token> {
+        let keyword = self.get_var_keyword();
+        let source_code = format!("{} {}: {} = {};", keyword, self.name, self.var_type.as_assignment(), self.value);
+        tokenize(&source_code).unwrap()
+    }
+    fn get_var_keyword(&self) -> &str {
+        if self.is_mutable {
+            "mut"
+        } else {
+            "const"
+        }
     }
 }
 
@@ -152,7 +171,7 @@ impl FormattedSegment {
         let mut current_part = String::new();
         let mut inside_expression = false;
         let mut expression = String::new();
-        
+
         for (i, c) in input.chars().enumerate() {
             if inside_expression {
                 if c == '}' {
@@ -175,7 +194,7 @@ impl FormattedSegment {
             } else {
                 if c == '#' {
                     // Check if this is the start of an expression
-                    let next_char = input.chars().nth(i + 1);       
+                    let next_char = input.chars().nth(i + 1);
 
                     if let Some('{') = next_char {
                         // This is the start of an expression
@@ -243,10 +262,26 @@ impl BinaryOperator {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
-    pub arguments: Vec<(String, VariableType)>,
-    pub context: Vec<Statement>,
-    pub return_type: VariableType,
+    pub arguments: Vec<Declaration>,
+    pub context: Box<ASTNode>,
+    pub return_type: Option<VariableType>,
 }
+#[derive(Debug, Clone)]
+pub struct MainFunctionData {
+    pub name: String,
+    pub arguments: Vec<Declaration>,
+    pub return_type: Option<VariableType>,
+}
+impl MainFunctionData {
+    pub fn from_function(f: &Function) -> MainFunctionData {
+        MainFunctionData {
+            name: f.name.to_string(),
+            arguments: f.arguments.clone(),
+            return_type: f.return_type.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Class {
     pub name: String,
@@ -283,23 +318,39 @@ impl VariableType {
             VariableType::Dictionary => "dict",
         }
     }
+    pub fn from_assignment(input: &str) -> Option<VariableType> {
+        match input {
+            "str" => Some(VariableType::String),
+            "num" => Some(VariableType::Number),
+            "bool" => Some(VariableType::Boolean),
+            "vec" => Some(VariableType::Vector),
+            "dict" => Some(VariableType::Dictionary),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
     variables: HashMap<String, Declaration>,
+    functions: HashMap<String, MainFunctionData>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
             variables: HashMap::new(),
+            functions: HashMap::new(),
         }
     }
 
     pub fn insert_variable(&mut self, declaration: Declaration) {
         self.variables
             .insert(declaration.name.to_string(), declaration);
+    }
+    pub fn insert_function(&mut self, f: &Function) {
+        self.functions
+            .insert(f.name.to_string(), MainFunctionData::from_function(f));
     }
     pub fn reassign_variable(&mut self, reassignement: Reassignment) {
         let initial_var = self.get_variable(&reassignement.name).unwrap();
@@ -317,5 +368,8 @@ impl SymbolTable {
 
     pub fn get_variable(&self, name: &str) -> Option<Declaration> {
         self.variables.get(name).cloned()
+    }
+    pub fn get_function(&self, name: &str) -> Option<MainFunctionData> {
+        self.functions.get(name).cloned()
     }
 }

@@ -167,7 +167,11 @@ pub fn parse_var_declaration(
                         });
                     }
                 }
-                Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name.to_string() }),
+                Expression::Null => {
+                    return Err(ParsingError::UnknownVariableType {
+                        var_name: name.to_string(),
+                    })
+                }
                 _ => {
                     // For non-variable expressions, get the type from the expression and create the declaration.
                     if let Some(var_type) = type_from_expression(&expression, symbol_table) {

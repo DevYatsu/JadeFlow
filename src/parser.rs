@@ -1,6 +1,7 @@
 mod architecture;
 mod dictionary;
 mod expression;
+mod functions;
 mod vars;
 mod vectors;
 
@@ -12,14 +13,16 @@ use crate::token::{Token, TokenType};
 
 use self::{
     architecture::{
-        reassignment, variable, ASTNode, BinaryOperator, Expression, Statement,
-        SymbolTable, VariableType,
+        reassignment, variable, ASTNode, BinaryOperator, Expression, Statement, SymbolTable,
+        VariableType,
     },
+    functions::{parse_fn_declaration, FunctionParsingError},
     vars::{parse_var_declaration, parse_var_reassignment},
 };
 
 custom_error! {pub ParsingError
     Io{source: Error} = "{source}",
+    FunctionParsingError{source: FunctionParsingError} = "{source}",
     Default = "Failed to parse tokens",
     UnexpectedEndOfInput = "No more token left to parse",
     ExpectedVarInitialization{var_value: String} = "Expected identifier after \"{var_value}\"",
@@ -68,14 +71,15 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     && (token_type != &TokenType::For)
                     && (token_type != &TokenType::While)
                     && (token_type != &TokenType::Match)
-                    && (token_type != &TokenType::Class) && (token_type != &TokenType::Identifier))
+                    && (token_type != &TokenType::Class)
+                    && (token_type != &TokenType::Identifier))
             {
                 position += 1;
                 continue;
             }
         }
 
-        let statement = parse_statement(&tokens, &mut position, &mut symbol_table)?;
+        let statement = parse_statement(tokens, &mut position, &mut symbol_table)?;
         println!("{:?}", statement);
         statements.push(statement);
 
@@ -154,7 +158,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
 }
 
 fn parse_statement(
-    tokens: &[Token],
+    tokens: &mut Vec<Token>,
     position: &mut usize,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {
@@ -182,7 +186,6 @@ fn parse_statement(
         value,
     }) = tokens.get(*position)
     {
-
         if let Some(next_token) = tokens.get(*position + 1) {
             if !(next_token.token_type == TokenType::Colon
                 || next_token.token_type == TokenType::AssignmentOperator)
@@ -216,6 +219,14 @@ fn parse_statement(
                 name: value.to_string(),
             });
         }
+    }
+
+    if let Some(Token {
+        token_type: TokenType::Function,
+        ..
+    }) = tokens.get(*position)
+    {
+        return Ok(parse_fn_declaration(tokens, position, symbol_table)?);
     }
 
     Ok(Statement {
