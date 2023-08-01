@@ -84,8 +84,6 @@ pub fn parse_fn_declaration(
                         .iter()
                         .for_each(|dec| ctx_tokens.extend(dec.equivalent_tokens()));
 
-                    println!("{:?}", ctx_tokens);
-
                     let mut brace_count = 1;
 
                     while let Some(token) = tokens.get(*position) {

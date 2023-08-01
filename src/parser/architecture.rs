@@ -138,7 +138,13 @@ impl fmt::Display for Declaration {
 impl Declaration {
     pub fn equivalent_tokens(&self) -> Vec<Token> {
         let keyword = self.get_var_keyword();
-        let source_code = format!("{} {}: {} = {};", keyword, self.name, self.var_type.as_assignment(), self.value);
+        let source_code = format!(
+            "{} {}: {} = {};",
+            keyword,
+            self.name,
+            self.var_type.as_assignment(),
+            self.value
+        );
         tokenize(&source_code).unwrap()
     }
     fn get_var_keyword(&self) -> &str {
