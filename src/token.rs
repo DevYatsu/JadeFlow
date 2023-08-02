@@ -1,11 +1,20 @@
-use crate::errors::SyntaxError;
+use std::collections::VecDeque;
+
+use self::{errors::SyntaxError, line::get_line};
+
+mod errors;
+mod line;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TokenType {
-    Identifier,
+    Var,
+
+    Identifier, // variables and also object props
     Number,
+
     String,
     FormatedString, //format with #{} inside `` quote
+
     Boolean,
     Null,
     Function,
@@ -16,15 +25,15 @@ pub enum TokenType {
     CloseParen,
     CloseBrace,
     CloseBracket,
-    BlockComment,
-    LineComment,
     BinaryOperator,
     ComparisonOperator,
     AssignmentOperator,
     LogicalOperator,
+    DecrementOperator,
+    IncrementOperator,
 
     Separator,
-    Comma, // specifically to simply arrays analysing
+    Comma,
 
     Return,
     If,
@@ -32,12 +41,20 @@ pub enum TokenType {
     While,
 
     Match,
-    MatchArmSeparator,
+    QuestionMarkMatch,
 
     For,
     In,
 
     Range,
+    FunctionArrow,
+
+    Colon,
+    TypeNumber,
+    TypeBool,
+    TypeString,
+    TypeVec,
+    TypeDict,
 }
 
 #[derive(Debug, Clone)]
@@ -50,8 +67,8 @@ fn token(value: String, token_type: TokenType) -> Token {
     Token { value, token_type }
 }
 
-pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
-    let mut tokens: Vec<Token> = vec![];
+pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
+    let mut tokens: VecDeque<Token> = VecDeque::new();
     let mut position: usize = 0;
 
     while position < source_code.len() {
@@ -60,53 +77,90 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
         match character {
             ' ' | '\t' => (),
-            '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
-            ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
-            '+' | '/' | '*' | '%' => {
+            '\n' | ';' => tokens.push_back(token(character.to_string(), TokenType::Separator)),
+            ',' => tokens.push_back(token(character.to_string(), TokenType::Comma)),
+            '.' => match character {
+                _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8)) => {
+                    position += 1;
+                    tokens.push_back(token("..".to_string(), TokenType::Range));
+                }
+                _ => {
+                    return Err(SyntaxError::UnexpectedToken {
+                        token: ".".to_string(),
+                        line: get_line(position, source_code),
+                    })
+                }
+            },
+            '*' => {
+                let operator_lexeme = match character {
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8))
+                        && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
+                    {
+                        position += 3;
+                        tokens.push_back(token("**=".to_string(), TokenType::AssignmentOperator));
+                        continue;
+                    }
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) => {
+                        position += 1;
+                        "**".to_string()
+                    }
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        position += 2;
+                        tokens.push_back(token("*=".to_string(), TokenType::AssignmentOperator));
+                        continue;
+                    }
+                    _ => character.to_string(),
+                };
+
+                tokens.push_back(token(operator_lexeme, TokenType::BinaryOperator));
+            }
+            '+' | '%' => {
                 // for binary and assignment operators
                 let operator_lexeme = match character {
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
-                        "++".to_string()
+                        position += 1;
+                        tokens.push_back(token("++".to_string(), TokenType::IncrementOperator));
+                        continue;
                     }
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
                         "+=".to_string()
+                    }
+                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        "*=".to_string()
+                    }
+                    '%' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        "%=".to_string()
                     }
                     _ => character.to_string(),
                 };
 
                 if operator_lexeme.len() == 2 {
                     position += 1;
-                    tokens.push(token(operator_lexeme, TokenType::AssignmentOperator));
+                    tokens.push_back(token(operator_lexeme, TokenType::AssignmentOperator));
                 } else {
-                    tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
+                    tokens.push_back(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
+            ':' => tokens.push_back(token(":".to_string(), TokenType::Colon)),
             '-' => {
                 // for equality and value assignment
                 match character {
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
                         position += 1;
-                        tokens.push(token("--".to_string(), TokenType::AssignmentOperator));
+                        tokens.push_back(token("--".to_string(), TokenType::DecrementOperator));
                     }
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
                         position += 1;
-                        tokens.push(token("->".to_string(), TokenType::Range));
+                        tokens.push_back(token("->".to_string(), TokenType::Range));
+                    }
+                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                        position += 1;
+                        tokens.push_back(token("-=".to_string(), TokenType::AssignmentOperator));
                     }
                     _ => {
-                        tokens.push(token(character.to_string(), TokenType::BinaryOperator));
+                        tokens.push_back(token(character.to_string(), TokenType::BinaryOperator));
                     }
                 };
-            }
-            ':' => {
-                match character {
-                    ':' if source_code.as_bytes().get(position + 1) == Some(&(b':' as u8)) => {
-                        position += 1;
-                        tokens.push(token("::".to_string(), TokenType::MatchArmSeparator))
-                    },
-                    _ => {
-                        return Err("Invalid character".to_string())
-                    }
-                }
             }
             '<' => {
                 // for binary and assignment operators
@@ -117,7 +171,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     operator_lexeme.push('=');
                 }
 
-                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+                tokens.push_back(token(operator_lexeme, TokenType::ComparisonOperator));
             }
             '>' => {
                 let mut operator_lexeme = character.to_string();
@@ -129,12 +183,31 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     } else if *next_char == b'>' {
                         position += 1; //position increased here cause we continue in the while and what comes next is jumped
                         operator_lexeme.push('>');
-                        tokens.push(token(operator_lexeme, TokenType::Return));
+                        tokens.push_back(token(operator_lexeme, TokenType::Return));
                         continue; // continue in the while
                     }
                 }
 
-                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+                tokens.push_back(token(operator_lexeme, TokenType::ComparisonOperator));
+            }
+            '?' => {
+                let mut question_lexeme = character.to_string();
+                position += 1;
+
+                if let Some(next_char) = source_code.as_bytes().get(position) {
+                    if *next_char == b'=' {
+                        question_lexeme.push('=');
+                    } else if *next_char == b'>' {
+                        question_lexeme.push('>');
+                    } else if *next_char == b'<' {
+                        question_lexeme.push('<');
+                    } else {
+                        tokens.push_back(token(question_lexeme, TokenType::QuestionMarkMatch));
+                        continue;
+                    }
+                }
+
+                tokens.push_back(token(question_lexeme, TokenType::ComparisonOperator));
             }
             '!' => {
                 let mut operator_lexeme = character.to_string();
@@ -142,35 +215,10 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     operator_lexeme.push('=');
-                    tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
+                    tokens.push_back(token(operator_lexeme, TokenType::ComparisonOperator));
                 } else {
-                    tokens.push(token(operator_lexeme, TokenType::LogicalOperator))
+                    tokens.push_back(token(operator_lexeme, TokenType::LogicalOperator))
                 }
-            }
-            'a' | 'o' => {
-                // for 'and' and 'or' logical operators
-                let mut value_lexeme: String = character.to_string();
-
-                position += 1;
-
-                while position < source_code.len() {
-                    let c = source_code.as_bytes()[position] as char;
-
-                    match c {
-                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' => break,
-                        _ => value_lexeme.push(c),
-                    }
-
-                    position += 1;
-                }
-
-                let token_type = match value_lexeme.as_str() {
-                    "and" | "or" => TokenType::LogicalOperator,
-                    _ => TokenType::Identifier,
-                };
-
-                tokens.push(token(value_lexeme, token_type));
             }
             '=' => {
                 // for equality and value assignment
@@ -179,13 +227,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push(token(equal_lexeme, TokenType::ComparisonOperator));
+                    tokens.push_back(token(equal_lexeme, TokenType::ComparisonOperator));
                 } else if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push(token(equal_lexeme, TokenType::Range));
+                    tokens.push_back(token(equal_lexeme, TokenType::FunctionArrow));
                 } else {
-                    tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
+                    tokens.push_back(token(equal_lexeme, TokenType::AssignmentOperator));
                 }
             }
             character if character.is_digit(10) => {
@@ -200,76 +248,79 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ')' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | ',' | ']' | ':' => {
-                            break
-                        }
+                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
+                        | ')' | ':' | '?' | ',' | '}' | ']' => break,
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
-                                line: 9999,
+                                line: get_line(position, source_code),
                                 at: format!("{}{}", number_lexeme, next_char),
-                            }
-                            .to_string())
+                            })
                         }
                     }
                 }
 
                 if number_lexeme.ends_with(".") {
                     return Err(SyntaxError::InvalidNumber {
-                        line: 9999,
+                        line: get_line(position, source_code),
                         at: number_lexeme.clone(),
-                    }
-                    .to_string());
+                    });
                 }
-                tokens.push(token(number_lexeme, TokenType::Number));
+                tokens.push_back(token(number_lexeme, TokenType::Number));
             }
-            '#' => {
+            '/' => {
                 // for comments
-                let mut comment_lexeme = character.to_string();
+                let mut slash_lexeme = character.to_string();
                 position += 1;
 
-                if source_code.as_bytes().get(position) == Some(&(b'#' as u8))
-                    && source_code.as_bytes().get(position + 1) == Some(&(b'#' as u8))
-                // if "###" then block comment
+                if source_code.as_bytes().get(position) == Some(&(b'*' as u8))
+                // if "/*" then block comment
                 {
-                    position += 2;
-                    comment_lexeme.push_str("##");
-                    //jumping next chars and adding the ## cause we know the next two chars are #
+                    position += 1;
+                    slash_lexeme.push_str("*");
+                    //jumping next chars and adding the / cause we know the next char is /
 
                     while position < source_code.len() {
-                        comment_lexeme.push(source_code.as_bytes()[position] as char);
+                        slash_lexeme.push(source_code.as_bytes()[position] as char);
 
-                        if comment_lexeme.ends_with("###") {
-                            position += 2; //to get past the two #
+                        if slash_lexeme.ends_with("*/") {
+                            position += 1; //to get past the two #
                             break;
                         }
 
                         position += 1;
                     }
 
-                    tokens.push(token(comment_lexeme, TokenType::BlockComment));
-                } else {
-                    comment_lexeme.push(source_code.as_bytes()[position] as char);
+                    tokens.push_back(token(slash_lexeme, TokenType::Separator));
+                } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
+                    slash_lexeme.push_str("/");
+                    position += 1;
 
                     while position < source_code.len() {
-                        comment_lexeme.push(source_code.as_bytes()[position + 1] as char);
-                        position += 1;
+                        slash_lexeme.push(source_code.as_bytes()[position] as char);
 
-                        if comment_lexeme.ends_with('#') {
+                        if slash_lexeme.ends_with("//") {
                             return Err(SyntaxError::Comment {
-                                line: 000,
+                                line: get_line(position, source_code),
                                 message: format!(
-                                    "Cannot start a comment in another comment: '{comment_lexeme}'"
+                                    "Cannot start a comment in another comment: '{slash_lexeme}'"
                                 ),
-                            }
-                            .to_string());
+                            });
                         }
 
-                        if comment_lexeme.ends_with('\n') {
+                        if slash_lexeme.ends_with('\n') {
                             break;
                         }
+                        position += 1;
                     }
-
-                    tokens.push(token(comment_lexeme, TokenType::LineComment));
+                    // no need to push_back as there is nothing to analyse
+                    tokens.push_back(token(slash_lexeme, TokenType::Separator));
+                } else {
+                    if source_code.as_bytes().get(position) == Some(&(b'=' as u8)) {
+                        slash_lexeme.push('=');
+                        tokens.push_back(token(slash_lexeme, TokenType::AssignmentOperator));
+                    } else {
+                        tokens.push_back(token(slash_lexeme, TokenType::BinaryOperator));
+                    }
                 }
             }
             '"' => {
@@ -284,12 +335,15 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     if c == '"' {
                         break;
                     }
+                    if position == source_code.len() - 1 {
+                        return Err(SyntaxError::UnclosedString);
+                    }
 
                     string_lexeme.push(c);
                     position += 1;
                 }
 
-                tokens.push(token(string_lexeme, TokenType::String));
+                tokens.push_back(token(string_lexeme, TokenType::String));
             }
             '`' => {
                 // for strings
@@ -303,19 +357,22 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     if c == '`' {
                         break;
                     }
+                    if position == source_code.len() - 1 {
+                        return Err(SyntaxError::UnclosedString);
+                    }
 
                     string_lexeme.push(c);
                     position += 1;
                 }
 
-                tokens.push(token(string_lexeme, TokenType::FormatedString));
+                tokens.push_back(token(string_lexeme, TokenType::FormatedString));
             }
-            '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
-            ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
-            '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
-            '}' => tokens.push(token(character.to_string(), TokenType::CloseBrace)),
+            '(' => tokens.push_back(token(character.to_string(), TokenType::OpenParen)),
+            ')' => tokens.push_back(token(character.to_string(), TokenType::CloseParen)),
+            '{' => tokens.push_back(token(character.to_string(), TokenType::OpenBrace)),
+            '}' => tokens.push_back(token(character.to_string(), TokenType::CloseBrace)),
             '[' => {
-                tokens.push(token(character.to_string(), TokenType::OpenBracket))
+                tokens.push_back(token(character.to_string(), TokenType::OpenBracket))
                 // for arrays
 
                 /*
@@ -334,7 +391,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                             }
                             .to_string())
                         }
-                        _ => array_lexeme.push(c),
+                        _ => array_lexeme.push_back(c),
                     }
 
                     position += 1;
@@ -356,11 +413,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                 tockenize values of an array
 
-                tokens.push(token(array_lexeme, TokenType::Array));
+                tokens.push_back(token(array_lexeme, TokenType::Array));
                 */
             }
-            ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
-            't' | 'f' | 'n' | 'c' | 'r' | 'i' | 'e' | 'w' | 'm' => {
+            ']' => tokens.push_back(token(character.to_string(), TokenType::CloseBracket)),
+            character if character.is_alphabetic() => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
 
@@ -371,7 +428,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' | ':' => {
+                        | '(' | ')' | '[' | ']' | ':' | '?' | ',' | '{' | '}' => {
                             position -= 1;
                             break;
                         }
@@ -393,35 +450,27 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, String> {
                     "match" => TokenType::Match,
                     "for" => TokenType::For,
                     "in" => TokenType::In,
+                    "mut" => TokenType::Var,
+                    "const" => TokenType::Var,
+                    "bool" => TokenType::TypeBool,
+                    "num" => TokenType::TypeNumber,
+                    "str" => TokenType::TypeString,
+                    "vec" => TokenType::TypeVec,
+                    "dict" => TokenType::TypeDict,
+                    "and" | "or" => TokenType::LogicalOperator,
+                    "let" => return Err(SyntaxError::ExpectedMutNotLet),
+                    val if value_lexeme.ends_with('.') => {
+                        return Err(SyntaxError::ExpectingSomethingAfterDot {
+                            id: val.to_string(),
+                        })
+                    }
                     _ => TokenType::Identifier,
                 };
 
-                tokens.push(token(value_lexeme, token_type));
+                tokens.push_back(token(value_lexeme, token_type));
             }
-            character => {
-                let mut value_lexeme: String = character.to_string();
-
-                if !character.is_alphabetic() {
-                    return Err("Character must be alphabetic".to_string());
-                }
-
-                position += 1;
-
-                while position < source_code.len() {
-                    let c = source_code.as_bytes()[position] as char;
-
-                    match c {
-                        c if !c.is_alphabetic() && !c.is_ascii_digit() => {
-                            position -= 1;
-                            break;
-                        }
-                        _ => value_lexeme.push(c),
-                    }
-
-                    position += 1;
-                }
-
-                tokens.push(token(value_lexeme, TokenType::Identifier));
+            _ => {
+                return Err(SyntaxError::NonAlphabeticCharacter);
             }
         };
 

@@ -1,0 +1,12 @@
+const obj = {s: "str",}
+
+const obj2 = {
+    t: "t",
+    d: 1 + 2,
+    s: {
+        obj
+    }
+}
+
+const val = obj2.d
+const val2 = obj2.s.obj.s

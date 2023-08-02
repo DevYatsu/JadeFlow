@@ -1,62 +1,62 @@
-x    =       5788887
-z =  2 + 9.3 # hey how + == -
+const x: num = 5788887; mut z: num =  2 + 9.3 // hey test line comment
+const test = (100 * 0) + 2 - (2*1)
 
 z += 7
-string="test"
-arr2=[2,4**2,"test",9.4, [3]]
+const string: str = "test"
+const arr2: vec=[2,4**2,"test", 9.4, [3], x]
 
-fstr = `hey dude {string}`
+const fstr: str = `hey dude #{string}`
 
-nonono = null
-bool = true
-bool2=false
-
+const nonono: num = null
+const b: bool = true
+const bool2=false
+/*
 test and dude
 hey or dude
 
-if z>=x {
-    x++
-} else if z<=x {
+if z?>x {
+    x;
+} else if z?=x {
     z--
 }
 
 match bool {
-    true::{
-        # do something
+    true {
+        // do something
     }
-    false:: print("false"),
+    false? print("false"),
 }
 
-###
-str = str("haha")
-str2 = new str("hehe")
-obj = dict({})
-obj2 = {}
 
-arr = array([2,3,4])
+const str = str("haha")
+const str2 = new str("hehe")
+const obj = dict({})
+const obj2 = {}
 
-x = 5
-z = 9.1
+const arr = array([2,3,4])
 
-bool = true
-bool2 = false
+const x = 5
+const z = 9.1
+
+const bool = true
+cosnt bool2 = false
 
 str = str("test");
 str2 = "test";
 
-arr = array([2,3,4]);
-arr2 = [];
+const arr = array([2,3,4]);
+const arr2 = [];
 
-obj = dict({});
-obj2= {};
-###
+const obj = dict({});
+const obj2= {};
 
-hey=23+40 
+
+mut hey=23+40 
 hey=2+2
 
 
 fn hey(dudem, difjd, dfdf) {
-    return "test"
+    return dudem
 }
 fn test() {
     >>"hello"
@@ -65,11 +65,12 @@ class Human {}
 
 
 fn main() {
-    num = 10
-    for i in 0->num { # range non including 10
+    const num = 10
+    for i in 0->num { // range non including 10
         print(fibonacci(i))
     }
-    for i in 0=>num { # range including 10
+    for i in 0=>num { // range including 10
         print(fibonacci(i))
     }
 }
+*/

@@ -1,0 +1,4 @@
+const test = "string for test" 
+
+const formatted = `hey dude #{test}`
+const calc3 = `3 = #{1 + 2}`

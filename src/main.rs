@@ -1,28 +1,72 @@
-mod errors;
-mod token;
 mod parser;
+mod select_test;
+mod token;
 
-use std::{error::Error, fs, time::Instant};
+use std::{collections::VecDeque, fs, time::Instant};
 
 use token::Token;
 
-use crate::token::tokenize;
+use crate::{
+    parser::{architecture::ASTNode, parse},
+    select_test::run_file,
+    token::tokenize,
+};
 
-const FILE_PATH: &str = "./tests/vars.jf";
+fn main() {
+    let file_name = match run_file() {
+        Ok(f) => f,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        }
+    };
+    let contents: String = match fs::read_to_string(file_name) {
+        Ok(c) => c,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        }
+    };
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let contents: String = fs::read_to_string(FILE_PATH)?;
-    
     let start = Instant::now();
-    let tokens: Vec<Token> = tokenize(&contents)?;
+    let mut tokens: Vec<Token> = match tokenize(&contents) {
+        Ok(t) => t.into(),
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        }
+    };
     let end = Instant::now();
 
-    for token in tokens {
+    for token in &tokens {
         println!("{:?}", token)
     }
-    
 
-    println!("{} seconds to execute", (end - start).as_secs_f64());
+    let first_timer = (end - start).as_secs_f64();
+    println!("{} seconds to execute tokenisation", first_timer);
 
-    Ok(())
+    let start = Instant::now();
+    let program = match parse(&mut tokens) {
+        Ok(p) => p,
+        Err(e) => {
+            println!("ERROR: {}", e.to_string());
+            return;
+        }
+    };
+    let end = Instant::now();
+
+    match program {
+        ASTNode::Program(p) => {
+            for s in &p.statements {
+                println!("{:?}", s);
+            }
+            println!("statements number: {}", p.statements.len());
+        }
+        _ => unreachable!(),
+    }
+
+    let second_timer = (end - start).as_secs_f64();
+    println!("{} seconds to execute parsing", second_timer);
+
+    println!("total time: {}", first_timer + second_timer);
 }
