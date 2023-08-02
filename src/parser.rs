@@ -7,7 +7,7 @@ mod types;
 mod vars;
 mod vectors;
 
-use std::io::Error;
+use std::{io::Error, num::ParseIntError};
 
 use custom_error::custom_error;
 
@@ -29,6 +29,7 @@ use self::{
 custom_error! {pub ParsingError
     Io{source: Error} = "{source}",
     ParsingTypyError{source: TypeError} = "{source}",
+    ParseInt{source: ParseIntError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
     Default = "Failed to parse tokens",
     UnexpectedEndOfInput = "No more token left to parse",
@@ -60,7 +61,10 @@ custom_error! {pub ParsingError
     ExpectedSomething = "Expected a value, found nothing",
     ExpectedValidExpressionInFormattedString = "Expected a valid expression in formatted string argument",
 
-    TypeInvalidExpressionElement{expr: Expression} = "Cannot use a type as an expression value: {expr}"
+    TypeInvalidExpressionElement{expr: Expression} = "Cannot use a type as an expression value: {expr}",
+
+    ExpectedValidVectorIndex{found: String} = "Expected valid vector index, found {found}",
+    ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
 }
 
 // add support for formatted string, and errors when we expect a token and it is not present
@@ -69,7 +73,6 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut position = 0;
     let mut statements = Vec::new();
     let mut symbol_table = SymbolTable::new();
-    println!("sss {:?}", symbol_table);
 
     while position < tokens.len() {
         if let Some(Token { token_type, .. }) = tokens.get(position) {
@@ -91,7 +94,6 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
         let statement = parse_statement(tokens, &mut position, &mut symbol_table)?;
 
         statements.push(statement);
-        println!("{:?}", symbol_table);
 
         if let Some(Token { token_type, .. }) = tokens.get(position) {
             if token_type == &TokenType::Separator {
@@ -122,7 +124,6 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     };
 
                     ignore_whitespace(tokens, &mut position);
-                    println!("dec {}", declaration);
 
                     if let Some(Token { token_type, .. }) = tokens.get(position) {
                         if token_type == &TokenType::Identifier {

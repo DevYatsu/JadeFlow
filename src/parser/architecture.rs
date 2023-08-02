@@ -450,13 +450,45 @@ impl SymbolTable {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
-            return self
+            let name_vec: Vec<&str> = name.split('[').collect();
+
+            if name_vec.len() == 1 {
+                return self
+                    .variables
+                    .get(name)
+                    .map(|declaration| declaration.clone())
+                    .ok_or_else(|| TypeError::CannotDetermineVarType {
+                        name: name.to_string(),
+                    });
+            }
+
+            let var = self
                 .variables
-                .get(name)
-                .map(|declaration| declaration.clone())
+                .get(name_vec[0])
+                .map(|declaration| declaration.value.clone())
                 .ok_or_else(|| TypeError::CannotDetermineVarType {
                     name: name.to_string(),
-                });
+                })?;
+
+            match var {
+                Expression::ArrayExpression(vec) => {
+                    let index = name_vec[1].parse::<usize>()?;
+                    if index > vec.len() - 1 {
+                        return Err(TypeError::IndexOutOfRange {
+                            vec_name: name_vec[0].to_string(),
+                            index,
+                            length: vec.len(),
+                        });
+                    }
+                    return Ok(Declaration {
+                        name: name_vec[0].to_string(),
+                        var_type: type_from_expression(&vec[index], &self)?,
+                        value: vec[index].clone(),
+                        is_mutable: true,
+                    });
+                }
+                _ => unreachable!(),
+            }
         }
 
         let mut var = self

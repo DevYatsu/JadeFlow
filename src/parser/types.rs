@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use crate::{
     parser::Expression,
     token::{Token, TokenType},
@@ -19,6 +21,9 @@ custom_error! {pub TypeError
     CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
     CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
     // FailedToDetermineObjPropType{obj_name: String, prop: String} = "Failed to determine type of '{prop}' property on \"{obj_name}\""
+
+    ParseInt{source: ParseIntError} = "{source}",
+    IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}"
 }
 
 pub fn type_from_expression(

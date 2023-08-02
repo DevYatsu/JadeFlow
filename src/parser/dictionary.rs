@@ -57,10 +57,16 @@ pub fn parse_dictionary_expression(
                     expressions.insert(temp_key.take().unwrap(), value);
                     *position += 1;
                 } else {
-                    temp_key = Some(
-                        parse_expression(tokens, position, symbol_table)?
-                            .string_from_expression()?,
-                    );
+                    if token.token_type == TokenType::Identifier
+                        || token.token_type == TokenType::String
+                    {
+                        temp_key = Some(token.value.clone());
+                    } else {
+                        return Err(ParsingError::InvalidStringDictKey {
+                            key: token.value.clone(),
+                        });
+                    }
+
                     handle_invalid_string_dict_key(&temp_key, &token.value)?;
                     skip_to_colon(tokens, position, &temp_key)?;
                 }

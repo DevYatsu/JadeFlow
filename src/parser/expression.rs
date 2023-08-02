@@ -1,8 +1,8 @@
 use super::{
-    architecture::{BinaryOperator, Expression, FormattedSegment, SymbolTable},
+    architecture::{BinaryOperator, Expression, FormattedSegment, SymbolTable, VariableType},
     dictionary::parse_dictionary_expression,
     ignore_whitespace,
-    vectors::parse_array_expression,
+    vectors::{parse_array_expression, parse_array_indexing},
     ParsingError,
 };
 use crate::token::{Token, TokenType};
@@ -122,8 +122,20 @@ fn parse_primary_expression(
         match &token.token_type {
             TokenType::Identifier => {
                 *position += 1;
-
-                Ok(Expression::Variable(token.value.clone()))
+                let var = symbol_table.get_variable(&token.value)?;
+                if var.var_type != VariableType::Vector {
+                    Ok(Expression::Variable(token.value.clone()))
+                } else {
+                    if let Some(Token {
+                        token_type: TokenType::OpenBracket,
+                        ..
+                    }) = tokens.get(*position)
+                    {
+                        Ok(parse_array_indexing(tokens, position, var)?)
+                    } else {
+                        Ok(Expression::Variable(token.value.clone()))
+                    }
+                }
             }
             TokenType::Number => {
                 *position += 1;

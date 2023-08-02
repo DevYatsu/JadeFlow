@@ -1,5 +1,5 @@
 use super::{
-    architecture::{Expression, SymbolTable},
+    architecture::{Declaration, Expression, SymbolTable},
     expression::parse_expression,
     ParsingError,
 };
@@ -45,4 +45,39 @@ fn check_and_insert_expression(
     }
     vec_expressions.push(expression.clone());
     Ok(())
+}
+
+pub fn parse_array_indexing(
+    tokens: &[Token],
+    position: &mut usize,
+    var: Declaration,
+) -> Result<Expression, ParsingError> {
+    *position += 1;
+    // we are passed the '[' now
+    if let Some(Token {
+        token_type: TokenType::Number,
+        value,
+    }) = tokens.get(*position)
+    {
+        let index: usize = value.parse()?;
+        *position += 1;
+
+        if let Some(token) = tokens.get(*position) {
+            if token.token_type == TokenType::CloseBracket {
+                return Ok(Expression::Variable(format!("{}[{}", var.name, index)));
+            } else {
+                return Err(ParsingError::ExpectedBracketAfterVectorIndex {
+                    found: token.value.to_string(),
+                });
+            }
+        } else {
+            return Err(ParsingError::UnexpectedEndOfInput);
+        }
+    } else if let Some(Token { value, .. }) = tokens.get(*position) {
+        return Err(ParsingError::ExpectedValidVectorIndex {
+            found: value.to_string(),
+        });
+    } else {
+        return Err(ParsingError::UnexpectedEndOfInput);
+    }
 }
