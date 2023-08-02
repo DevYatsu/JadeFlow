@@ -88,7 +88,6 @@ fn parse_expression_with_precedence(
             }
             TokenType::CloseParen
             | TokenType::CloseBracket
-            | TokenType::CloseBrace
             | TokenType::Colon
             | TokenType::Comma
             | TokenType::Separator => break,
@@ -96,6 +95,7 @@ fn parse_expression_with_precedence(
             TokenType::Var
             | TokenType::For
             | TokenType::Function
+            | TokenType::CloseBrace
             | TokenType::While
             | TokenType::Match
             | TokenType::Identifier => {

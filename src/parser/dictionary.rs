@@ -19,17 +19,18 @@ pub fn parse_dictionary_expression(
         match token.token_type {
             TokenType::Separator => {
                 *position += 1;
+                println!("dict t {:?}", tokens.get(*position));
             }
             TokenType::Comma | TokenType::CloseBrace => {
                 if temp_key.is_some() {
                     symbol_table
                         .get_variable(&temp_key.clone().unwrap())
                         .and_then(|dec| {
-                            expressions.insert(
+                            Ok(expressions.insert(
                                 dec.name.clone(),
                                 Expression::Variable(temp_key.take().unwrap().to_string()),
-                            )
-                        });
+                            ))
+                        })?;
                 }
                 handle_missing_value_dict(&temp_key)?;
                 *position += 1;
@@ -48,11 +49,7 @@ pub fn parse_dictionary_expression(
 
                     match &value {
                         Expression::Variable(name) => {
-                            if symbol_table.get_variable(name).is_none() {
-                                return Err(ParsingError::UseOfUndefinedVariable {
-                                    name: name.to_string(),
-                                });
-                            }
+                            symbol_table.get_variable(name)?;
                         }
                         _ => (),
                     }

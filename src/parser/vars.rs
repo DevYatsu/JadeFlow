@@ -6,18 +6,19 @@ use crate::{
 use super::{
     architecture::{Declaration, Expression, Reassignment, SymbolTable},
     expression::parse_with_operator,
-    parse_type, type_from_expression, ParsingError,
+    types::{parse_type, type_from_expression},
+    ParsingError,
 };
 
 pub fn parse_var_declaration(
     tokens: &[Token],
     position: &mut usize,
-    value: &str,
+    var_keyword: &str,
     symbol_table: &SymbolTable,
 ) -> Result<Declaration, ParsingError> {
     *position += 1;
 
-    let is_mutable = value == "mut";
+    let is_mutable = var_keyword == "mut";
 
     // Expect an identifier token (variable name)
     if let Some(Token {
@@ -72,32 +73,17 @@ pub fn parse_var_declaration(
                     },
                 };
 
-                // Check if the expression type matches the declared variable type
-                match &expression {
-                    Expression::Variable(var_name) => {
-                        if let Some(t) = type_from_expression(&expression, symbol_table) {
-                            if var_type != t {
-                                return Err(ParsingError::AssignedTypeNotFound {
-                                    assigned_t: var_type,
-                                    found_t: t,
-                                });
-                            }
-                        } else {
-                            return Err(ParsingError::UseOfUndefinedVariable {
-                                name: var_name.to_string(),
-                            });
-                        }
-                    }
-                    _ => {
-                        if let Some(t) = type_from_expression(&expression, symbol_table) {
-                            if var_type != t {
-                                return Err(ParsingError::AssignedTypeNotFound {
-                                    assigned_t: var_type,
-                                    found_t: t,
-                                });
-                            }
-                        }
-                    }
+                let t = if expression.to_string() == "null" {
+                    var_type.to_owned()
+                } else {
+                    type_from_expression(&expression, symbol_table)?
+                };
+
+                if var_type != t {
+                    return Err(ParsingError::AssignedTypeNotFound {
+                        assigned_t: var_type,
+                        found_t: t,
+                    });
                 }
 
                 return Ok(Declaration {
@@ -152,38 +138,19 @@ pub fn parse_var_declaration(
             };
 
             match &expression {
-                Expression::Variable(var_name) => {
-                    // If the expression is a variable, check if it's already declared in the symbol table
-                    if let Some(_) = type_from_expression(&expression, symbol_table) {
-                        return Ok(Declaration {
-                            name: name.to_string(),
-                            is_mutable,
-                            value: Expression::Variable(var_name.to_string()),
-                            ..symbol_table.get_variable(&var_name).unwrap()
-                        });
-                    } else {
-                        return Err(ParsingError::UseOfUndefinedVariable {
-                            name: var_name.to_string(),
-                        });
-                    }
-                }
                 Expression::Null => {
                     return Err(ParsingError::UnknownVariableType {
                         var_name: name.to_string(),
                     })
                 }
                 _ => {
-                    // For non-variable expressions, get the type from the expression and create the declaration.
-                    if let Some(var_type) = type_from_expression(&expression, symbol_table) {
-                        return Ok(Declaration {
-                            name: name.to_string(),
-                            var_type,
-                            value: expression,
-                            is_mutable,
-                        });
-                    } else {
-                        return Err(type_expression_error(&expression, symbol_table, None).unwrap());
-                    }
+                    let var_type = type_from_expression(&expression, symbol_table)?;
+                    return Ok(Declaration {
+                        name: name.to_string(),
+                        var_type,
+                        value: expression,
+                        is_mutable,
+                    });
                 }
             }
         } else {
@@ -199,10 +166,15 @@ pub fn parse_var_declaration(
             });
         }
     } else {
-        // If no identifier is found, it's an error.
-        return Err(ParsingError::ExpectedVarInitialization {
-            var_value: value.to_string(),
-        });
+        if let Some(Token { value, .. }) = tokens.get(*position) {
+            // If no identifier is found, it's an error.
+            return Err(ParsingError::ExpectedVarInitialization {
+                var_value: var_keyword.to_string(),
+                found: value.to_string(),
+            });
+        } else {
+            return Err(ParsingError::UnexpectedEndOfInput);
+        }
     }
 }
 
@@ -272,28 +244,22 @@ pub fn parse_var_reassignment(
 
             // Check if the expression type matches the declared variable type
             match &expression {
-                Expression::Variable(var_name) => {
-                    if let Some(t) = type_from_expression(&expression, symbol_table) {
-                        if var_type != t {
-                            return Err(ParsingError::AssignedTypeNotFound {
-                                assigned_t: var_type,
-                                found_t: t,
-                            });
-                        }
-                    } else {
-                        return Err(ParsingError::UseOfUndefinedVariable {
-                            name: var_name.to_string(),
+                Expression::Variable(_) => {
+                    let t = type_from_expression(&expression, symbol_table)?;
+                    if var_type != t {
+                        return Err(ParsingError::AssignedTypeNotFound {
+                            assigned_t: var_type,
+                            found_t: t,
                         });
                     }
                 }
                 _ => {
-                    if let Some(t) = type_from_expression(&expression, symbol_table) {
-                        if var_type != t {
-                            return Err(ParsingError::AssignedTypeNotFound {
-                                assigned_t: var_type,
-                                found_t: t,
-                            });
-                        }
+                    let t = type_from_expression(&expression, symbol_table)?;
+                    if var_type != t {
+                        return Err(ParsingError::AssignedTypeNotFound {
+                            assigned_t: var_type,
+                            found_t: t,
+                        });
                     }
                 }
             }
@@ -348,60 +314,35 @@ pub fn parse_var_reassignment(
         match &expression {
             Expression::Variable(var_name) => {
                 // If the expression is a variable, check if it's already declared in the symbol table
-                if let Some(var_type) = type_from_expression(&expression, symbol_table) {
-                    if var_type != initial_var.var_type {
-                        return Err(ParsingError::CannotChangeAssignedType {
-                            assigned_t: initial_var.var_type,
-                            found_t: var_type,
-                            var_name: name.to_string(),
-                            at: format!("{} {operator} {}", name, after_operator_expr),
-                        });
-                    }
-                    return Ok(Reassignment {
-                        value: Expression::Variable(var_name.to_string()),
-                        name: initial_var.name,
-                    });
-                } else {
-                    return Err(ParsingError::UseOfUndefinedVariable {
-                        name: var_name.to_string(),
+                let var_type = type_from_expression(&expression, symbol_table)?;
+                if var_type != initial_var.var_type {
+                    return Err(ParsingError::CannotChangeAssignedType {
+                        assigned_t: initial_var.var_type,
+                        found_t: var_type,
+                        var_name: name.to_string(),
+                        at: format!("{} {operator} {}", name, after_operator_expr),
                     });
                 }
+                return Ok(Reassignment {
+                    value: Expression::Variable(var_name.to_string()),
+                    name: initial_var.name,
+                });
             }
             expression => {
-                if let Some(var_type) = type_from_expression(&expression, symbol_table) {
-                    if var_type != initial_var.var_type {
-                        return Err(ParsingError::CannotChangeAssignedType {
-                            assigned_t: initial_var.var_type,
-                            found_t: var_type,
-                            var_name: name.to_string(),
-                            at: format!("{} {operator} {}", name, after_operator_expr),
-                        });
-                    }
-
-                    return Ok(Reassignment {
-                        value: expression.clone(),
-                        name: initial_var.name,
+                let var_type = type_from_expression(&expression, symbol_table)?;
+                if var_type != initial_var.var_type {
+                    return Err(ParsingError::CannotChangeAssignedType {
+                        assigned_t: initial_var.var_type,
+                        found_t: var_type,
+                        var_name: name.to_string(),
+                        at: format!("{} {operator} {}", name, after_operator_expr),
                     });
-                } else {
-                    return Err(type_expression_error(
-                        &after_operator_expr,
-                        symbol_table,
-                        Some(format!("{} {operator} {}", name, after_operator_expr)),
-                    )
-                    .unwrap_or_else(|| {
-                        type_expression_error(
-                            expression,
-                            symbol_table,
-                            Some(format!(
-                                "{}: {} {operator} {}",
-                                name,
-                                initial_var.var_type.as_assignment(),
-                                after_operator_expr
-                            )),
-                        )
-                        .unwrap()
-                    }));
                 }
+
+                return Ok(Reassignment {
+                    value: expression.clone(),
+                    name: initial_var.name,
+                });
             }
         }
     } else {
@@ -409,54 +350,5 @@ pub fn parse_var_reassignment(
         return Err(ParsingError::UnknownVariableType {
             var_name: name.to_string(),
         });
-    }
-}
-
-fn type_expression_error(
-    expr: &Expression,
-    symbol_table: &SymbolTable,
-    error_expr: Option<String>,
-) -> Option<ParsingError> {
-    // we assume there is an error
-    // only for a type error when assigning/reassigning value to a variable
-    // and expression is a binary operation
-
-    match expr.clone() {
-        Expression::BinaryOperation { left, .. } => {
-            let mut final_expr: Box<Expression> = left;
-            let mut not_left: bool = false;
-
-            while let Some(_) = type_from_expression(&final_expr, symbol_table) {
-                final_expr = if not_left {
-                    match *final_expr {
-                        Expression::BinaryOperation { right, .. } => Box::new(*right.clone()),
-                        _ => return None,
-                    }
-                } else {
-                    match *final_expr {
-                        Expression::BinaryOperation { left, .. } => Box::new(*left.clone()),
-                        _ => {
-                            not_left = true;
-                            Box::new(expr.clone())
-                        }
-                    }
-                }
-            }
-
-            match *final_expr.clone() {
-                Expression::BinaryOperation {
-                    left,
-                    operator,
-                    right,
-                } => Some(ParsingError::CannotOperationTypeWithType {
-                    expr: error_expr.unwrap_or((*final_expr).to_string()),
-                    first_type: type_from_expression(&left, symbol_table).unwrap(),
-                    second_type: type_from_expression(&right, symbol_table).unwrap(),
-                    operator: operator.operator_as_verb(),
-                }),
-                _ => None,
-            }
-        }
-        _ => None,
     }
 }

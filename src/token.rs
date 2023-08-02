@@ -7,7 +7,7 @@ mod line;
 pub enum TokenType {
     Var,
 
-    Identifier,
+    Identifier, // variables and also object props
     Number,
 
     String,
@@ -45,6 +45,7 @@ pub enum TokenType {
     In,
 
     Range,
+    FunctionArrow,
 
     Colon,
     TypeNumber,
@@ -76,6 +77,18 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
             ' ' | '\t' => (),
             '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
             ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
+            '.' => match character {
+                _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8)) => {
+                    position += 1;
+                    tokens.push(token("..".to_string(), TokenType::Range));
+                }
+                _ => {
+                    return Err(SyntaxError::UnexpectedToken {
+                        token: ".".to_string(),
+                        line: get_line(position, source_code),
+                    })
+                }
+            },
             '*' => {
                 let operator_lexeme = match character {
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8))
@@ -216,7 +229,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 } else if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push(token(equal_lexeme, TokenType::Range));
+                    tokens.push(token(equal_lexeme, TokenType::FunctionArrow));
                 } else {
                     tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
                 }
@@ -244,6 +257,12 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     }
                 }
 
+                if number_lexeme.ends_with(".") {
+                    return Err(SyntaxError::InvalidNumber {
+                        line: get_line(position, source_code),
+                        at: number_lexeme.clone(),
+                    });
+                }
                 tokens.push(token(number_lexeme, TokenType::Number));
             }
             '/' => {
@@ -437,6 +456,12 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     "vec" => TokenType::TypeVec,
                     "dict" => TokenType::TypeDict,
                     "and" | "or" => TokenType::LogicalOperator,
+                    "let" => return Err(SyntaxError::ExpectedMutNotLet),
+                    val if value_lexeme.ends_with('.') => {
+                        return Err(SyntaxError::ExpectingSomethingAfterDot {
+                            id: val.to_string(),
+                        })
+                    }
                     _ => TokenType::Identifier,
                 };
 

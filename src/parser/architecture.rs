@@ -1,16 +1,38 @@
 use crate::token::{tokenize, Token};
 
-use super::{expression::parse_expression, ParsingError};
+use super::{expression::parse_expression, types::type_from_expression, ParsingError, TypeError};
 use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
-    Program(Vec<Statement>),
+    Program(Program),
     VariableDeclaration(Declaration),
     VariableReassignment(Reassignment),
+
     FunctionDeclaration(Function),
+    // corresponds to both {} and => functions
     ClassDeclaration(Class),
     Expression(Expression),
+
+    Return(Expression),
+}
+
+#[derive(Debug, Clone)]
+pub struct Program {
+    pub statements: Vec<Statement>,
+    pub symbol_table: SymbolTable,
+}
+
+pub fn program(
+    Program {
+        statements,
+        symbol_table,
+    }: Program,
+) -> ASTNode {
+    ASTNode::Program(Program {
+        statements,
+        symbol_table,
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +52,11 @@ pub fn reassignment(reassignement: Reassignment) -> Statement {
 pub fn function(f: Function) -> Statement {
     Statement {
         node: ASTNode::FunctionDeclaration(f),
+    }
+}
+pub fn return_statement(expr: Expression) -> Statement {
+    Statement {
+        node: ASTNode::Return(expr),
     }
 }
 
@@ -314,6 +341,7 @@ impl fmt::Display for VariableType {
         }
     }
 }
+
 impl VariableType {
     pub fn as_assignment(&self) -> &str {
         match self {
@@ -332,6 +360,52 @@ impl VariableType {
             "vec" => Some(VariableType::Vector),
             "dict" => Some(VariableType::Dictionary),
             _ => None,
+        }
+    }
+    pub fn is_assignment_type(input: &str) -> bool {
+        match input {
+            "str" | "num" | "bool" | "vec" | "dict" => true,
+            _ => false,
+        }
+    }
+    pub fn contains_assignment_type(input: &Expression) -> Option<VariableType> {
+        match input {
+            Expression::Variable(v) => {
+                if VariableType::is_assignment_type(v) {
+                    return Some(VariableType::from_assignment(v).unwrap());
+                }
+                None
+            }
+            Expression::Number(_) => None,
+            Expression::String(_) => None,
+            Expression::Boolean(_) => None,
+            Expression::Null => None,
+            Expression::ArrayExpression(v) => {
+                for el in v {
+                    if let Some(t) = VariableType::contains_assignment_type(el) {
+                        return Some(t);
+                    }
+                }
+                None
+            }
+            Expression::DictionaryExpression(h) => {
+                for (_, v) in h.iter() {
+                    if let Some(t) = VariableType::contains_assignment_type(v) {
+                        return Some(t);
+                    }
+                }
+                None
+            }
+            Expression::BinaryOperation { left, right, .. } => {
+                if let Some(x) = VariableType::contains_assignment_type(left) {
+                    return Some(x);
+                }
+                if let Some(x) = VariableType::contains_assignment_type(right) {
+                    return Some(x);
+                }
+                None
+            }
+            Expression::FormattedString(_) => None,
         }
     }
 }
@@ -372,8 +446,65 @@ impl SymbolTable {
         );
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<Declaration> {
-        self.variables.get(name).cloned()
+    pub fn get_variable(&self, name: &str) -> Result<Declaration, TypeError> {
+        let name_vec: Vec<&str> = name.split('.').collect();
+
+        if name_vec.len() == 1 {
+            return self
+                .variables
+                .get(name)
+                .map(|declaration| declaration.clone())
+                .ok_or_else(|| TypeError::CannotDetermineVarType {
+                    name: name.to_string(),
+                });
+        }
+
+        let mut var = self
+            .variables
+            .get(name_vec[0])
+            .map(|declaration| declaration.value.clone())
+            .ok_or_else(|| TypeError::CannotDetermineVarType {
+                name: name.to_string(),
+            })?;
+
+        for (i, prop) in name_vec.iter().skip(1).enumerate() {
+            match var {
+                Expression::DictionaryExpression(expr) => {
+                    if let Some(e) = expr.get(*prop) {
+                        match e {
+                            Expression::Variable(name) => {
+                                var = self.get_variable(&name)?.value;
+                                continue;
+                            }
+                            _ => {
+                                var = e.to_owned();
+                                continue;
+                            }
+                        }
+                    } else {
+                        return Err(TypeError::CannotDetermineObjPropTypeNotDefined {
+                            obj_name: name_vec[0..=i].join("."),
+                            prop: name_vec[0..=i + 1].join("."),
+                        });
+                    }
+                }
+                expr => {
+                    println!("exprrrr: {:?}", expr);
+
+                    var = expr.to_owned();
+                    continue;
+                }
+            }
+        }
+
+        let var_type = type_from_expression(&var, &self)?;
+
+        Ok(Declaration {
+            name: name_vec.last().unwrap().to_string(),
+            var_type,
+            value: var,
+            is_mutable: true,
+        })
     }
     pub fn get_function(&self, name: &str) -> Option<MainFunctionData> {
         self.functions.get(name).cloned()

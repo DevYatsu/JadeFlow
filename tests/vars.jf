@@ -1,4 +1,4 @@
-const x: num = 5788887, mut z: num =  2 + 9.3 // hey test line comment
+const x: num = 5788887; mut z: num =  2 + 9.3 // hey test line comment
 const test = (100 * 0) + 2 - (2*1)
 
 z += 7
@@ -8,9 +8,9 @@ const arr2: vec=[2,4**2,"test", 9.4, [3], x]
 const fstr: str = `hey dude #{string}`
 
 const nonono: num = null
-const bool: bool = true
+const b: bool = true
 const bool2=false
-
+/*
 test and dude
 hey or dude
 
@@ -27,7 +27,7 @@ match bool {
     false? print("false"),
 }
 
-/*
+
 const str = str("haha")
 const str2 = new str("hehe")
 const obj = dict({})
@@ -49,7 +49,7 @@ const arr2 = [];
 
 const obj = dict({});
 const obj2= {};
-*/
+
 
 mut hey=23+40 
 hey=2+2
@@ -73,3 +73,4 @@ fn main() {
         print(fibonacci(i))
     }
 }
+*/

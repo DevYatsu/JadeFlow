@@ -2,6 +2,8 @@ mod architecture;
 mod dictionary;
 mod expression;
 mod functions;
+mod returns;
+mod types;
 mod vars;
 mod vectors;
 
@@ -9,25 +11,29 @@ use std::io::Error;
 
 use custom_error::custom_error;
 
-use crate::token::{Token, TokenType};
+use crate::{
+    parser::architecture::{program, Program},
+    token::{Token, TokenType},
+};
 
 use self::{
     architecture::{
-        reassignment, variable, ASTNode, BinaryOperator, Expression, Statement, SymbolTable,
-        VariableType,
+        reassignment, variable, ASTNode, Expression, Statement, SymbolTable, VariableType,
     },
     functions::{parse_fn_declaration, FunctionParsingError},
+    returns::parse_return_statement,
+    types::TypeError,
     vars::{parse_var_declaration, parse_var_reassignment},
 };
 
 custom_error! {pub ParsingError
     Io{source: Error} = "{source}",
+    ParsingTypyError{source: TypeError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
     Default = "Failed to parse tokens",
     UnexpectedEndOfInput = "No more token left to parse",
-    ExpectedVarInitialization{var_value: String} = "Expected identifier after \"{var_value}\"",
+    ExpectedVarInitialization{var_value: String, found: String} = "Expected identifier after \"{var_value}\", found '{found}'",
     ExpectedReassignment{var_name: String} = "Expected assignment of new value to \"{var_name}\"",
-    ExpectedType{value: String} = "Expected valid type after \"{value}\"",
     UnknownVariableType{var_name: String} = "Impossible to guess {var_name} type",
     CannotReassignIfNotAssigned{operator: String, var_name: String} = "Must first assign value to \"{var_name}\" with '=' before using '{operator}'",
     CannotReassignConst{var_name: String} = "Cannot reassign \"{var_name}\" as it is a 'const'",
@@ -45,7 +51,6 @@ custom_error! {pub ParsingError
     UnexpectedToken{expected: String, found: String} = "Expected '{expected}', found '{found}'",
     CannotReassignVar{name: String} = "Cannot reassign \"{name}\" as it is not defined",
     CannotChangeAssignedType{assigned_t: VariableType, found_t: VariableType, var_name: String, at: String} = "Expected type '{assigned_t}', found '{found_t}' for '{var_name}' at: {at}",
-    CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}",
 
     ExpectedIdentifier{after: String} = "Expected identifier after: '{after}'",
     MissingInitializer{keyword: String, name: String} = "Missing initializer for {keyword} {name}",
@@ -53,7 +58,9 @@ custom_error! {pub ParsingError
     IncompleteReassagnment{keyword: String, name: String} = "Incomplete reassignment: {keyword} {name} requires a value assignment",
 
     ExpectedSomething = "Expected a value, found nothing",
-    ExpectedValidExpressionInFormattedString = "Expected a valid expression in formatted string argument"
+    ExpectedValidExpressionInFormattedString = "Expected a valid expression in formatted string argument",
+
+    TypeInvalidExpressionElement{expr: Expression} = "Cannot use a type as an expression value: {expr}"
 }
 
 // add support for formatted string, and errors when we expect a token and it is not present
@@ -62,6 +69,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     let mut position = 0;
     let mut statements = Vec::new();
     let mut symbol_table = SymbolTable::new();
+    println!("sss {:?}", symbol_table);
 
     while position < tokens.len() {
         if let Some(Token { token_type, .. }) = tokens.get(position) {
@@ -72,7 +80,8 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                     && (token_type != &TokenType::While)
                     && (token_type != &TokenType::Match)
                     && (token_type != &TokenType::Class)
-                    && (token_type != &TokenType::Identifier))
+                    && (token_type != &TokenType::Identifier)
+                    && (token_type != &TokenType::Return))
             {
                 position += 1;
                 continue;
@@ -80,8 +89,9 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
         }
 
         let statement = parse_statement(tokens, &mut position, &mut symbol_table)?;
-        println!("{:?}", statement);
+
         statements.push(statement);
+        println!("{:?}", symbol_table);
 
         if let Some(Token { token_type, .. }) = tokens.get(position) {
             if token_type == &TokenType::Separator {
@@ -154,7 +164,10 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     }
 
     println!("symbol {:?}", symbol_table);
-    Ok(ASTNode::Program(statements))
+    Ok(program(Program {
+        statements,
+        symbol_table,
+    }))
 }
 
 fn parse_statement(
@@ -186,6 +199,8 @@ fn parse_statement(
         value,
     }) = tokens.get(*position)
     {
+        // in the case there is an expression in the middle of the code, that is alone
+        // should handle this case in the parse fn instead
         if let Some(next_token) = tokens.get(*position + 1) {
             if !(next_token.token_type == TokenType::Colon
                 || next_token.token_type == TokenType::AssignmentOperator)
@@ -203,22 +218,17 @@ fn parse_statement(
             }
         }
 
-        if let Some(var) = symbol_table.get_variable(value) {
-            if !var.is_mutable {
-                return Err(ParsingError::CannotReassignConst {
-                    var_name: value.to_string(),
-                });
-            }
-
-            let assignment = parse_var_reassignment(tokens, position, value, symbol_table)?;
-            symbol_table.reassign_variable(assignment.clone());
-
-            return Ok(reassignment(assignment));
-        } else {
-            return Err(ParsingError::CannotReassignVar {
-                name: value.to_string(),
+        let var = symbol_table.get_variable(value)?;
+        if !var.is_mutable {
+            return Err(ParsingError::CannotReassignConst {
+                var_name: value.to_string(),
             });
         }
+
+        let assignment = parse_var_reassignment(tokens, position, value, symbol_table)?;
+        symbol_table.reassign_variable(assignment.clone());
+
+        return Ok(reassignment(assignment));
     }
 
     if let Some(Token {
@@ -229,112 +239,17 @@ fn parse_statement(
         return Ok(parse_fn_declaration(tokens, position, symbol_table)?);
     }
 
+    if let Some(Token {
+        token_type: TokenType::Return,
+        ..
+    }) = tokens.get(*position)
+    {
+        return Ok(parse_return_statement(tokens, position, symbol_table)?);
+    }
+
     Ok(Statement {
         node: ASTNode::Expression(Expression::Null),
     })
-}
-
-fn type_from_expression(expr: &Expression, symbol_table: &SymbolTable) -> Option<VariableType> {
-    match expr {
-        Expression::Number(_) => Some(VariableType::Number),
-        Expression::String(_) => Some(VariableType::String),
-        Expression::ArrayExpression(_) => Some(VariableType::Vector),
-        Expression::FormattedString(_) => Some(VariableType::String),
-        Expression::Boolean(_) => Some(VariableType::Boolean),
-        Expression::Null => None,
-        Expression::DictionaryExpression(_) => Some(VariableType::Dictionary),
-        Expression::Variable(var_name) => {
-            symbol_table.get_variable(var_name).map(|var| var.var_type)
-        }
-        Expression::BinaryOperation {
-            left,
-            operator,
-            right,
-        } => {
-            let left_type = type_from_expression(left, symbol_table);
-            let right_type = type_from_expression(right, symbol_table);
-
-            match operator {
-                BinaryOperator::Plus => {
-                    match (left_type, right_type) {
-                        (Some(VariableType::Vector), _) => Some(VariableType::Vector),
-                        (_, Some(VariableType::Vector)) => Some(VariableType::Vector),
-
-                        (Some(VariableType::Boolean), Some(VariableType::Boolean)) => {
-                            Some(VariableType::Boolean)
-                        }
-
-                        (Some(VariableType::Dictionary), Some(VariableType::Dictionary)) => {
-                            Some(VariableType::Dictionary)
-                        }
-
-                        (Some(VariableType::String), Some(VariableType::String)) => {
-                            Some(VariableType::String)
-                        }
-                        (Some(VariableType::Number), Some(VariableType::Number)) => {
-                            Some(VariableType::Number)
-                        }
-                        _ => None, // Invalid binary operation, return None for other cases.
-                    }
-                }
-                _ => {
-                    match (left_type, right_type) {
-                        (Some(VariableType::Number), Some(VariableType::Number)) => {
-                            Some(VariableType::Number)
-                        }
-                        _ => None,
-                        // return None for every other operation cause we can only use these operations on numbers
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn parse_type(tokens: &[Token], position: &mut usize) -> Result<VariableType, ParsingError> {
-    // fn to use after encountering ':'
-    if let Some(Token {
-        token_type: TokenType::TypeBool,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-        Ok(VariableType::Boolean)
-    } else if let Some(Token {
-        token_type: TokenType::TypeDict,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-        Ok(VariableType::Dictionary)
-    } else if let Some(Token {
-        token_type: TokenType::TypeNumber,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-        Ok(VariableType::Number)
-    } else if let Some(Token {
-        token_type: TokenType::TypeString,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-        Ok(VariableType::String)
-    } else if let Some(Token {
-        token_type: TokenType::TypeVec,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-        Ok(VariableType::Vector)
-    } else if let Some(Token { value, .. }) = tokens.get(*position) {
-        return Err(ParsingError::ExpectedType {
-            value: value.to_string(),
-        });
-    } else {
-        return Err(ParsingError::UnexpectedEndOfInput);
-    }
 }
 
 pub fn ignore_whitespace(tokens: &[Token], position: &mut usize) {

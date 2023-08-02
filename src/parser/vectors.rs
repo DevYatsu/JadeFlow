@@ -39,11 +39,7 @@ fn check_and_insert_expression(
 ) -> Result<(), ParsingError> {
     match expression {
         Expression::Variable(name) => {
-            if symbol_table.get_variable(name).is_none() {
-                return Err(ParsingError::UseOfUndefinedVariable {
-                    name: name.to_string(),
-                });
-            }
+            symbol_table.get_variable(name)?; // error if var not defined
         }
         _ => (),
     }

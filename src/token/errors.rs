@@ -15,5 +15,8 @@ custom_error! {pub SyntaxError
     Comment{line:usize, message:String} = "Syntax Error: {message} [at line: {line}]",
     InvalidArray{line:usize, at:String} = "Syntax Error: Invalid Array '{at}' [at line: {line}]",
     NonAlphabeticCharacter = "Character must be alphabetic",
-    UnclosedString = "Unclosed string literal"
+    UnclosedString = "Unclosed string literal",
+    ExpectedMutNotLet = "Invalid token 'let'. Did you mean 'mut' ?",
+    ExpectingSomethingAfterDot{id: String} = "Expected something after '.' at \"{id}\"",
+    UnexpectedToken{token: String, line: usize} = "Unexpected token '{token}' at line {line}"
 }
