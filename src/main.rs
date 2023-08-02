@@ -2,7 +2,7 @@ mod parser;
 mod select_test;
 mod token;
 
-use std::{fs, time::Instant};
+use std::{collections::VecDeque, fs, time::Instant};
 
 use token::Token;
 
@@ -30,7 +30,7 @@ fn main() {
 
     let start = Instant::now();
     let mut tokens: Vec<Token> = match tokenize(&contents) {
-        Ok(t) => t,
+        Ok(t) => t.into(),
         Err(e) => {
             println!("ERROR: {}", e.to_string());
             return;
@@ -57,9 +57,10 @@ fn main() {
 
     match program {
         ASTNode::Program(p) => {
-            for s in p.statements {
+            for s in &p.statements {
                 println!("{:?}", s);
             }
+            println!("statements number: {}", p.statements.len());
         }
         _ => unreachable!(),
     }

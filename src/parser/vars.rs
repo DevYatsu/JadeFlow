@@ -20,176 +20,24 @@ pub fn parse_var_declaration(
 
     let is_mutable = var_keyword == "mut";
 
-    // Expect an identifier token (variable name)
-    if let Some(Token {
-        token_type: TokenType::Identifier,
-        value,
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-        let name = value;
-
-        // Check if the next token is a colon (':')
-        if let Some(Token {
-            token_type: TokenType::Colon,
-            ..
-        }) = tokens.get(*position)
-        {
-            *position += 1;
-            let var_type = parse_type(tokens, position)?;
-
-            // Check if the next token is an assignment operator ('=')
-            if let Some(Token {
-                token_type: TokenType::AssignmentOperator,
-                value,
-            }) = tokens.get(*position)
-            {
-                // Ensure the assignment operator is '='
-                if value != "=" {
-                    return Err(ParsingError::CannotReassignIfNotAssigned {
-                        operator: value.to_string(),
-                        var_name: name.to_string(),
-                    });
-                }
-
-                *position += 1;
-
-                // Parse the expression following the assignment operator
-                let expression = match parse_expression(tokens, position, symbol_table) {
-                    Ok(r) => r,
-                    Err(e) => match e {
-                        ParsingError::ExpectedSomething => {
-                            let keyword = if is_mutable {
-                                "mut".to_string()
-                            } else {
-                                "const".to_string()
-                            };
-                            return Err(ParsingError::IncompleteDeclaration {
-                                keyword,
-                                name: name.to_string(),
-                            });
-                        }
-                        _ => return Err(e),
-                    },
-                };
-
-                let t = if expression.to_string() == "null" {
-                    var_type.to_owned()
-                } else {
-                    type_from_expression(&expression, symbol_table)?
-                };
-
-                if var_type != t {
-                    return Err(ParsingError::AssignedTypeNotFound {
-                        assigned_t: var_type,
-                        found_t: t,
-                    });
-                }
-
-                return Ok(Declaration {
-                    name: name.to_string(),
-                    var_type,
-                    value: expression,
-                    is_mutable,
-                });
-            } else {
-                let keyword = if is_mutable {
-                    "mut".to_string()
-                } else {
-                    "const".to_string()
-                };
-                return Err(ParsingError::MissingInitializer {
-                    keyword,
-                    name: name.to_string(),
-                });
-            }
-        } else if let Some(Token {
-            token_type: TokenType::AssignmentOperator,
-            value,
-        }) = tokens.get(*position)
-        {
-            // If there is an assignment operator without a preceding colon, it's an error.
-            if value != "=" {
-                return Err(ParsingError::CannotReassignIfNotAssigned {
-                    operator: value.to_string(),
-                    var_name: name.to_string(),
-                });
-            }
-
-            *position += 1;
-
-            // Parse the expression following the assignment operator
-            let expression = match parse_expression(tokens, position, symbol_table) {
-                Ok(r) => r,
-                Err(e) => match e {
-                    ParsingError::ExpectedSomething => {
-                        let keyword = if is_mutable {
-                            "mut".to_string()
-                        } else {
-                            "const".to_string()
-                        };
-                        return Err(ParsingError::IncompleteDeclaration {
-                            keyword,
-                            name: name.to_string(),
-                        });
-                    }
-                    _ => return Err(e),
-                },
-            };
-
-            match &expression {
-                Expression::Null => {
-                    return Err(ParsingError::UnknownVariableType {
-                        var_name: name.to_string(),
-                    })
-                }
-                _ => {
-                    let var_type = type_from_expression(&expression, symbol_table)?;
-                    return Ok(Declaration {
-                        name: name.to_string(),
-                        var_type,
-                        value: expression,
-                        is_mutable,
-                    });
-                }
-            }
-        } else {
-            // If there's no colon or assignment operator, it's an error.
-            let keyword = if is_mutable {
-                "mut".to_string()
-            } else {
-                "const".to_string()
-            };
-            return Err(ParsingError::MissingInitializer {
-                keyword,
-                name: name.to_string(),
-            });
-        }
-    } else {
-        if let Some(Token { value, .. }) = tokens.get(*position) {
-            // If no identifier is found, it's an error.
-            return Err(ParsingError::ExpectedVarInitialization {
-                var_value: var_keyword.to_string(),
-                found: value.to_string(),
-            });
-        } else {
-            return Err(ParsingError::UnexpectedEndOfInput);
-        }
+    if tokens.get(*position).is_none() {
+        return Err(ParsingError::UnexpectedEndOfInput);
     }
-}
 
-// prevent concatenation of objects {} + 2 but allow it for vectors
+    // Expect an identifier token (variable name)
+    let name = tokens.get(*position).map_or_else(
+        || Err(ParsingError::UnexpectedEndOfInput),
+        |token| match &token.token_type {
+            TokenType::Identifier => Ok(token.value.clone()),
+            _ => Err(ParsingError::ExpectedVarInitialization {
+                var_value: var_keyword.to_owned(),
+                found: token.value.clone(),
+            }),
+        },
+    )?;
 
-pub fn parse_var_reassignment(
-    tokens: &[Token],
-    position: &mut usize,
-    name: &str,
-    symbol_table: &SymbolTable,
-) -> Result<Reassignment, ParsingError> {
     *position += 1;
-    let initial_var = symbol_table.get_variable(name).unwrap();
 
-    // Check if the next token is a colon (':')
     if let Some(Token {
         token_type: TokenType::Colon,
         ..
@@ -203,83 +51,43 @@ pub fn parse_var_reassignment(
             value,
         }) = tokens.get(*position)
         {
-            let operator = value;
-            *position += 1;
-
-            let after_assignment_expression = match parse_expression(tokens, position, symbol_table)
-            {
-                Ok(r) => r,
-                Err(e) => match e {
-                    ParsingError::ExpectedSomething => {
-                        let keyword = if initial_var.is_mutable {
-                            "mut".to_string()
-                        } else {
-                            "const".to_string()
-                        };
-                        return Err(ParsingError::IncompleteReassagnment {
-                            keyword,
-                            name: name.to_string(),
-                        });
-                    }
-                    _ => return Err(e),
-                },
-            };
-
-            if var_type != initial_var.var_type {
-                return Err(ParsingError::CannotChangeAssignedType {
-                    assigned_t: initial_var.var_type,
-                    at: format!(
-                        "{}: {} {operator} {}",
-                        name,
-                        var_type.to_string(),
-                        after_assignment_expression
-                    ),
-                    found_t: var_type,
-                    var_name: name.to_string(),
+            if value != "=" {
+                return Err(ParsingError::CannotReassignIfNotAssigned {
+                    operator: value.to_owned(),
+                    var_name: name,
                 });
             }
 
-            // Parse the expression following the assignment operator
-            let expression = parse_with_operator(operator, after_assignment_expression, name);
+            *position += 1;
+            let expression = parse_expression(tokens, position, symbol_table)?;
 
-            // Check if the expression type matches the declared variable type
-            match &expression {
-                Expression::Variable(_) => {
-                    let t = type_from_expression(&expression, symbol_table)?;
-                    if var_type != t {
-                        return Err(ParsingError::AssignedTypeNotFound {
-                            assigned_t: var_type,
-                            found_t: t,
-                        });
-                    }
-                }
-                _ => {
-                    let t = type_from_expression(&expression, symbol_table)?;
-                    if var_type != t {
-                        return Err(ParsingError::AssignedTypeNotFound {
-                            assigned_t: var_type,
-                            found_t: t,
-                        });
-                    }
-                }
+            if let Expression::Null = &expression {
+                return Ok(Declaration {
+                    name,
+                    var_type,
+                    value: expression,
+                    is_mutable,
+                });
             }
 
-            return Ok(Reassignment {
+            let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
+            if var_type != var_type_from_expression {
+                return Err(ParsingError::AssignedTypeNotFound {
+                    assigned_t: var_type,
+                    found_t: var_type_from_expression,
+                });
+            }
+
+            return Ok(Declaration {
+                name,
+                var_type,
                 value: expression,
-                name: initial_var.name,
+                is_mutable,
             });
         } else {
-            if var_type != initial_var.var_type {
-                return Err(ParsingError::CannotChangeAssignedType {
-                    assigned_t: initial_var.var_type,
-                    at: format!("{}: {}", name, var_type.to_string()),
-                    found_t: var_type,
-                    var_name: name.to_string(),
-                });
-            }
-
-            return Err(ParsingError::ExpectedReassignment {
-                var_name: name.to_string(),
+            return Err(ParsingError::MissingInitializer {
+                keyword: if is_mutable { "mut" } else { "const" }.to_owned(),
+                name,
             });
         }
     } else if let Some(Token {
@@ -287,68 +95,91 @@ pub fn parse_var_reassignment(
         value,
     }) = tokens.get(*position)
     {
+        // If there is an assignment operator without a preceding colon, it's an error.
+        if value != "=" {
+            return Err(ParsingError::CannotReassignIfNotAssigned {
+                operator: value.to_owned(),
+                var_name: name,
+            });
+        }
+
         *position += 1;
-        let operator = value;
-
-        let after_operator_expr = match parse_expression(tokens, position, symbol_table) {
-            Ok(r) => r,
-            Err(e) => match e {
-                ParsingError::ExpectedSomething => {
-                    let keyword = if initial_var.is_mutable {
-                        "mut".to_string()
-                    } else {
-                        "const".to_string()
-                    };
-                    return Err(ParsingError::IncompleteReassagnment {
-                        keyword,
-                        name: name.to_string(),
-                    });
-                }
-                _ => return Err(e),
-            },
-        };
-
-        // Parse the expression following the assignment operator
-        let expression = parse_with_operator(operator, after_operator_expr.clone(), name);
+        let expression = parse_expression(tokens, position, symbol_table)?;
 
         match &expression {
-            Expression::Variable(var_name) => {
-                // If the expression is a variable, check if it's already declared in the symbol table
+            Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
+            _ => {
                 let var_type = type_from_expression(&expression, symbol_table)?;
-                if var_type != initial_var.var_type {
-                    return Err(ParsingError::CannotChangeAssignedType {
-                        assigned_t: initial_var.var_type,
-                        found_t: var_type,
-                        var_name: name.to_string(),
-                        at: format!("{} {operator} {}", name, after_operator_expr),
-                    });
-                }
-                return Ok(Reassignment {
-                    value: Expression::Variable(var_name.to_string()),
-                    name: initial_var.name,
-                });
-            }
-            expression => {
-                let var_type = type_from_expression(&expression, symbol_table)?;
-                if var_type != initial_var.var_type {
-                    return Err(ParsingError::CannotChangeAssignedType {
-                        assigned_t: initial_var.var_type,
-                        found_t: var_type,
-                        var_name: name.to_string(),
-                        at: format!("{} {operator} {}", name, after_operator_expr),
-                    });
-                }
-
-                return Ok(Reassignment {
-                    value: expression.clone(),
-                    name: initial_var.name,
+                return Ok(Declaration {
+                    name,
+                    var_type,
+                    value: expression,
+                    is_mutable,
                 });
             }
         }
     } else {
         // If there's no colon or assignment operator, it's an error.
-        return Err(ParsingError::UnknownVariableType {
-            var_name: name.to_string(),
+        return Err(ParsingError::MissingInitializer {
+            keyword: if is_mutable { "mut" } else { "const" }.to_owned(),
+            name,
+        });
+    }
+}
+
+// prevent concatenation of objects {} + 2 but allow it for vectors
+
+pub fn parse_var_reassignment(
+    tokens: &[Token],
+    position: &mut usize,
+    name: &str,
+    symbol_table: &SymbolTable,
+) -> Result<Reassignment, ParsingError> {
+    *position += 1;
+    let initial_var = symbol_table.get_variable(name)?;
+
+    if tokens.get(*position).is_none() {
+        return Err(ParsingError::UnexpectedEndOfInput);
+    }
+
+    if let Some(Token {
+        token_type: TokenType::AssignmentOperator,
+        value: operator,
+    }) = tokens.get(*position)
+    {
+        *position += 1;
+
+        // Parse the expression following the assignment operator
+        let after_assignment_expression = parse_expression(tokens, position, symbol_table)?;
+
+        let after_assignment_expression_string = after_assignment_expression.to_owned();
+
+        // Parse the expression with the operator
+        let expression = parse_with_operator(&operator, after_assignment_expression, name);
+
+        // Check if the expression type matches the declared variable type
+        let t = type_from_expression(&expression, symbol_table)?;
+
+        if initial_var.var_type != t {
+            return Err(ParsingError::CannotChangeAssignedType {
+                assigned_t: initial_var.var_type,
+                found_t: t,
+                var_name: name.to_owned(),
+                at: format!(
+                    "{} {} {}",
+                    name, operator, after_assignment_expression_string
+                ),
+            });
+        }
+
+        return Ok(Reassignment {
+            value: expression,
+            name: initial_var.name,
+        });
+    } else {
+        // If there's no assignment operator, it's an error.
+        return Err(ParsingError::ExpectedReassignment {
+            var_name: name.to_owned(),
         });
     }
 }

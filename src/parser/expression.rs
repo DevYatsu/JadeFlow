@@ -32,7 +32,7 @@ pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &
     };
 
     Expression::BinaryOperation {
-        left: Box::new(Expression::Variable(initial_var_name.to_string())),
+        left: Box::new(Expression::Variable(initial_var_name.to_owned())),
         operator,
         right: Box::new(expr),
     }
@@ -105,8 +105,8 @@ fn parse_expression_with_precedence(
             }
             _ => {
                 return Err(ParsingError::UnexpectedToken {
-                    expected: ";".to_string(),
-                    found: token.value.to_string(),
+                    expected: ";".to_owned(),
+                    found: token.value.to_owned(),
                 })
             }
         }
@@ -179,7 +179,7 @@ fn parse_primary_expression(
             TokenType::Boolean => {
                 *position += 1;
                 let b = token.value == "true";
-                Ok(Expression::Boolean(b))
+                return Ok(Expression::Boolean(b));
             }
             TokenType::OpenBracket => parse_array_expression(tokens, position, symbol_table),
             TokenType::OpenBrace => parse_dictionary_expression(tokens, position, symbol_table),
@@ -196,7 +196,7 @@ fn parse_primary_expression(
                         Ok(expr)
                     } else {
                         Err(ParsingError::UnexpectedToken {
-                            expected: ")".to_string(),
+                            expected: ")".to_owned(),
                             found: close_paren.value.clone(),
                         })
                     }

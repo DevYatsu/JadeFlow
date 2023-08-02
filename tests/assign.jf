@@ -2,4 +2,4 @@ mut test1 = 23
 test1 = 2
 
 mut t: bool = true
-t = false;
+t + false

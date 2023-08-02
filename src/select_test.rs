@@ -32,7 +32,7 @@ fn get_files_in(dir: &str) -> Result<Vec<String>, Error> {
                 // Obtenir le nom du fichier en tant que chaîne
                 if let Some(file_name) = file_path.file_name() {
                     if let Some(file_name_str) = file_name.to_str() {
-                        file_names.push(file_name_str.to_string())
+                        file_names.push(file_name_str.to_owned())
                     }
                 }
             }

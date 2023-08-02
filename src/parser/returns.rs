@@ -6,7 +6,7 @@ use super::{
 };
 
 pub fn parse_return_statement(
-    tokens: &mut Vec<Token>,
+    tokens: &[Token],
     position: &mut usize,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {

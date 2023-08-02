@@ -44,7 +44,7 @@ custom_error! {pub FunctionParsingError
 }
 // update to support return statement in parse
 pub fn parse_fn_declaration(
-    tokens: &mut Vec<Token>,
+    tokens: &[Token],
     position: &mut usize,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {
@@ -61,7 +61,7 @@ pub fn parse_fn_declaration(
 
         if symbol_table.get_function(name).is_ok() {
             return Err(FunctionParsingError::NameAlreadyTaken {
-                name: name.to_string(),
+                name: name.to_owned(),
             }
             .into());
         }
@@ -132,7 +132,7 @@ pub fn parse_fn_declaration(
 
                     if ctx_tokens.len() == before_expr_length {
                         return Err(FunctionParsingError::ExpectingExpressionAfterArrow {
-                            fn_name: name.to_string(),
+                            fn_name: name.to_owned(),
                         }
                         .into());
                     }
@@ -141,7 +141,7 @@ pub fn parse_fn_declaration(
                 }
                 _ => {
                     return Err(FunctionParsingError::ExpectedBrace {
-                        fn_name: name.to_string(),
+                        fn_name: name.to_owned(),
                     }
                     .into());
                 }
@@ -155,27 +155,27 @@ pub fn parse_fn_declaration(
                 if let Some(return_type) = return_type {
                     if let Some(returned_type) = returned_type {
                         return Err(FunctionParsingError::ReturnTypeInvalid {
-                            fn_name: name.to_string(),
+                            fn_name: name.to_owned(),
                             return_type: return_type.to_string(),
                             found: returned_type.to_string(),
                         }
                         .into());
                     } else {
                         return Err(FunctionParsingError::MissingReturnStatement {
-                            fn_name: name.to_string(),
+                            fn_name: name.to_owned(),
                         }
                         .into());
                     }
                 } else {
                     return Err(FunctionParsingError::MissingReturnStatement {
-                        fn_name: name.to_string(),
+                        fn_name: name.to_owned(),
                     }
                     .into());
                 }
             }
 
             let f = Function {
-                name: name.to_string(),
+                name: name.to_owned(),
                 arguments,
                 context: Box::new(program(function_context)),
                 return_type,
@@ -186,7 +186,7 @@ pub fn parse_fn_declaration(
             return Ok(function(f));
         } else {
             return Err(FunctionParsingError::ExpectedOpenParen {
-                name: name.to_string(),
+                name: name.to_owned(),
             }
             .into());
         }
@@ -223,7 +223,7 @@ fn parse_fn_block(
             *position += 1;
         } else {
             return Err(FunctionParsingError::ExpectedBrace {
-                fn_name: fn_name.to_string(), // You can customize the error message here.
+                fn_name: fn_name.to_owned(), // You can customize the error message here.
             }
             .into());
         }
@@ -297,12 +297,12 @@ fn parse_args(
                         Some(t) => t,
                         None => {
                             return Err(FunctionParsingError::ExpectedArgType {
-                                arg_name: initial_token.value.to_string(),
+                                arg_name: initial_token.value.to_owned(),
                             })
                         }
                     };
                     arguments.push(Declaration {
-                        name: initial_token.value.to_string(),
+                        name: initial_token.value.to_owned(),
                         var_type: arg_type.clone(),
                         value: Expression::Null,
                         is_mutable: true,
@@ -327,25 +327,25 @@ fn parse_args(
                     }) = tokens.get(*position)
                     {
                         return Err(FunctionParsingError::ExpectedCommaBetweenArgs {
-                            arg_name: initial_token.value.to_string(),
-                            arg_type: arg_type.as_assignment().to_string(),
-                            fn_name: initial_token.value.to_string(),
+                            arg_name: initial_token.value.to_owned(),
+                            arg_type: arg_type.as_assignment().to_owned(),
+                            fn_name: initial_token.value.to_owned(),
                         });
                     } else {
                         return Err(FunctionParsingError::ExpectedCloseParen {
-                            arg_name: initial_token.value.to_string(),
-                            arg_type: arg_type.as_assignment().to_string(),
-                            fn_name: initial_token.value.to_string(),
+                            arg_name: initial_token.value.to_owned(),
+                            arg_type: arg_type.as_assignment().to_owned(),
+                            fn_name: initial_token.value.to_owned(),
                         });
                     }
                 } else {
                     return Err(FunctionParsingError::ExpectedArgType {
-                        arg_name: initial_token.value.to_string(),
+                        arg_name: initial_token.value.to_owned(),
                     });
                 }
             } else {
                 return Err(FunctionParsingError::ExpectedArgColon {
-                    arg_name: initial_token.value.to_string(),
+                    arg_name: initial_token.value.to_owned(),
                 });
             }
         } else {
@@ -367,13 +367,13 @@ fn parse_return_type(
             Some(t) => Ok(Some(t)),
             None => {
                 return Err(FunctionParsingError::ExpectedValidReturnType {
-                    fn_name: fn_name.to_string(),
+                    fn_name: fn_name.to_owned(),
                 })
             }
         }
     } else {
         return Err(FunctionParsingError::ExpectedReturnType {
-            fn_name: fn_name.to_string(),
+            fn_name: fn_name.to_owned(),
         });
     }
 }

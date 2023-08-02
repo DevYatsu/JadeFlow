@@ -7,7 +7,8 @@ use crate::{
 
 use super::{
     architecture::{BinaryOperator, SymbolTable, VariableType},
-    ParsingError, functions::FunctionParsingError,
+    functions::FunctionParsingError,
+    ParsingError,
 };
 use custom_error::custom_error;
 
@@ -86,17 +87,20 @@ pub fn type_from_expression(
             }
         }
         Expression::FunctionCall { function_name, .. } => {
-            match symbol_table.get_function(&function_name).map(|var| var.return_type) {
+            match symbol_table
+                .get_function(&function_name)
+                .map(|var| var.return_type)
+            {
                 Ok(r) => {
                     if r.is_some() {
                         Ok(r.unwrap())
-                    }else {
+                    } else {
                         Err(TypeError::ExpressionNull)
                     }
-                },
+                }
                 Err(e) => Err(e.into()),
             }
-        },
+        }
     }
 }
 
@@ -139,7 +143,7 @@ pub fn parse_type(tokens: &[Token], position: &mut usize) -> Result<VariableType
         Ok(VariableType::Vector)
     } else if let Some(Token { value, .. }) = tokens.get(*position) {
         return Err(TypeError::ExpectedType {
-            value: value.to_string(),
+            value: value.to_owned(),
         }
         .into());
     } else {

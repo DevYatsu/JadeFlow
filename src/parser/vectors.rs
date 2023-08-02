@@ -67,7 +67,7 @@ pub fn parse_array_indexing(
                 return Ok(Expression::Variable(format!("{}[{}", var.name, index)));
             } else {
                 return Err(ParsingError::ExpectedBracketAfterVectorIndex {
-                    found: token.value.to_string(),
+                    found: token.value.to_owned(),
                 });
             }
         } else {
@@ -75,7 +75,7 @@ pub fn parse_array_indexing(
         }
     } else if let Some(Token { value, .. }) = tokens.get(*position) {
         return Err(ParsingError::ExpectedValidVectorIndex {
-            found: value.to_string(),
+            found: value.to_owned(),
         });
     } else {
         return Err(ParsingError::UnexpectedEndOfInput);

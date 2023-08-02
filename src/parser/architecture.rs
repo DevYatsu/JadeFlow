@@ -175,7 +175,7 @@ impl Declaration {
             self.var_type.as_assignment(),
             self.value
         );
-        tokenize(&source_code).unwrap()
+        tokenize(&source_code).unwrap().into()
     }
     fn get_var_keyword(&self) -> &str {
         if self.is_mutable {
@@ -213,15 +213,18 @@ impl FormattedSegment {
                 if c == '}' {
                     // Finished parsing the expression, add it to the result
                     inside_expression = false;
-                    let t = match tokenize(&expression[1..]) {
-                        Ok(t) => t,
+                    let mut t: Vec<Token> = match tokenize(&expression[1..]) {
+                        Ok(t) => t.into(),
                         Err(_) => {
                             return Err(ParsingError::ExpectedValidExpressionInFormattedString)
                         }
                     };
 
-                    let expr =
-                        FormattedSegment::Expression(parse_expression(&t, &mut 0, symbol_table)?);
+                    let expr = FormattedSegment::Expression(parse_expression(
+                        &t,
+                        &mut 0,
+                        symbol_table,
+                    )?);
                     result.push(expr);
                     expression.clear();
                 } else {
@@ -238,7 +241,7 @@ impl FormattedSegment {
 
                         // Add the current string part to the result
                         if !current_part.is_empty() {
-                            result.push(FormattedSegment::Literal(current_part.to_string()));
+                            result.push(FormattedSegment::Literal(current_part.to_owned()));
                         }
                         current_part.clear();
                     } else {
@@ -285,12 +288,12 @@ impl fmt::Display for BinaryOperator {
 impl BinaryOperator {
     pub fn operator_as_verb(&self) -> String {
         match self {
-            BinaryOperator::Plus => "add".to_string(),
-            BinaryOperator::Minus => "substract".to_string(),
-            BinaryOperator::Multiply => "multiply".to_string(),
-            BinaryOperator::Divide => "divide".to_string(),
-            BinaryOperator::Modulo => "modulate".to_string(),
-            BinaryOperator::Exponential => "exponentiate".to_string(),
+            BinaryOperator::Plus => "add".to_owned(),
+            BinaryOperator::Minus => "substract".to_owned(),
+            BinaryOperator::Multiply => "multiply".to_owned(),
+            BinaryOperator::Divide => "divide".to_owned(),
+            BinaryOperator::Modulo => "modulate".to_owned(),
+            BinaryOperator::Exponential => "exponentiate".to_owned(),
         }
     }
 }
@@ -311,7 +314,7 @@ pub struct MainFunctionData {
 impl MainFunctionData {
     pub fn from_function(f: &Function) -> MainFunctionData {
         MainFunctionData {
-            name: f.name.to_string(),
+            name: f.name.to_owned(),
             arguments: f.arguments.clone(),
             return_type: f.return_type.clone(),
         }
@@ -383,16 +386,16 @@ impl SymbolTable {
 
     pub fn insert_variable(&mut self, declaration: Declaration) {
         self.variables
-            .insert(declaration.name.to_string(), declaration);
+            .insert(declaration.name.to_owned(), declaration);
     }
     pub fn insert_function(&mut self, f: &Function) {
-        self.functions.insert(f.name.to_string(), f.clone());
+        self.functions.insert(f.name.to_owned(), f.clone());
     }
     pub fn reassign_variable(&mut self, reassignement: Reassignment) {
         let initial_var = self.get_variable(&reassignement.name).unwrap();
 
         self.variables.insert(
-            reassignement.name.to_string(),
+            reassignement.name.to_owned(),
             Declaration {
                 name: initial_var.name,
                 var_type: initial_var.var_type,
@@ -414,7 +417,7 @@ impl SymbolTable {
                     .get(name)
                     .map(|declaration| declaration.clone())
                     .ok_or_else(|| TypeError::CannotDetermineVarType {
-                        name: name.to_string(),
+                        name: name.to_owned(),
                     });
             }
 
@@ -423,7 +426,7 @@ impl SymbolTable {
                 .get(name_vec[0])
                 .map(|declaration| declaration.value.clone())
                 .ok_or_else(|| TypeError::CannotDetermineVarType {
-                    name: name.to_string(),
+                    name: name.to_owned(),
                 })?;
 
             match var {
@@ -431,13 +434,13 @@ impl SymbolTable {
                     let index = name_vec[1].parse::<usize>()?;
                     if index > vec.len() - 1 {
                         return Err(TypeError::IndexOutOfRange {
-                            vec_name: name_vec[0].to_string(),
+                            vec_name: name_vec[0].to_owned(),
                             index,
                             length: vec.len(),
                         });
                     }
                     return Ok(Declaration {
-                        name: name_vec[0].to_string(),
+                        name: name_vec[0].to_owned(),
                         var_type: type_from_expression(&vec[index], &self)?,
                         value: vec[index].clone(),
                         is_mutable: true,
@@ -452,7 +455,7 @@ impl SymbolTable {
             .get(name_vec[0])
             .map(|declaration| declaration.value.clone())
             .ok_or_else(|| TypeError::CannotDetermineVarType {
-                name: name.to_string(),
+                name: name.to_owned(),
             })?;
 
         for (i, prop) in name_vec.iter().skip(1).enumerate() {
@@ -500,7 +503,7 @@ impl SymbolTable {
             .cloned()
             .map(|f| MainFunctionData::from_function(&f))
             .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_string(),
+                fn_name: name.to_owned(),
             })?)
     }
 }

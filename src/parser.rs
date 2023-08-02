@@ -20,7 +20,8 @@ use self::{
     architecture::{
         reassignment, variable, ASTNode, Expression, Statement, SymbolTable, VariableType,
     },
-    functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
+    expression::parse_expression,
+    functions::{parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
     types::TypeError,
     vars::{parse_var_declaration, parse_var_reassignment},
@@ -65,6 +66,8 @@ custom_error! {pub ParsingError
 
     ExpectedValidVectorIndex{found: String} = "Expected valid vector index, found {found}",
     ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
+
+    UnwantedColon = "Type annotation only allowed on variable initialization"
 }
 
 // add support for formatted string, and errors when we expect a token and it is not present
@@ -208,7 +211,7 @@ fn parse_statement(
             let var = symbol_table.get_variable(value)?;
             if !var.is_mutable {
                 return Err(ParsingError::CannotReassignConst {
-                    var_name: value.to_string(),
+                    var_name: value.to_owned(),
                 });
             }
 
@@ -217,7 +220,15 @@ fn parse_statement(
 
             return Ok(reassignment(assignment));
         } else {
-            *position += 1;
+            if let Some(Token {
+                token_type: TokenType::Colon,
+                ..
+            }) = tokens.get(*position + 1)
+            {
+                return Err(ParsingError::UnwantedColon);
+            }
+
+            parse_expression(tokens, position, symbol_table)?;
             return Ok(Statement {
                 node: ASTNode::Expression(Expression::Null),
             });
