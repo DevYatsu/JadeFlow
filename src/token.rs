@@ -62,6 +62,35 @@ pub struct Token {
     pub value: String,
     pub token_type: TokenType,
 }
+pub struct TokenIterator<'a> {
+    tokens: &'a [Token],
+    index: usize,
+}
+
+impl<'a> TokenIterator<'a> {
+    pub fn new(tokens: &'a [Token]) -> Self {
+        TokenIterator {
+            tokens,
+            index: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for TokenIterator<'a> {
+    type Item = &'a Token;
+
+    // Implement the next method to return the next item in the iterator
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.tokens.len() {
+            let token = &self.tokens[self.index];
+            self.index += 1;
+            Some(token)
+        } else {
+            None
+        }
+    }
+}
+
 
 fn token(value: String, token_type: TokenType) -> Token {
     Token { value, token_type }
