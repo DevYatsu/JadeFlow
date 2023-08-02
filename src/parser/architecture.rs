@@ -144,23 +144,6 @@ impl fmt::Display for Expression {
         }
     }
 }
-impl Expression {
-    pub fn string_from_expression(self) -> Result<String, ParsingError> {
-        match self {
-            Expression::Variable(val) => Ok(val.to_string()),
-            Expression::Number(val) => {
-                let val = val as i64;
-                Ok(val.to_string())
-            }
-            Expression::String(val) => Ok(val.to_string()),
-            expression => {
-                return Err(ParsingError::InvalidKeyDict {
-                    key_type: expression,
-                })
-            }
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Declaration {
@@ -382,12 +365,6 @@ impl VariableType {
             _ => None,
         }
     }
-    pub fn is_assignment_type(input: &str) -> bool {
-        match input {
-            "str" | "num" | "bool" | "vec" | "dict" => true,
-            _ => false,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -515,20 +492,13 @@ impl SymbolTable {
             is_mutable: true,
         })
     }
-    pub fn main_fn_data(f: Function) -> MainFunctionData {
-        MainFunctionData {
-            name: f.name,
-            arguments: f.arguments,
-            return_type: f.return_type,
-        }
-    }
 
     pub fn get_function(&self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
         Ok(self
             .functions
             .get(name)
             .cloned()
-            .map(|f| SymbolTable::main_fn_data(f))
+            .map(|f| MainFunctionData::from_function(&f))
             .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_string(),
             })?)
