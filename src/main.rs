@@ -2,7 +2,7 @@ mod parser;
 mod select_test;
 mod token;
 
-use std::{collections::VecDeque, fs, time::Instant};
+use std::{fs, time::Instant};
 
 use token::Token;
 

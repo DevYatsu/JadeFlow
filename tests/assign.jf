@@ -1,5 +1,2 @@
-mut test1 = 23
+mut test1 = 23, t: bool = true
 test1 = 2
-
-mut t: bool = true
-t + false

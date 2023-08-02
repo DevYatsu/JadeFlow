@@ -7,18 +7,16 @@ use crate::token::{Token, TokenType};
 use std::collections::HashMap;
 
 pub fn parse_dictionary_expression(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut expressions: HashMap<String, Expression> = HashMap::new();
     let mut temp_key: Option<String> = None;
-    *position += 1;
 
-    while let Some(token) = tokens.get(*position) {
+    while let Some(token) = tokens.next() {
         match token.token_type {
             TokenType::Separator => {
-                *position += 1;
+                continue;
             }
             TokenType::Comma | TokenType::CloseBrace => {
                 if temp_key.is_some() {
@@ -32,32 +30,38 @@ pub fn parse_dictionary_expression(
                         })?;
                 }
                 handle_missing_value_dict(&temp_key)?;
-                *position += 1;
-
+println!("{:?}", token);
                 if token.token_type == TokenType::CloseBrace {
                     break;
+                } else {
+                    continue;
                 }
             }
             TokenType::Colon => {
-                handle_missing_value_dict(&temp_key)?;
-                *position += 1;
-            }
-            _ => {
                 if temp_key.is_some() {
-                    let value = parse_expression(tokens, position, symbol_table)?;
-
+                    let value = parse_expression(tokens, symbol_table)?;
                     match &value {
                         Expression::Variable(name) => {
                             symbol_table.get_variable(name)?;
                         }
                         _ => (),
                     }
-
+                    
                     expressions.insert(temp_key.take().unwrap(), value);
-                    *position += 1;
+                    continue;
+                } else {
+                    return Err(ParsingError::InvalidStringDictKey {
+                        key: temp_key.unwrap().to_string(),
+                    });
+                }
+            }
+            _ => {
+                if temp_key.is_some() {
+                    return Err(ParsingError::MissingValueDict { key: temp_key.unwrap().to_string() })
                 } else {
                     if token.token_type == TokenType::Identifier
                         || token.token_type == TokenType::String
+                        || token.token_type == TokenType::Number
                     {
                         temp_key = Some(token.value.clone());
                     } else {
@@ -67,7 +71,7 @@ pub fn parse_dictionary_expression(
                     }
 
                     handle_invalid_string_dict_key(&temp_key, &token.value)?;
-                    skip_to_colon(tokens, position, &temp_key)?;
+                    skip_to_colon(tokens, &temp_key)?;
                 }
             }
         }
@@ -78,6 +82,7 @@ pub fn parse_dictionary_expression(
 
 fn handle_missing_value_dict(temp_key: &Option<String>) -> Result<(), ParsingError> {
     match temp_key {
+        // if temp key is Some() it means that we have not found a value pair
         Some(key) => Err(ParsingError::MissingValueDict { key: key.clone() }),
         None => Ok(()),
     }
@@ -97,21 +102,17 @@ fn handle_invalid_string_dict_key(
 }
 
 fn skip_to_colon(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     temp_key: &Option<String>,
 ) -> Result<(), ParsingError> {
-    while let Some(token) = tokens.get(*position) {
-        *position += 1;
+    let mut clone_iter = tokens.clone().peekable();
+    while let Some(token) = clone_iter.peek() {
         match token.token_type {
             TokenType::Separator => {
+                tokens.next();
                 continue;
             }
-            TokenType::Colon => {
-                break;
-            }
-            TokenType::Comma | TokenType::CloseBrace => {
-                *position -= 1;
+            TokenType::Colon | TokenType::Comma | TokenType::CloseBrace => {
                 break;
             }
             _ => {

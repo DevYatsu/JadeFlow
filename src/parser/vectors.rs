@@ -6,24 +6,21 @@ use super::{
 use crate::token::{Token, TokenType};
 
 pub fn parse_array_expression(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = Vec::new();
-    *position += 1;
 
-    while let Some(token) = tokens.get(*position) {
+    while let Some(token) = tokens.next() {
         match &token.token_type {
             TokenType::CloseBracket => {
-                *position += 1;
                 break;
             }
             TokenType::Comma => {
-                *position += 1;
+                continue;
             }
             _ => {
-                let value = parse_expression(tokens, position, symbol_table)?;
+                let value = parse_expression(tokens, symbol_table)?;
                 check_and_insert_expression(&value, symbol_table, &mut vec_expressions)?;
             }
         }
@@ -48,21 +45,19 @@ fn check_and_insert_expression(
 }
 
 pub fn parse_array_indexing(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     var: Declaration,
 ) -> Result<Expression, ParsingError> {
-    *position += 1;
-    // we are passed the '[' now
+    let next = tokens.next();
+
     if let Some(Token {
         token_type: TokenType::Number,
         value,
-    }) = tokens.get(*position)
+    }) = next
     {
         let index: usize = value.parse()?;
-        *position += 1;
 
-        if let Some(token) = tokens.get(*position) {
+        if let Some(token) = tokens.next() {
             if token.token_type == TokenType::CloseBracket {
                 return Ok(Expression::Variable(format!("{}[{}", var.name, index)));
             } else {
@@ -73,7 +68,7 @@ pub fn parse_array_indexing(
         } else {
             return Err(ParsingError::UnexpectedEndOfInput);
         }
-    } else if let Some(Token { value, .. }) = tokens.get(*position) {
+    } else if let Some(Token { value, .. }) = next {
         return Err(ParsingError::ExpectedValidVectorIndex {
             found: value.to_owned(),
         });

@@ -213,7 +213,7 @@ impl FormattedSegment {
                 if c == '}' {
                     // Finished parsing the expression, add it to the result
                     inside_expression = false;
-                    let mut t: Vec<Token> = match tokenize(&expression[1..]) {
+                    let t: Vec<Token> = match tokenize(&expression[1..]) {
                         Ok(t) => t.into(),
                         Err(_) => {
                             return Err(ParsingError::ExpectedValidExpressionInFormattedString)
@@ -221,8 +221,7 @@ impl FormattedSegment {
                     };
 
                     let expr = FormattedSegment::Expression(parse_expression(
-                        &t,
-                        &mut 0,
+                        &mut t.iter(),
                         symbol_table,
                     )?);
                     result.push(expr);

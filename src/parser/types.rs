@@ -104,44 +104,40 @@ pub fn type_from_expression(
     }
 }
 
-pub fn parse_type(tokens: &[Token], position: &mut usize) -> Result<VariableType, ParsingError> {
+pub fn parse_type(tokens: &mut std::slice::Iter<'_, Token>) -> Result<VariableType, ParsingError> {
+    let next = tokens.next();
     // fn to use after encountering ':'
     if let Some(Token {
         token_type: TokenType::TypeBool,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Boolean)
     } else if let Some(Token {
         token_type: TokenType::TypeDict,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Dictionary)
     } else if let Some(Token {
         token_type: TokenType::TypeNumber,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Number)
     } else if let Some(Token {
         token_type: TokenType::TypeString,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::String)
     } else if let Some(Token {
         token_type: TokenType::TypeVec,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Vector)
-    } else if let Some(Token { value, .. }) = tokens.get(*position) {
+    } else if let Some(Token { value, .. }) = next {
         return Err(TypeError::ExpectedType {
             value: value.to_owned(),
         }

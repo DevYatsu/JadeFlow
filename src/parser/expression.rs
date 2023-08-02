@@ -9,11 +9,10 @@ use super::{
 use crate::token::{Token, TokenType};
 
 pub fn parse_expression(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    parse_expression_with_precedence(tokens, position, symbol_table, 0)
+    parse_expression_with_precedence(tokens, symbol_table, 0)
 }
 
 pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {
@@ -39,14 +38,28 @@ pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &
 }
 
 fn parse_expression_with_precedence(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     symbol_table: &SymbolTable,
     precedence: u8,
 ) -> Result<Expression, ParsingError> {
-    let mut expression = parse_primary_expression(tokens, position, symbol_table)?;
+    let mut expression = parse_primary_expression(tokens, symbol_table)?;
 
-    while let Some(token) = tokens.get(*position) {
+    let mut peekable = tokens.clone().peekable();
+    if let Some(token) = peekable.peek() {
+        match token.token_type {
+            TokenType::Var
+            | TokenType::For
+            | TokenType::Function
+            | TokenType::CloseBrace
+            | TokenType::While
+            | TokenType::Match
+            | TokenType::Comma
+            | TokenType::Identifier => return Ok(expression),
+            _ => (),
+        }
+    }
+
+    while let Some(token) = tokens.next() {
         match &token.token_type {
             TokenType::BinaryOperator => {
                 let operator_precedence = match token.value.as_str() {
@@ -64,7 +77,6 @@ fn parse_expression_with_precedence(
                     break; // Exit the loop if the operator has lower precedence
                 }
 
-                *position += 1;
                 let operator = match token.value.as_str() {
                     "+" => BinaryOperator::Plus,
                     "-" => BinaryOperator::Minus,
@@ -77,7 +89,6 @@ fn parse_expression_with_precedence(
 
                 let right_expr = parse_expression_with_precedence(
                     tokens,
-                    position,
                     symbol_table,
                     operator_precedence + 1,
                 )?;
@@ -90,19 +101,7 @@ fn parse_expression_with_precedence(
             TokenType::CloseParen
             | TokenType::CloseBracket
             | TokenType::Colon
-            | TokenType::Comma
             | TokenType::Separator => break,
-
-            TokenType::Var
-            | TokenType::For
-            | TokenType::Function
-            | TokenType::CloseBrace
-            | TokenType::While
-            | TokenType::Match
-            | TokenType::Identifier => {
-                *position -= 1;
-                break;
-            }
             _ => {
                 return Err(ParsingError::UnexpectedToken {
                     expected: ";".to_owned(),
@@ -114,24 +113,23 @@ fn parse_expression_with_precedence(
 
     Ok(expression)
 }
+
 fn parse_primary_expression(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::slice::Iter<'_, Token>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    if let Some(token) = tokens.get(*position) {
+    if let Some(token) = tokens.next() {
         match &token.token_type {
             TokenType::Identifier => {
-                *position += 1;
-
+                let next = tokens.next();
                 if let Some(Token {
                     token_type: TokenType::OpenParen,
                     ..
-                }) = tokens.get(*position)
+                }) = next
                 {
                     let function = symbol_table.get_function(&token.value)?;
 
-                    let assignment = parse_fn_call(tokens, position, &symbol_table, &function)?;
+                    let assignment = parse_fn_call(tokens, &symbol_table, &function)?;
                 }
 
                 let var = symbol_table.get_variable(&token.value)?;
@@ -141,58 +139,39 @@ fn parse_primary_expression(
                     if let Some(Token {
                         token_type: TokenType::OpenBracket,
                         ..
-                    }) = tokens.get(*position)
+                    }) = next
                     {
-                        Ok(parse_array_indexing(tokens, position, var)?)
+                        Ok(parse_array_indexing(tokens, var)?)
                     } else {
                         Ok(Expression::Variable(token.value.clone()))
                     }
                 }
             }
-            TokenType::Number => {
-                *position += 1;
-
-                token
-                    .value
-                    .parse::<f64>()
-                    .map(Expression::Number)
-                    .map_err(|_| ParsingError::InvalidNumber {
-                        value: token.value.clone(),
-                    })
-            }
-            TokenType::String => {
-                *position += 1;
-
-                Ok(Expression::String(token.value.clone()))
-            }
-            TokenType::FormatedString => {
-                *position += 1;
-                Ok(Expression::FormattedString(FormattedSegment::from_str(
-                    &token.value,
-                    symbol_table,
-                )?))
-            }
-            TokenType::Null => {
-                *position += 1;
-                Ok(Expression::Null)
-            }
+            TokenType::Number => token
+                .value
+                .parse::<f64>()
+                .map(Expression::Number)
+                .map_err(|_| ParsingError::InvalidNumber {
+                    value: token.value.clone(),
+                }),
+            TokenType::String => Ok(Expression::String(token.value.clone())),
+            TokenType::FormatedString => Ok(Expression::FormattedString(
+                FormattedSegment::from_str(&token.value, symbol_table)?,
+            )),
+            TokenType::Null => Ok(Expression::Null),
             TokenType::Boolean => {
-                *position += 1;
-                let b = token.value == "true";
-                return Ok(Expression::Boolean(b));
+                return Ok(Expression::Boolean(token.value == "true"));
             }
-            TokenType::OpenBracket => parse_array_expression(tokens, position, symbol_table),
-            TokenType::OpenBrace => parse_dictionary_expression(tokens, position, symbol_table),
+            TokenType::OpenBracket => parse_array_expression(tokens, symbol_table),
+            TokenType::OpenBrace => parse_dictionary_expression(tokens, symbol_table),
             TokenType::OpenParen => {
-                *position += 1;
-                ignore_whitespace(tokens, position);
+                ignore_whitespace(tokens);
 
-                let expr = parse_expression(tokens, position, symbol_table)?;
-                ignore_whitespace(tokens, position);
+                let expr = parse_expression(tokens, symbol_table)?;
+                ignore_whitespace(tokens);
 
-                if let Some(close_paren) = tokens.get(*position) {
+                if let Some(close_paren) = tokens.next() {
                     if close_paren.token_type == TokenType::CloseParen {
-                        *position += 1;
                         Ok(expr)
                     } else {
                         Err(ParsingError::UnexpectedToken {
