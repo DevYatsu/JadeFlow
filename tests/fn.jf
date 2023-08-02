@@ -1,11 +1,10 @@
 fn print (s: str, s2: str): str {
     mut o = s + s
-    mut y = 1 
 
-    >> o
+    return o
 }
 
-fn obj_from (s: str, s2: str): dict => {s, s2}
+fn obj_from (s: str, s2: str,): dict => {s, s2}
 
 print ( "str", "efef" )
 

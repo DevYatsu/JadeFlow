@@ -7,13 +7,13 @@ use crate::{
 
 use super::{
     architecture::{BinaryOperator, SymbolTable, VariableType},
-    ParsingError,
+    ParsingError, functions::FunctionParsingError,
 };
 use custom_error::custom_error;
 
 custom_error! {pub TypeError
     ExpectedType{value: String} = "Expected valid type after \"{value}\"",
-
+    FunctionParsingError{source: FunctionParsingError} = "{source}",
     ExpressionNull = "Cannot determine type of null expression",
     CannotOperation{type1: VariableType, type2: VariableType, action: String} = "Cannot {action} '' with ''",
     CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}",
@@ -85,6 +85,18 @@ pub fn type_from_expression(
                 }
             }
         }
+        Expression::FunctionCall { function_name, .. } => {
+            match symbol_table.get_function(&function_name).map(|var| var.return_type) {
+                Ok(r) => {
+                    if r.is_some() {
+                        Ok(r.unwrap())
+                    }else {
+                        Err(TypeError::ExpressionNull)
+                    }
+                },
+                Err(e) => Err(e.into()),
+            }
+        },
     }
 }
 

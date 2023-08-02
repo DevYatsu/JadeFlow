@@ -8,7 +8,8 @@ use crate::{
 
 use super::{
     architecture::{
-        ASTNode, Declaration, Expression, Function, Program, Statement, SymbolTable, VariableType,
+        ASTNode, Declaration, Expression, Function, MainFunctionData, Program, Statement,
+        SymbolTable, VariableType,
     },
     types::type_from_expression,
     ParsingError,
@@ -37,7 +38,9 @@ custom_error! {pub FunctionParsingError
 
     MissingReturnType{fn_name: String} = "Missing a return type in \"{fn_name}\" function declaration",
     MissingReturnStatement{fn_name: String} = "Missing a return statement in \"{fn_name}\" function declaration",
-    ReturnTypeInvalid{fn_name: String, return_type: String, found: String} = "Return Type '{return_type}' of function \"{fn_name}\" does not correspond to returned type '{found}'"
+    ReturnTypeInvalid{fn_name: String, return_type: String, found: String} = "Return Type '{return_type}' of function \"{fn_name}\" does not correspond to returned type '{found}'",
+
+    NotDefinedFunction{fn_name: String} = "\"{fn_name}\" does not correspond to any defined function",
 }
 // update to support return statement in parse
 pub fn parse_fn_declaration(
@@ -56,7 +59,7 @@ pub fn parse_fn_declaration(
         *position += 1;
         let name = value;
 
-        if symbol_table.get_function(name).is_some() {
+        if symbol_table.get_function(name).is_ok() {
             return Err(FunctionParsingError::NameAlreadyTaken {
                 name: name.to_string(),
             }
@@ -190,6 +193,15 @@ pub fn parse_fn_declaration(
     } else {
         return Err(FunctionParsingError::ExpectedIdentifier.into());
     }
+}
+
+pub fn parse_fn_call(
+    tokens: &[Token],
+    position: &mut usize,
+    symbol_table: &SymbolTable,
+    f: &MainFunctionData,
+) -> Result<Expression, FunctionParsingError> {
+    todo!()
 }
 
 fn parse_fn_block(

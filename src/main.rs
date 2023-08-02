@@ -6,7 +6,11 @@ use std::{fs, time::Instant};
 
 use token::Token;
 
-use crate::{parser::parse, select_test::run_file, token::tokenize};
+use crate::{
+    parser::{architecture::ASTNode, parse},
+    select_test::run_file,
+    token::tokenize,
+};
 
 fn main() {
     let file_name = match run_file() {
@@ -51,7 +55,15 @@ fn main() {
     };
     let end = Instant::now();
 
-    println!("{:?}", program);
+    match program {
+        ASTNode::Program(p) => {
+            for s in p.statements {
+                println!("{:?}", s);
+            }
+        }
+        _ => unreachable!(),
+    }
+
     let second_timer = (end - start).as_secs_f64();
     println!("{} seconds to execute parsing", second_timer);
 

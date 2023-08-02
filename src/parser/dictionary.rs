@@ -19,7 +19,6 @@ pub fn parse_dictionary_expression(
         match token.token_type {
             TokenType::Separator => {
                 *position += 1;
-                println!("dict t {:?}", tokens.get(*position));
             }
             TokenType::Comma | TokenType::CloseBrace => {
                 if temp_key.is_some() {

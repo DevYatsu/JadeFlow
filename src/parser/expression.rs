@@ -1,6 +1,7 @@
 use super::{
     architecture::{BinaryOperator, Expression, FormattedSegment, SymbolTable, VariableType},
     dictionary::parse_dictionary_expression,
+    functions::parse_fn_call,
     ignore_whitespace,
     vectors::{parse_array_expression, parse_array_indexing},
     ParsingError,
@@ -122,6 +123,17 @@ fn parse_primary_expression(
         match &token.token_type {
             TokenType::Identifier => {
                 *position += 1;
+
+                if let Some(Token {
+                    token_type: TokenType::OpenParen,
+                    ..
+                }) = tokens.get(*position)
+                {
+                    let function = symbol_table.get_function(&token.value)?;
+
+                    let assignment = parse_fn_call(tokens, position, &symbol_table, &function)?;
+                }
+
                 let var = symbol_table.get_variable(&token.value)?;
                 if var.var_type != VariableType::Vector {
                     Ok(Expression::Variable(token.value.clone()))

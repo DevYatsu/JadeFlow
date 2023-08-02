@@ -1,6 +1,9 @@
 use crate::token::{tokenize, Token};
 
-use super::{expression::parse_expression, types::type_from_expression, ParsingError, TypeError};
+use super::{
+    expression::parse_expression, functions::FunctionParsingError, types::type_from_expression,
+    ParsingError, TypeError,
+};
 use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone)]
@@ -75,6 +78,10 @@ pub enum Expression {
         right: Box<Expression>,
     },
     FormattedString(Vec<FormattedSegment>),
+    FunctionCall {
+        function_name: String,
+        arguments: Vec<Expression>,
+    },
 }
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -120,6 +127,19 @@ impl fmt::Display for Expression {
                     }
                 }
                 write!(f, "\"")
+            }
+            Expression::FunctionCall {
+                function_name,
+                arguments,
+            } => {
+                write!(f, "fn ")?;
+                write!(f, "{} ", function_name)?;
+                write!(f, "(")?;
+
+                for argument in arguments {
+                    write!(f, "{}, ", argument)?;
+                }
+                write!(f, ")")
             }
         }
     }
@@ -368,53 +388,13 @@ impl VariableType {
             _ => false,
         }
     }
-    pub fn contains_assignment_type(input: &Expression) -> Option<VariableType> {
-        match input {
-            Expression::Variable(v) => {
-                if VariableType::is_assignment_type(v) {
-                    return Some(VariableType::from_assignment(v).unwrap());
-                }
-                None
-            }
-            Expression::Number(_) => None,
-            Expression::String(_) => None,
-            Expression::Boolean(_) => None,
-            Expression::Null => None,
-            Expression::ArrayExpression(v) => {
-                for el in v {
-                    if let Some(t) = VariableType::contains_assignment_type(el) {
-                        return Some(t);
-                    }
-                }
-                None
-            }
-            Expression::DictionaryExpression(h) => {
-                for (_, v) in h.iter() {
-                    if let Some(t) = VariableType::contains_assignment_type(v) {
-                        return Some(t);
-                    }
-                }
-                None
-            }
-            Expression::BinaryOperation { left, right, .. } => {
-                if let Some(x) = VariableType::contains_assignment_type(left) {
-                    return Some(x);
-                }
-                if let Some(x) = VariableType::contains_assignment_type(right) {
-                    return Some(x);
-                }
-                None
-            }
-            Expression::FormattedString(_) => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
     variables: HashMap<String, Declaration>,
-    functions: HashMap<String, MainFunctionData>,
+    functions: HashMap<String, Function>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
@@ -429,8 +409,7 @@ impl SymbolTable {
             .insert(declaration.name.to_string(), declaration);
     }
     pub fn insert_function(&mut self, f: &Function) {
-        self.functions
-            .insert(f.name.to_string(), MainFunctionData::from_function(f));
+        self.functions.insert(f.name.to_string(), f.clone());
     }
     pub fn reassign_variable(&mut self, reassignement: Reassignment) {
         let initial_var = self.get_variable(&reassignement.name).unwrap();
@@ -521,8 +500,6 @@ impl SymbolTable {
                     }
                 }
                 expr => {
-                    println!("exprrrr: {:?}", expr);
-
                     var = expr.to_owned();
                     continue;
                 }
@@ -538,7 +515,22 @@ impl SymbolTable {
             is_mutable: true,
         })
     }
-    pub fn get_function(&self, name: &str) -> Option<MainFunctionData> {
-        self.functions.get(name).cloned()
+    pub fn main_fn_data(f: Function) -> MainFunctionData {
+        MainFunctionData {
+            name: f.name,
+            arguments: f.arguments,
+            return_type: f.return_type,
+        }
+    }
+
+    pub fn get_function(&self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
+        Ok(self
+            .functions
+            .get(name)
+            .cloned()
+            .map(|f| SymbolTable::main_fn_data(f))
+            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_string(),
+            })?)
     }
 }

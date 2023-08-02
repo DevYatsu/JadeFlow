@@ -1,4 +1,4 @@
-mod architecture;
+pub mod architecture;
 mod dictionary;
 mod expression;
 mod functions;
@@ -20,7 +20,7 @@ use self::{
     architecture::{
         reassignment, variable, ASTNode, Expression, Statement, SymbolTable, VariableType,
     },
-    functions::{parse_fn_declaration, FunctionParsingError},
+    functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
     types::TypeError,
     vars::{parse_var_declaration, parse_var_reassignment},
@@ -200,36 +200,28 @@ fn parse_statement(
         value,
     }) = tokens.get(*position)
     {
-        // in the case there is an expression in the middle of the code, that is alone
-        // should handle this case in the parse fn instead
-        if let Some(next_token) = tokens.get(*position + 1) {
-            if !(next_token.token_type == TokenType::Colon
-                || next_token.token_type == TokenType::AssignmentOperator)
-            {
-                while let Some(Token { token_type, .. }) = tokens.get(*position) {
-                    if token_type != &TokenType::Separator {
-                        *position += 1;
-                    } else {
-                        break;
-                    }
-                }
-                return Ok(Statement {
-                    node: ASTNode::Expression(Expression::Null),
+        if let Some(Token {
+            token_type: TokenType::AssignmentOperator,
+            ..
+        }) = tokens.get(*position + 1)
+        {
+            let var = symbol_table.get_variable(value)?;
+            if !var.is_mutable {
+                return Err(ParsingError::CannotReassignConst {
+                    var_name: value.to_string(),
                 });
             }
-        }
 
-        let var = symbol_table.get_variable(value)?;
-        if !var.is_mutable {
-            return Err(ParsingError::CannotReassignConst {
-                var_name: value.to_string(),
+            let assignment = parse_var_reassignment(tokens, position, value, symbol_table)?;
+            symbol_table.reassign_variable(assignment.clone());
+
+            return Ok(reassignment(assignment));
+        } else {
+            *position += 1;
+            return Ok(Statement {
+                node: ASTNode::Expression(Expression::Null),
             });
         }
-
-        let assignment = parse_var_reassignment(tokens, position, value, symbol_table)?;
-        symbol_table.reassign_variable(assignment.clone());
-
-        return Ok(reassignment(assignment));
     }
 
     if let Some(Token {
