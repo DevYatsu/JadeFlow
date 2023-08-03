@@ -7,7 +7,8 @@ A powerful, efficient, and simplified programming language. That is what I aspir
 ## Features
 
 Variables
-JadeFlow allows you to declare variables without a keyword, similar to Python.
+JadeFlow allows you to declare variables with either `const` or `mut` keywords. 
+You guessed it, `const` shall be used for variables that have unchanging values and `mut` for mutable values.
 
 ### Data Types
 
