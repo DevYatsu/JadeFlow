@@ -33,7 +33,7 @@ fn functionName(param1: str): str => param1
 // is also valid actually
 ```
 
-> **_Note:_** Parameter type annotations will be introduced in a future update.
+> **_Note:_** The arrow syntax can only be used for simple functions, that is functions that have not complex context and that directly something with the arguments. Namely you cannot initialize variables in these functions.
 
 ### Return Statement in Functions
 
