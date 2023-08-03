@@ -16,8 +16,9 @@ JadeFlow supports the following data types:
 - Boolean
 - String
 - Numbers (integer and float as one type)
-- Objects (Classes, Functions, Arrays)
-- Null
+- Vectors/Arrays
+- Dictionaries/Objects
+- Null (actually not a data type)
 
 ### Declaring Functions
 
