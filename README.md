@@ -26,8 +26,11 @@ You can declare functions using the fn keyword and the following syntax:
 
 ```rust
 fn functionName(param1: str): str {
-    // Function body
+    return param1
 }
+
+fn functionName(param1: str): str => param1
+// is also valid actually
 ```
 
 > **_Note:_** Parameter type annotations will be introduced in a future update.
