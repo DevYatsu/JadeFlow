@@ -46,28 +46,36 @@ return x
 In a future update, JadeFlow will support conditional statements like if, while and match (similar to switch in javascript). Here's a preview of the syntax:
 
 ```rust
+mut x = 3;
+const y = 5;
+
 if x == x {
     // Code block for true condition
 } else {
     // Code block for false condition
 }
 
+x += 2;
+
 while x == y {
-    if y > x {
-        y--
-    }else{
-        y++
+    match x {
+        x > 10 {
+            x--
+        }
+        x <= 10 {
+            x++
+        }
     }
 }
-
+const z = "test"; 
 match z {
-    "test"::{
+    "test" {
         // Code block for "test" case
     }
-    "hey"::{
+    "hey" {
         // Code block for "hey" case
     }
-    _::{
+    _ {
         // block code for other cases
     }
 }
@@ -97,19 +105,12 @@ In a future update, JadeFlow will provide a set of built-in functions for common
 JadeFlow supports both single-line and multi-line comments:
 
 ```
-# This is a single-line comment
+// This is a single-line comment
 
-###
+/*
 This is a
 multi-line comment
-###
-
-# This is a single-line comment
-
-###
-This is a
-multi-line comment
-###
+*/
 ```
 
 ### Standard Libraries
@@ -133,7 +134,7 @@ fn hello() {
 }
 
 # Example 2: Fibonacci Series
-fn fibonacci(n) {
+fn fibonacci(n: num) {
     if n <= 1 {
         return n
     }
@@ -141,11 +142,11 @@ fn fibonacci(n) {
 }
 
 fn main() {
-    num = 10
-    for i in 0->num { # range non including 10
+    n = 10
+    for i in 0..n { // range non including 10
         print(fibonacci(i))
     }
-    for i in 0=>num { # range including 10
+    for i in 0..=n { // range including 10
         print(fibonacci(i))
     }
 }
