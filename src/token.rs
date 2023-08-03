@@ -84,6 +84,10 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     position += 1;
                     tokens.push_back(token("..".to_string(), TokenType::Range));
                 }
+                _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8)) && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) => {
+                    position += 1;
+                    tokens.push_back(token("..".to_string(), TokenType::Range));
+                }
                 _ => {
                     return Err(SyntaxError::UnexpectedToken {
                         token: ".".to_string(),
@@ -148,10 +152,6 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
                         position += 1;
                         tokens.push_back(token("--".to_string(), TokenType::DecrementOperator));
-                    }
-                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
-                        position += 1;
-                        tokens.push_back(token("->".to_string(), TokenType::Range));
                     }
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
                         position += 1;
