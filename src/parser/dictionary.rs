@@ -30,7 +30,7 @@ pub fn parse_dictionary_expression(
                         })?;
                 }
                 handle_missing_value_dict(&temp_key)?;
-println!("{:?}", token);
+                println!("{:?}", token);
                 if token.token_type == TokenType::CloseBrace {
                     break;
                 } else {
@@ -46,7 +46,7 @@ println!("{:?}", token);
                         }
                         _ => (),
                     }
-                    
+
                     expressions.insert(temp_key.take().unwrap(), value);
                     continue;
                 } else {
@@ -57,7 +57,9 @@ println!("{:?}", token);
             }
             _ => {
                 if temp_key.is_some() {
-                    return Err(ParsingError::MissingValueDict { key: temp_key.unwrap().to_string() })
+                    return Err(ParsingError::MissingValueDict {
+                        key: temp_key.unwrap().to_string(),
+                    });
                 } else {
                     if token.token_type == TokenType::Identifier
                         || token.token_type == TokenType::String

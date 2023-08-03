@@ -48,9 +48,10 @@ pub fn parse_var_declaration(
                     var_name: name,
                 });
             }
-
+            println!("before expr: {:?}", tokens);
             let expression = parse_expression(tokens, symbol_table)?;
-
+            println!("var dec : {:?}", expression);
+            println!("after dec: {:?}", tokens);
             if let Expression::Null = &expression {
                 return Ok(Declaration {
                     name,
@@ -93,7 +94,10 @@ pub fn parse_var_declaration(
             });
         }
 
+        println!("before expr: {:?}", tokens);
         let expression = parse_expression(tokens, symbol_table)?;
+        println!("var dec : {:?}", expression);
+        println!("after dec: {:?}", tokens);
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),

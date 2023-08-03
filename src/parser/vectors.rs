@@ -1,7 +1,7 @@
 use super::{
     architecture::{Declaration, Expression, SymbolTable},
     expression::parse_expression,
-    ParsingError,
+    ignore_whitespace, ParsingError,
 };
 use crate::token::{Token, TokenType};
 
@@ -10,18 +10,30 @@ pub fn parse_array_expression(
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = Vec::new();
-
-    while let Some(token) = tokens.next() {
-        match &token.token_type {
+    ignore_whitespace(tokens);
+    let mut peekable = tokens.clone().peekable();
+    while let Some(token) = peekable.next() {
+        println!("epxrsss: {:?}", vec_expressions);
+        match token.token_type {
             TokenType::CloseBracket => {
+                tokens.next();
                 break;
             }
-            TokenType::Comma => {
-                continue;
+            TokenType::Comma | TokenType::Separator => {
+                tokens.next();
+                continue; // still an issue if there is an expr, then two /n and an expr again
             }
             _ => {
                 let value = parse_expression(tokens, symbol_table)?;
-                check_and_insert_expression(&value, symbol_table, &mut vec_expressions)?;
+
+                match value {
+                    Expression::ArrayExpression(_) | Expression::DictionaryExpression(_) => {
+                        println!("ttt {:?}", tokens);
+                        peekable = tokens.clone().peekable();
+                    }
+                    _ => (),
+                };
+                check_and_insert_expression(value, symbol_table, &mut vec_expressions)?;
             }
         }
     }
@@ -30,17 +42,17 @@ pub fn parse_array_expression(
 }
 
 fn check_and_insert_expression(
-    expression: &Expression,
+    expression: Expression,
     symbol_table: &SymbolTable,
     vec_expressions: &mut Vec<Expression>,
 ) -> Result<(), ParsingError> {
-    match expression {
+    match &expression {
         Expression::Variable(name) => {
             symbol_table.get_variable(name)?; // error if var not defined
         }
         _ => (),
     }
-    vec_expressions.push(expression.clone());
+    vec_expressions.push(expression);
     Ok(())
 }
 

@@ -12,7 +12,9 @@ pub fn parse_expression(
     tokens: &mut std::slice::Iter<'_, Token>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    parse_expression_with_precedence(tokens, symbol_table, 0)
+    let expression = parse_expression_with_precedence(tokens, symbol_table, 0)?;
+    println!("Expression: {:?}", expression); // Add this debug print
+    Ok(expression)
 }
 
 pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {
@@ -46,11 +48,14 @@ fn parse_expression_with_precedence(
 
     let mut peekable = tokens.clone().peekable();
     if let Some(token) = peekable.peek() {
+        println!("{expression} , next: token");
+
         match token.token_type {
             TokenType::Var
             | TokenType::For
             | TokenType::Function
             | TokenType::CloseBrace
+            | TokenType::CloseBracket
             | TokenType::While
             | TokenType::Match
             | TokenType::Comma
@@ -119,6 +124,7 @@ fn parse_primary_expression(
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     if let Some(token) = tokens.next() {
+        println!("str: {:?}", token);
         match &token.token_type {
             TokenType::Identifier => {
                 let next = tokens.next();
@@ -184,9 +190,12 @@ fn parse_primary_expression(
                 }
             }
             TokenType::Separator => Err(ParsingError::ExpectedSomething),
-            _ => Err(ParsingError::InvalidExpression {
-                value: token.value.clone(),
-            }),
+            _ => {
+                println!("inv :{:?}", token);
+                Err(ParsingError::InvalidExpression {
+                    value: token.value.clone(),
+                })
+            }
         }
     } else {
         Err(ParsingError::UnexpectedEndOfInput)
