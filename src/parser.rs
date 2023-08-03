@@ -172,12 +172,12 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
 
 pub fn ignore_whitespace(tokens: &mut std::slice::Iter<'_, Token>) {
     let mut clone_iter = tokens.clone().peekable();
-
     while let Some(Token {
         token_type: TokenType::Separator,
         ..
     }) = clone_iter.peek()
     {
         tokens.next();
+        clone_iter.next();
     }
 }

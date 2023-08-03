@@ -48,7 +48,7 @@ fn parse_expression_with_precedence(
 
     let mut peekable = tokens.clone().peekable();
     if let Some(token) = peekable.peek() {
-        println!("{expression} , next: token");
+        println!("{expression} , next: {:?}", token);
 
         match token.token_type {
             TokenType::Var
@@ -59,7 +59,8 @@ fn parse_expression_with_precedence(
             | TokenType::While
             | TokenType::Match
             | TokenType::Comma
-            | TokenType::Identifier => return Ok(expression),
+            | TokenType::Identifier
+            | TokenType::Separator => return Ok(expression),
             _ => (),
         }
     }
@@ -124,10 +125,10 @@ fn parse_primary_expression(
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     if let Some(token) = tokens.next() {
-        println!("str: {:?}", token);
         match &token.token_type {
             TokenType::Identifier => {
-                let next = tokens.next();
+                let mut peekable = tokens.clone().peekable();
+                let next = peekable.peek();
                 if let Some(Token {
                     token_type: TokenType::OpenParen,
                     ..
@@ -136,6 +137,7 @@ fn parse_primary_expression(
                     let function = symbol_table.get_function(&token.value)?;
 
                     let assignment = parse_fn_call(tokens, &symbol_table, &function)?;
+                    return Ok(assignment)
                 }
 
                 let var = symbol_table.get_variable(&token.value)?;
@@ -147,6 +149,7 @@ fn parse_primary_expression(
                         ..
                     }) = next
                     {
+                        tokens.next();
                         Ok(parse_array_indexing(tokens, var)?)
                     } else {
                         Ok(Expression::Variable(token.value.clone()))

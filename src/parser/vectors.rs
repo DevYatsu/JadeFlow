@@ -11,9 +11,10 @@ pub fn parse_array_expression(
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = Vec::new();
     ignore_whitespace(tokens);
+    println!("tokens in vec: {:?}", tokens);
     let mut peekable = tokens.clone().peekable();
     while let Some(token) = peekable.next() {
-        println!("epxrsss: {:?}", vec_expressions);
+        println!("{:?}", tokens);
         match token.token_type {
             TokenType::CloseBracket => {
                 tokens.next();
@@ -28,7 +29,6 @@ pub fn parse_array_expression(
 
                 match value {
                     Expression::ArrayExpression(_) | Expression::DictionaryExpression(_) => {
-                        println!("ttt {:?}", tokens);
                         peekable = tokens.clone().peekable();
                     }
                     _ => (),

@@ -1,1 +1,16 @@
 mut test1 = 23, t: bool = true, test1 = "str", test2 = ["test string", 0, false, [4], {t}], test3 = {test2, test4: t, test1} 
+const hey = 1 + 2
+
+const all = {
+    test1,
+    t,
+    test2,
+    test3: test3 + 1
+}
+
+const test_arr = [
+    test1
+    t
+    test2
+    test3
+]
