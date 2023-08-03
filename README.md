@@ -24,7 +24,7 @@ JadeFlow supports the following data types:
 You can declare functions using the fn keyword and the following syntax:
 
 ```rust
-fn functionName(params) {
+fn functionName(param1: str): str {
     // Function body
 }
 ```
