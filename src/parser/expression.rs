@@ -49,7 +49,7 @@ fn parse_expression_with_precedence(
 
     while let Some(token) = tokens.peek() {
         match token.token_type {
-            TokenType::CloseBrace | TokenType::CloseBracket | TokenType::Comma => {
+            TokenType::CloseBrace | TokenType::CloseBracket | TokenType::Comma | TokenType::CloseParen => {
                 return Ok(expression)
             }
             TokenType::Separator => {

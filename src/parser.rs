@@ -73,9 +73,16 @@ custom_error! {pub ParsingError
 
 // add support for formatted string, and errors when we expect a token and it is not present
 
-pub fn parse(mut tokens_iter: Peekable<Iter<'_, Token>>) -> Result<ASTNode, ParsingError> {
+pub fn parse(
+    mut tokens_iter: Peekable<Iter<'_, Token>>,
+    optional_symbol_table: Option<&SymbolTable>,
+) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
-    let mut symbol_table = SymbolTable::new();
+    let mut symbol_table = if let Some(table) = optional_symbol_table {
+        table.clone()
+    } else {
+        SymbolTable::new()
+    };
 
     while 0 != tokens_iter.clone().count() {
         if let Some(token) = tokens_iter.next() {

@@ -304,6 +304,27 @@ pub struct Function {
     pub context: Box<ASTNode>,
     pub return_type: Option<VariableType>,
 }
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "fn {}({}) => {}",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+            if let Some(output_t) = &self.return_type {
+                output_t.as_assignment()
+            } else {
+                "null"
+            },
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MainFunctionData {
     pub name: String,
@@ -387,6 +408,16 @@ impl SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
         }
+    }
+    pub fn merge(first_table: &SymbolTable, second_table: SymbolTable) -> SymbolTable {
+        let mut table = SymbolTable::new();
+
+        table.variables.extend(first_table.variables.clone());
+        table.functions.extend(first_table.functions.clone());
+        table.variables.extend(second_table.variables);
+        table.functions.extend(second_table.functions);
+
+        table
     }
 
     pub fn insert_variable(&mut self, declaration: Declaration) {
@@ -510,5 +541,30 @@ impl SymbolTable {
             .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_owned(),
             })?)
+    }
+}
+
+impl fmt::Display for SymbolTable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "-- VARIABLES -- \n",)?;
+        if self.variables.len() == 0 {
+            write!(f, "None\n")?;
+        } else {
+            for var in &self.variables {
+                write!(f, "{}\n", var.1.to_string())?;
+            }
+        }
+
+        write!(f, "-- FUNCTIONS -- \n",)?;
+
+        if self.functions.len() == 0 {
+            Ok({
+                write!(f, "None\n")?;
+            })
+        } else {
+            Ok(for var in &self.functions {
+                write!(f, "- {}\n", var.1.to_string())?;
+            })
+        }
     }
 }

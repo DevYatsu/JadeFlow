@@ -1,7 +1,10 @@
 use crate::{
     parser::{
         architecture::{function, program},
-        parse, expression::parse_expression, vectors::check_and_insert_expression, types::TypeError,
+        expression::parse_expression,
+        parse,
+        types::TypeError,
+        vectors::check_and_insert_expression,
     },
     token::{Token, TokenType},
 };
@@ -108,7 +111,7 @@ pub fn parse_fn_declaration(
                     ctx_tokens.extend(parse_fn_block(tokens, &name)?);
 
                     let ctx_tokens_iter = ctx_tokens.iter().peekable();
-                    parse(ctx_tokens_iter)?
+                    parse(ctx_tokens_iter, Some(&symbol_table))?
                 }
                 Some(Token {
                     token_type: TokenType::FunctionArrow,
@@ -141,7 +144,7 @@ pub fn parse_fn_declaration(
                     }
 
                     let ctx_tokens_iter = ctx_tokens.iter().peekable();
-                    parse(ctx_tokens_iter)?
+                    parse(ctx_tokens_iter, Some(&symbol_table))?
                 }
                 _ => {
                     return Err(FunctionParsingError::ExpectedBrace {
@@ -152,6 +155,10 @@ pub fn parse_fn_declaration(
             };
 
             let function_context = keep_useful_content(function_context);
+            println!("global st:\n {}", symbol_table);
+            let function_context = add_global_content(&symbol_table, function_context);
+
+            println!("fn context \n {}", function_context.symbol_table);
 
             let returned_type = returned_type(&function_context);
 
@@ -206,6 +213,7 @@ pub fn parse_fn_call(
 ) -> Result<FunctionCall, FunctionParsingError> {
     // jump the '('
     tokens.next();
+    println!("st: \n {}", symbol_table);
 
     let fn_data = symbol_table.get_function(function_name)?;
     let arguments = fn_data.arguments;
@@ -234,13 +242,20 @@ pub fn parse_fn_call(
     }
 
     let call_args: Vec<Expression> = parse_call_args(tokens, function_name, symbol_table)?;
-    let args_types = call_args.iter().map(|expr| type_from_expression(expr, symbol_table)).collect::<Vec<Result<VariableType, TypeError>>>();
+    let args_types = call_args
+        .iter()
+        .map(|expr| type_from_expression(expr, symbol_table))
+        .collect::<Vec<Result<VariableType, TypeError>>>();
 
     let required_num = arguments.len();
     let found_num = call_args.len();
 
     if required_num != required_num {
-        return Err(FunctionParsingError::InvalidFnCallArgNumber { fn_name: function_name.to_string(), required_num, found_num })
+        return Err(FunctionParsingError::InvalidFnCallArgNumber {
+            fn_name: function_name.to_string(),
+            required_num,
+            found_num,
+        });
     }
 
     for (i, arg) in args_types.iter().enumerate() {
@@ -248,19 +263,34 @@ pub fn parse_fn_call(
             Ok(t) => {
                 let required_t = &arguments[i].var_type;
                 if t != required_t {
-                    return Err(FunctionParsingError::InvalidFnCallArgType { fn_name: function_name.to_owned(), arg_name: arguments[i].name.to_owned(), found_t: t.clone(), required_t: required_t.clone() })
+                    return Err(FunctionParsingError::InvalidFnCallArgType {
+                        fn_name: function_name.to_owned(),
+                        arg_name: arguments[i].name.to_owned(),
+                        found_t: t.clone(),
+                        required_t: required_t.clone(),
+                    });
                 }
-            },
+            }
             Err(e) => {
-                return Err(FunctionParsingError::InvalidFnCallArg { fn_name: function_name.to_owned(), err: e.to_string() })
-            },
+                return Err(FunctionParsingError::InvalidFnCallArg {
+                    fn_name: function_name.to_owned(),
+                    err: e.to_string(),
+                })
+            }
         }
     }
 
-    Ok(FunctionCall { function_name: function_name.to_owned(), arguments: call_args })
+    Ok(FunctionCall {
+        function_name: function_name.to_owned(),
+        arguments: call_args,
+    })
 }
 
-fn parse_call_args(tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>, fn_name: &str, symbol_table: &SymbolTable)-> Result<Vec<Expression>, FunctionParsingError>{
+fn parse_call_args(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    fn_name: &str,
+    symbol_table: &SymbolTable,
+) -> Result<Vec<Expression>, FunctionParsingError> {
     let mut args = Vec::new();
     ignore_whitespace(tokens);
 
@@ -277,12 +307,22 @@ fn parse_call_args(tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>
             _ => {
                 let value = match parse_expression(tokens, symbol_table) {
                     Ok(v) => v,
-                    Err(e) => return Err(FunctionParsingError::InvalidFnCallArg { fn_name: fn_name.to_owned(), err: e.to_string() }),
+                    Err(e) => {
+                        return Err(FunctionParsingError::InvalidFnCallArg {
+                            fn_name: fn_name.to_owned(),
+                            err: e.to_string(),
+                        })
+                    }
                 };
 
                 match check_and_insert_expression(value, symbol_table, &mut args) {
                     Ok(_) => (),
-                    Err(e) => return Err(FunctionParsingError::InvalidFnCallArg { fn_name: fn_name.to_owned(), err: e.to_string() }),
+                    Err(e) => {
+                        return Err(FunctionParsingError::InvalidFnCallArg {
+                            fn_name: fn_name.to_owned(),
+                            err: e.to_string(),
+                        })
+                    }
                 };
             }
         }
@@ -344,6 +384,16 @@ fn keep_useful_content(function_context: ASTNode) -> Program {
             }
         }
         _ => unreachable!(),
+    }
+}
+
+fn add_global_content(global_symbol_table: &SymbolTable, function_context: Program) -> Program {
+    let merged_symbol_table =
+        SymbolTable::merge(global_symbol_table, function_context.symbol_table);
+
+    Program {
+        statements: function_context.statements,
+        symbol_table: merged_symbol_table,
     }
 }
 

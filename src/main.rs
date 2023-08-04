@@ -44,7 +44,7 @@ fn main() {
     println!("{} seconds to execute tokenisation", first_timer);
 
     let start = Instant::now();
-    let program = match parse(tokens_iter) {
+    let program = match parse(tokens_iter, None) {
         Ok(p) => p,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
@@ -55,9 +55,7 @@ fn main() {
 
     match program {
         ASTNode::Program(p) => {
-            for s in &p.statements {
-                println!("{:?}", s);
-            }
+            println!("symbol table: \n {}", p.symbol_table);
             println!("statements number: {}", p.statements.len());
         }
         _ => unreachable!(),
