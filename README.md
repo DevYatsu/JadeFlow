@@ -21,29 +21,6 @@ JadeFlow supports the following data types:
 - Dictionaries/Objects
 - Null (actually not a data type)
 
-#### arrays syntax particularity
-you can declare and array this way:
-```
-const arr = [
-    true,
-    false,
-    "str",
-    {
-        obj: {}
-    }
-]
-//or this way after
-const arr = [
-    true
-    false
-    "str"
-    {
-        obj: {}
-    }
-]
-```
-Actually, commas become facultative in arrays when declaring them on several lines. 
-
 ### Declaring Functions
 
 You can declare functions using the fn keyword and the following syntax:
