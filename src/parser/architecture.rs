@@ -18,6 +18,7 @@ pub enum ASTNode {
     Expression(Expression),
 
     Return(Expression),
+    FunctionCall(FunctionCall),
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +58,11 @@ pub fn function(f: Function) -> Statement {
         node: ASTNode::FunctionDeclaration(f),
     }
 }
+pub fn function_call(call: FunctionCall) -> Statement {
+    Statement {
+        node: ASTNode::FunctionCall(call),
+    }
+}
 pub fn return_statement(expr: Expression) -> Statement {
     Statement {
         node: ASTNode::Return(expr),
@@ -78,10 +84,7 @@ pub enum Expression {
         right: Box<Expression>,
     },
     FormattedString(Vec<FormattedSegment>),
-    FunctionCall {
-        function_name: String,
-        arguments: Vec<Expression>,
-    },
+    FunctionCall(FunctionCall),
 }
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -128,15 +131,12 @@ impl fmt::Display for Expression {
                 }
                 write!(f, "\"")
             }
-            Expression::FunctionCall {
-                function_name,
-                arguments,
-            } => {
+            Expression::FunctionCall(call) => {
                 write!(f, "fn ")?;
-                write!(f, "{} ", function_name)?;
+                write!(f, "{} ", call.function_name)?;
                 write!(f, "(")?;
 
-                for argument in arguments {
+                for argument in &call.arguments {
                     write!(f, "{}, ", argument)?;
                 }
                 write!(f, ")")
@@ -221,7 +221,7 @@ impl FormattedSegment {
                     };
 
                     let expr = FormattedSegment::Expression(parse_expression(
-                        &mut t.iter(),
+                        &mut t.iter().peekable(),
                         symbol_table,
                     )?);
                     result.push(expr);
@@ -318,6 +318,12 @@ impl MainFunctionData {
             return_type: f.return_type.clone(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionCall {
+    pub function_name: String,
+    pub arguments: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]

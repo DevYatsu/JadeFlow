@@ -6,16 +6,18 @@ use crate::{
 use super::{
     architecture::{Declaration, Expression, Reassignment, SymbolTable},
     expression::parse_with_operator,
+    ignore_whitespace,
     types::{parse_type, type_from_expression},
     ParsingError,
 };
 
 pub fn parse_var_declaration(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var_keyword: &str,
     symbol_table: &SymbolTable,
 ) -> Result<Declaration, ParsingError> {
     let is_mutable = var_keyword == "mut";
+    ignore_whitespace(tokens);
 
     // Expect an identifier token (variable name)
     let name = tokens.next().map_or_else(
@@ -28,6 +30,8 @@ pub fn parse_var_declaration(
             }),
         },
     )?;
+    ignore_whitespace(tokens);
+
     let next = tokens.next();
 
     if let Some(Token {
@@ -36,6 +40,7 @@ pub fn parse_var_declaration(
     }) = next
     {
         let var_type = parse_type(tokens)?;
+        ignore_whitespace(tokens);
 
         if let Some(Token {
             token_type: TokenType::AssignmentOperator,
@@ -48,8 +53,10 @@ pub fn parse_var_declaration(
                     var_name: name,
                 });
             }
+            ignore_whitespace(tokens);
+
             let expression = parse_expression(tokens, symbol_table)?;
-        println!("var: {name} = {expression}");
+            println!("{var_keyword} {name}: {var_type} = {expression}");
 
             if let Expression::Null = &expression {
                 return Ok(Declaration {
@@ -92,14 +99,16 @@ pub fn parse_var_declaration(
                 var_name: name,
             });
         }
+        ignore_whitespace(tokens);
 
         let expression = parse_expression(tokens, symbol_table)?;
-        println!("var: {name} = {expression}");
+        println!("{var_keyword} {name} = {expression}");
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
             _ => {
                 let var_type = type_from_expression(&expression, symbol_table)?;
+
                 return Ok(Declaration {
                     name,
                     var_type,
@@ -120,10 +129,12 @@ pub fn parse_var_declaration(
 // prevent concatenation of objects {} + 2 but allow it for vectors
 
 pub fn parse_var_reassignment(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     initial_var: &Declaration,
     symbol_table: &SymbolTable,
 ) -> Result<Reassignment, ParsingError> {
+    ignore_whitespace(tokens);
+
     let next = tokens.next();
     if next.is_none() {
         return Err(ParsingError::UnexpectedEndOfInput);
@@ -134,12 +145,15 @@ pub fn parse_var_reassignment(
         value: operator,
     }) = next
     {
+        ignore_whitespace(tokens);
+
         let after_assignment_expression = parse_expression(tokens, symbol_table)?;
 
         let after_assignment_expression_string = after_assignment_expression.to_owned();
 
         let expression =
             parse_with_operator(&operator, after_assignment_expression, &initial_var.name);
+        println!("{initial_var} = {expression}");
 
         let t = type_from_expression(&expression, symbol_table)?;
 

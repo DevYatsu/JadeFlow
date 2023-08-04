@@ -6,15 +6,13 @@ use super::{
 use crate::token::{Token, TokenType};
 
 pub fn parse_array_expression(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = Vec::new();
     ignore_whitespace(tokens);
-    println!("tokens in vec: {:?}", tokens);
-    let mut peekable = tokens.clone().peekable();
-    while let Some(token) = peekable.next() {
-        println!("{:?}", tokens);
+
+    while let Some(token) = tokens.peek() {
         match token.token_type {
             TokenType::CloseBracket => {
                 tokens.next();
@@ -27,12 +25,6 @@ pub fn parse_array_expression(
             _ => {
                 let value = parse_expression(tokens, symbol_table)?;
 
-                match value {
-                    Expression::ArrayExpression(_) | Expression::DictionaryExpression(_) => {
-                        peekable = tokens.clone().peekable();
-                    }
-                    _ => (),
-                };
                 check_and_insert_expression(value, symbol_table, &mut vec_expressions)?;
             }
         }
@@ -41,7 +33,7 @@ pub fn parse_array_expression(
     Ok(Expression::ArrayExpression(vec_expressions))
 }
 
-fn check_and_insert_expression(
+pub fn check_and_insert_expression(
     expression: Expression,
     symbol_table: &SymbolTable,
     vec_expressions: &mut Vec<Expression>,
@@ -57,7 +49,7 @@ fn check_and_insert_expression(
 }
 
 pub fn parse_array_indexing(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var: Declaration,
 ) -> Result<Expression, ParsingError> {
     let next = tokens.next();

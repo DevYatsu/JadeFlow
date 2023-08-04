@@ -86,9 +86,9 @@ pub fn type_from_expression(
                 }
             }
         }
-        Expression::FunctionCall { function_name, .. } => {
+        Expression::FunctionCall(call) => {
             match symbol_table
-                .get_function(&function_name)
+                .get_function(&call.function_name)
                 .map(|var| var.return_type)
             {
                 Ok(r) => {
@@ -104,7 +104,9 @@ pub fn type_from_expression(
     }
 }
 
-pub fn parse_type(tokens: &mut std::slice::Iter<'_, Token>) -> Result<VariableType, ParsingError> {
+pub fn parse_type(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+) -> Result<VariableType, ParsingError> {
     let next = tokens.next();
     // fn to use after encountering ':'
     if let Some(Token {

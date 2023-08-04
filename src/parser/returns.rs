@@ -6,7 +6,7 @@ use super::{
 };
 
 pub fn parse_return_statement(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {
     let expr = parse_expression(tokens, symbol_table)?;

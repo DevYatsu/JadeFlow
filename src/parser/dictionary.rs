@@ -7,13 +7,13 @@ use crate::token::{Token, TokenType};
 use std::collections::HashMap;
 
 pub fn parse_dictionary_expression(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut expressions: HashMap<String, Expression> = HashMap::new();
     let mut temp_key: Option<String> = None;
 
-    while let Some(token) = tokens.next() {    
+    while let Some(token) = tokens.next() {
         match token.token_type {
             TokenType::Separator => {
                 continue;
@@ -28,10 +28,10 @@ pub fn parse_dictionary_expression(
                                 Expression::Variable(temp_key.take().unwrap().to_string()),
                             ))
                         })?;
-                }    println!("{:?}", temp_key);
+                }
 
                 handle_missing_value_dict(&temp_key)?;
-                println!("{:?}", token);
+
                 if token.token_type == TokenType::CloseBrace {
                     break;
                 } else {
@@ -74,9 +74,8 @@ pub fn parse_dictionary_expression(
                     }
 
                     handle_invalid_string_dict_key(&temp_key, &token.value)?;
-                    
+
                     skip_to_colon(tokens, &temp_key)?;
-                    println!("{:?}", temp_key);
                 }
             }
         }
@@ -108,11 +107,10 @@ fn handle_invalid_string_dict_key(
 }
 
 fn skip_to_colon(
-    tokens: &mut std::slice::Iter<'_, Token>,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     temp_key: &Option<String>,
 ) -> Result<(), ParsingError> {
-    let mut clone_iter = tokens.clone().peekable();
-    while let Some(token) = clone_iter.peek() {
+    while let Some(token) = tokens.peek() {
         match token.token_type {
             TokenType::Colon | TokenType::Comma | TokenType::CloseBrace | TokenType::Separator => {
                 break;

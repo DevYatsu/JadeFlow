@@ -7,7 +7,7 @@ mod types;
 mod vars;
 mod vectors;
 
-use std::{io::Error, num::ParseIntError};
+use std::{io::Error, iter::Peekable, num::ParseIntError, slice::Iter};
 
 use custom_error::custom_error;
 
@@ -18,10 +18,11 @@ use crate::{
 
 use self::{
     architecture::{
-        reassignment, variable, ASTNode, Expression, Statement, SymbolTable, VariableType,
+        function_call, reassignment, variable, ASTNode, Expression, Statement, SymbolTable,
+        VariableType,
     },
     expression::parse_expression,
-    functions::{parse_fn_declaration, FunctionParsingError},
+    functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
     types::TypeError,
     vars::{parse_var_declaration, parse_var_reassignment},
@@ -72,10 +73,9 @@ custom_error! {pub ParsingError
 
 // add support for formatted string, and errors when we expect a token and it is not present
 
-pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
+pub fn parse(mut tokens_iter: Peekable<Iter<'_, Token>>) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = SymbolTable::new();
-    let mut tokens_iter = tokens.iter();
 
     while 0 != tokens_iter.clone().count() {
         if let Some(token) = tokens_iter.next() {
@@ -90,6 +90,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                 TokenType::Identifier => {
                     let mut peek_iter = tokens_iter.clone().peekable();
                     let next_token = peek_iter.peek();
+
                     if let Some(Token {
                         token_type: TokenType::AssignmentOperator,
                         ..
@@ -107,6 +108,15 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
 
                         symbol_table.reassign_variable(assignment.clone());
                         statements.push(reassignment(assignment));
+                    } else if let Some(Token {
+                        token_type: TokenType::OpenParen,
+                        ..
+                    }) = next_token
+                    {
+                        let call =
+                            parse_fn_call(&mut tokens_iter, &token.value, &mut symbol_table)?;
+
+                        statements.push(function_call(call));
                     } else {
                         if let Some(Token {
                             token_type: TokenType::Colon,
@@ -139,6 +149,7 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
                             node: ASTNode::VariableDeclaration(dec),
                         } => {
                             let keyword = if dec.is_mutable { "mut" } else { "const" };
+
                             let declaration = parse_var_declaration(
                                 &mut tokens_iter,
                                 &keyword,
@@ -170,14 +181,16 @@ pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
     }))
 }
 
-pub fn ignore_whitespace(tokens: &mut std::slice::Iter<'_, Token>) {
-    let mut clone_iter = tokens.clone().peekable();
+pub fn ignore_whitespace(tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
     while let Some(Token {
         token_type: TokenType::Separator,
-        ..
-    }) = clone_iter.peek()
+        value,
+    }) = tokens.peek()
     {
-        tokens.next();
-        clone_iter.next();
+        if value == "\n" {
+            tokens.next();
+        } else {
+            break;
+        }
     }
 }
