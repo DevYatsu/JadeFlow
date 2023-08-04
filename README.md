@@ -59,7 +59,7 @@ fn functionName(param1: str): str => param1
 
 > **_Note:_** The arrow syntax can only be used for simple functions, that is functions that have not complex context and that directly something with the arguments. For instance you cannot initialize variables in these functions.
 
-### Return Statement in Functions
+#### Return Statement in Functions
 
 JadeFlow allows you to return values from functions using the return statement:
 
@@ -67,7 +67,7 @@ JadeFlow allows you to return values from functions using the return statement:
 return x
 ```
 
-> **_Note:_** Alternatively, you can use `>>x` or simply `x` to indicate the return value as JadeFlow possesses implicit value return.
+> **_Note:_** Alternatively, you can use `>>x`.
 
 ### Conditional Statements
 
