@@ -74,7 +74,10 @@ fn parse_expression_with_precedence(
 
                     if let Some(token) = clone_iter.peek() {
                         match token.token_type {
-                            TokenType::BinaryOperator | TokenType::Separator => {tokens.next(); continue;},
+                            TokenType::BinaryOperator | TokenType::Separator => {
+                                tokens.next();
+                                continue;
+                            }
                             _ => break,
                         }
                     }
