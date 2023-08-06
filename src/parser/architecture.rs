@@ -15,7 +15,6 @@ pub enum ASTNode {
     FunctionDeclaration(Function),
     // corresponds to both {} and => functions
     ClassDeclaration(Class),
-    Expression(Expression),
 
     Return(Expression),
     FunctionCall(FunctionCall),

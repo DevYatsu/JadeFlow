@@ -52,7 +52,6 @@ custom_error! {pub FunctionParsingError
     InvalidFnCallArgNumber{fn_name: String, required_num: usize, found_num: usize} = "\"{fn_name}\" requires {required_num} arguments whereas {found_num} were provided!",
 }
 
-// update to support return statement in parse
 pub fn parse_fn_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
