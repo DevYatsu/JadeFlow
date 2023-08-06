@@ -1,8 +1,8 @@
-const f = 1 + 2 + 3
+const f = (1 + 2 + 3)
 const s = 2 * 2
 const t = 2 * (s + 7)
-const complexOp = (2 * 8 + 5 ** 2 + 3 * (3 + 4) / 2)
-
+const complexOp = (2 * 8 + 5 * 2 ** 2 + 3 * (3 + 4)/ 2)
+const test = ((1*2) + (5*7) - 2 + 6 / 3)
 1 + 2
 
 mut add = 2

@@ -197,7 +197,6 @@ pub fn ignore_until_statement(
     let mut last_val: Option<&str> = None;
 
     while let Some(Token { token_type, value }) = tokens.peek() {
-        println!("{:?}", tokens);
         match token_type {
             TokenType::Separator => {
                 tokens.next();
