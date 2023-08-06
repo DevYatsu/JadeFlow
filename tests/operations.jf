@@ -1,7 +1,7 @@
 const f = 1 + 2 + 3
 const s = 2 * 2
 const t = 2 * (s + 7)
-const complexOp = (2 * 8 + 5 ** 2 + 3 * (3 + 4) / 2) % 2
+const complexOp = (2 * 8 + 5 ** 2 + 3 * (3 + 4) / 2)
 
 1 + 2
 
@@ -12,4 +12,3 @@ add *= 3
 add /= 1
 add **= 1
 add %= 1
-// need to resolve all errors regarding handling quote without end quote 

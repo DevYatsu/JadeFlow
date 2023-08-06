@@ -49,9 +49,7 @@ fn parse_expression_with_precedence(
 
     while let Some(token) = tokens.peek() {
         match token.token_type {
-            TokenType::CloseBrace | TokenType::CloseBracket | TokenType::Comma | TokenType::CloseParen => {
-                return Ok(expression)
-            }
+            TokenType::BinaryOperator => (),
             TokenType::Separator => {
                 if token.value == ";" {
                     return Ok(expression);
@@ -74,7 +72,7 @@ fn parse_expression_with_precedence(
                     }
                 }
             }
-            _ => (),
+            _ => return Ok(expression),
         }
 
         if let Some(token) = tokens.next() {
@@ -238,7 +236,6 @@ fn parse_primary_expression(
             TokenType::OpenBrace => parse_dictionary_expression(tokens, symbol_table),
             TokenType::OpenParen => {
                 ignore_whitespace(tokens);
-
                 let expr = parse_expression(tokens, symbol_table)?;
                 ignore_whitespace(tokens);
 

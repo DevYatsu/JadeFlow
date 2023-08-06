@@ -102,7 +102,6 @@ pub fn parse_var_declaration(
         ignore_whitespace(tokens);
 
         let expression = parse_expression(tokens, symbol_table)?;
-        println!("{var_keyword} {name} = {expression}");
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),

@@ -68,10 +68,8 @@ custom_error! {pub ParsingError
     ExpectedValidVectorIndex{found: String} = "Expected valid vector index, found {found}",
     ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
 
-    UnwantedColon = "Type annotation only allowed on variable initialization"
+    UnwantedColon = "Type annotation only allowed on variable initialization",
 }
-
-// add support for formatted string, and errors when we expect a token and it is not present
 
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
@@ -124,19 +122,14 @@ pub fn parse(
                             parse_fn_call(&mut tokens_iter, &token.value, &mut symbol_table)?;
 
                         statements.push(function_call(call));
+                    } else if let Some(Token {
+                        token_type: TokenType::Colon,
+                        ..
+                    }) = next_token
+                    {
+                        return Err(ParsingError::UnwantedColon);
                     } else {
-                        if let Some(Token {
-                            token_type: TokenType::Colon,
-                            ..
-                        }) = next_token
-                        {
-                            return Err(ParsingError::UnwantedColon);
-                        }
-
-                        parse_expression(&mut tokens_iter, &mut symbol_table)?;
-                        statements.push(Statement {
-                            node: ASTNode::Expression(Expression::Null),
-                        });
+                        ignore_until_statement(&mut tokens_iter)?;
                     }
                 }
                 TokenType::Function => {
@@ -173,10 +166,7 @@ pub fn parse(
                     }
                 }
                 _ => {
-                    return Err(ParsingError::UnexpectedToken {
-                        expected: ";".to_owned(),
-                        found: token.value.clone(),
-                    });
+                    ignore_until_statement(&mut tokens_iter)?;
                 }
             }
         }
@@ -200,4 +190,59 @@ pub fn ignore_whitespace(tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
             break;
         }
     }
+}
+
+pub fn ignore_until_statement(
+    tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+) -> Result<(), ParsingError> {
+    let mut last_val: Option<&str> = None;
+
+    while let Some(Token { token_type, value }) = tokens.peek() {
+        println!("{:?}", tokens);
+        match token_type {
+            TokenType::Separator => {
+                tokens.next();
+                if let Some(Token {
+                    token_type,
+                    value: next_val,
+                }) = tokens.peek()
+                {
+                    match token_type {
+                        TokenType::Var
+                        | TokenType::For
+                        | TokenType::Function
+                        | TokenType::If
+                        | TokenType::Return
+                        | TokenType::While
+                        | TokenType::Class
+                        | TokenType::Match => break,
+                        _ => {
+                            last_val = Some(next_val);
+
+                            continue;
+                        }
+                    }
+                }
+            }
+            TokenType::Var
+            | TokenType::For
+            | TokenType::Function
+            | TokenType::If
+            | TokenType::Return
+            | TokenType::While
+            | TokenType::Class
+            | TokenType::Match => {
+                return Err(ParsingError::ExpectedSeparator {
+                    value: last_val.unwrap_or(value).to_owned(),
+                })
+            }
+            _ => {
+                tokens.next();
+                last_val = Some(value);
+                continue;
+            }
+        }
+    }
+
+    Ok(())
 }
