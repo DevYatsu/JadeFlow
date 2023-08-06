@@ -16,8 +16,6 @@ pub fn parse_expression(
     Ok(expression)
 }
 
-// still need to make the expression parsing work for complex calculs
-
 pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {
     // we assume the fn is used for reassigment with these operators:
     // +=, -=, *=, %= or **=

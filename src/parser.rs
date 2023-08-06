@@ -70,6 +70,8 @@ custom_error! {pub ParsingError
     UnwantedColon = "Type annotation only allowed on variable initialization",
 }
 
+// need to resolve the UnexpectedEndOfInput error that appears randomly for instance in fn.jf
+
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
     optional_symbol_table: Option<&SymbolTable>,
