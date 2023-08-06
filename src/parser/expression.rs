@@ -83,10 +83,10 @@ fn parse_expression_with_precedence(
                     }
                 }
             }
-            TokenType::CloseParen => {
-                break;
-            }
-            TokenType::CloseBracket | TokenType::Colon => {
+            TokenType::CloseParen
+            | TokenType::CloseBracket
+            | TokenType::Colon
+            | TokenType::Comma => {
                 // If a closing parenthesis, bracket, or colon is encountered, stop parsing
                 break;
             }
