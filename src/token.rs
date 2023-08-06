@@ -478,5 +478,21 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
         position += 1;
     }
 
+    while let Some(Token {
+        token_type: TokenType::Separator,
+        ..
+    }) = tokens.first()
+    {
+        tokens.pop();
+    }
+
+    while let Some(Token {
+        token_type: TokenType::Separator,
+        ..
+    }) = tokens.last()
+    {
+        tokens.pop();
+    }
+
     Ok(tokens)
 }

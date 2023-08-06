@@ -239,7 +239,7 @@ impl FormattedSegment {
 
                         // Add the current string part to the result
                         if !current_part.is_empty() {
-                            result.push(FormattedSegment::Literal(current_part.to_owned()));
+                            result.push(FormattedSegment::Literal(current_part.clone()));
                         }
                         current_part.clear();
                     } else {
@@ -333,7 +333,7 @@ pub struct MainFunctionData {
 impl MainFunctionData {
     pub fn from_function(f: &Function) -> MainFunctionData {
         MainFunctionData {
-            name: f.name.to_owned(),
+            name: f.name.clone(),
             arguments: f.arguments.clone(),
             return_type: f.return_type.clone(),
         }
@@ -420,17 +420,16 @@ impl SymbolTable {
     }
 
     pub fn insert_variable(&mut self, declaration: Declaration) {
-        self.variables
-            .insert(declaration.name.to_owned(), declaration);
+        self.variables.insert(declaration.name.clone(), declaration);
     }
     pub fn insert_function(&mut self, f: &Function) {
-        self.functions.insert(f.name.to_owned(), f.clone());
+        self.functions.insert(f.name.clone(), f.clone());
     }
     pub fn reassign_variable(&mut self, reassignement: Reassignment) {
         let initial_var = self.get_variable(&reassignement.name).unwrap();
 
         self.variables.insert(
-            reassignement.name.to_owned(),
+            reassignement.name.clone(),
             Declaration {
                 name: initial_var.name,
                 var_type: initial_var.var_type,
@@ -503,7 +502,7 @@ impl SymbolTable {
                                 continue;
                             }
                             _ => {
-                                var = e.to_owned();
+                                var = e.clone();
                                 continue;
                             }
                         }
@@ -515,7 +514,7 @@ impl SymbolTable {
                     }
                 }
                 expr => {
-                    var = expr.to_owned();
+                    var = expr.clone();
                     continue;
                 }
             }

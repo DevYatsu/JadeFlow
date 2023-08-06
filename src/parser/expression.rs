@@ -107,7 +107,7 @@ fn parse_expression_with_precedence(
     let result_expression = operand_stack
         .pop()
         .ok_or(ParsingError::UnexpectedEndOfInput)?;
-    println!("resulting expr {result_expression}");
+    println!("resulting expr {:?}", operand_stack);
 
     Ok(result_expression)
 }

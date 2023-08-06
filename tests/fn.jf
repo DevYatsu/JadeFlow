@@ -10,4 +10,3 @@ fn obj_from (s: str, s2: str,): dict => {s, s2}
 fn concatenate_several(s: str, s2: str, s3: str, s4: str): str {
     >> concatenate ( concatenate(s, s2), concatenate s3, s4) )
 }
-
