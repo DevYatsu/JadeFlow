@@ -21,7 +21,6 @@ use self::{
         function_call, reassignment, variable, ASTNode, Expression, Statement, SymbolTable,
         VariableType,
     },
-    expression::parse_expression,
     functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
     types::TypeError,
