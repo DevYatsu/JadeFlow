@@ -14,7 +14,7 @@ use super::{
 pub fn parse_var_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var_keyword: &str,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Declaration, ParsingError> {
     let is_mutable = var_keyword == "mut";
     ignore_whitespace(tokens);
@@ -67,7 +67,8 @@ pub fn parse_var_declaration(
                 });
             }
 
-            let var_type_from_expression = type_from_expression(&expression, symbol_table, Some(tokens))?;
+            let var_type_from_expression =
+                type_from_expression(&expression, symbol_table, Some(tokens))?;
             if var_type != var_type_from_expression {
                 return Err(ParsingError::AssignedTypeNotFound {
                     assigned_t: var_type,
@@ -130,7 +131,7 @@ pub fn parse_var_declaration(
 pub fn parse_var_reassignment(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     initial_var: &Declaration,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Reassignment, ParsingError> {
     ignore_whitespace(tokens);
 

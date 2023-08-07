@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 pub fn parse_dictionary_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut expressions: HashMap<String, Expression> = HashMap::new();
     let mut temp_key: Option<String> = None;

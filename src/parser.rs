@@ -32,6 +32,7 @@ custom_error! {pub ParsingError
     ParsingTypyError{source: TypeError} = "{source}",
     ParseInt{source: ParseIntError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
+    Custom{data: String} = "{data}",
 
     Default = "Failed to parse tokens",
     SpecialStringOnlyAtFileStart = "Special strings ('') can only appear at the start of the file",

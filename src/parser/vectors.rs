@@ -7,7 +7,7 @@ use crate::token::{Token, TokenType};
 
 pub fn parse_array_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = Vec::new();
     ignore_whitespace(tokens);
@@ -35,7 +35,7 @@ pub fn parse_array_expression(
 
 pub fn check_and_insert_expression(
     expression: Expression,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
     vec_expressions: &mut Vec<Expression>,
 ) -> Result<(), ParsingError> {
     match &expression {

@@ -10,7 +10,7 @@ use crate::token::{Token, TokenType};
 
 pub fn parse_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let expression = parse_expression_with_precedence(tokens, symbol_table)?;
     Ok(expression)
@@ -40,7 +40,7 @@ pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &
 
 fn parse_expression_with_precedence(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut operand_stack: Vec<Expression> = Vec::new();
     let mut operator_stack: Vec<BinaryOperator> = Vec::new();
@@ -113,7 +113,7 @@ fn parse_expression_with_precedence(
 
 fn parse_primary_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     ignore_whitespace(tokens);
     if let Some(token) = tokens.next() {

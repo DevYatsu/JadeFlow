@@ -1,7 +1,9 @@
 use crate::token::{tokenize, Token};
 
 use super::{
-    expression::parse_expression, functions::FunctionParsingError, types::type_from_expression,
+    expression::parse_expression,
+    functions::{parse_fn_header, FunctionParsingError},
+    types::type_from_expression,
     ParsingError, TypeError,
 };
 use std::{collections::HashMap, fmt, iter::Peekable};
@@ -200,7 +202,7 @@ pub enum FormattedSegment {
 impl FormattedSegment {
     pub fn from_str(
         input: &str,
-        symbol_table: &SymbolTable,
+        symbol_table: &mut SymbolTable,
     ) -> Result<Vec<FormattedSegment>, ParsingError> {
         let mut result: Vec<FormattedSegment> = Vec::new();
         let mut current_part = String::new();
@@ -427,8 +429,23 @@ impl SymbolTable {
     pub fn insert_function(&mut self, f: &Function) {
         self.functions.insert(f.name.clone(), f.clone());
     }
-    pub fn reassign_variable(&mut self, reassignement: Reassignment, tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
-        let initial_var = self.get_variable(&reassignement.name, Some(tokens)).unwrap();
+    pub fn insert_function_in_advance(&mut self, f: &MainFunctionData) {
+        if self.functions_before_declaration.get(&f.name).is_none()
+            && self.functions.get(&f.name).is_none()
+        {
+            self.functions_before_declaration
+                .insert(f.name.clone(), f.clone());
+        }
+    }
+
+    pub fn reassign_variable(
+        &mut self,
+        reassignement: Reassignment,
+        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+    ) {
+        let initial_var = self
+            .get_variable(&reassignement.name, Some(tokens))
+            .unwrap();
 
         self.variables.insert(
             reassignement.name.clone(),
@@ -441,7 +458,11 @@ impl SymbolTable {
         );
     }
 
-    pub fn get_variable(&self, name: &str, tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>) -> Result<Declaration, TypeError> {
+    pub fn get_variable(
+        &mut self,
+        name: &str,
+        tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>,
+    ) -> Result<Declaration, TypeError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
@@ -477,7 +498,7 @@ impl SymbolTable {
                     }
                     return Ok(Declaration {
                         name: name_vec[0].to_owned(),
-                        var_type: type_from_expression(&vec[index], &self, tokens)?,
+                        var_type: type_from_expression(&vec[index], self, tokens)?,
                         value: vec[index].clone(),
                         is_mutable: true,
                     });
@@ -522,7 +543,7 @@ impl SymbolTable {
             }
         }
 
-        let var_type = type_from_expression(&var, &self, tokens)?;
+        let var_type = type_from_expression(&var, self, tokens)?;
 
         Ok(Declaration {
             name: name_vec.last().unwrap().to_string(),
@@ -537,20 +558,20 @@ impl SymbolTable {
     }
 
     pub fn get_function(
-        &self,
+        &mut self,
         name: &str,
         tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-    ) -> Result<MainFunctionData, FunctionParsingError> {
+    ) -> Result<MainFunctionData, ParsingError> {
         let func = self.functions.get(name);
 
         if func.is_none() {
-            let func = self.get_fn_in_advance(name, tokens);
+            let func = self.get_fn_in_advance(name, tokens)?;
 
-            Ok(func
-                .cloned()
-                .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+            Ok(
+                func.ok_or_else(|| FunctionParsingError::NotDefinedFunction {
                     fn_name: name.to_owned(),
-                })?)
+                })?,
+            )
         } else {
             Ok(func
                 .cloned()
@@ -562,19 +583,32 @@ impl SymbolTable {
     }
 
     fn get_fn_in_advance(
-        &self,
+        &mut self,
         name: &str,
         tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-    ) -> Option<&MainFunctionData> {
+    ) -> Result<Option<MainFunctionData>, ParsingError> {
         let func = self.functions_before_declaration.get(name);
 
         if func.is_some() {
-            return Some(func.unwrap());
+            return Ok(Some(func.unwrap().clone()));
         }
 
-        let iter = tokens.clone();
+        let mut iter = tokens.clone();
+        while let Some(token) = iter.next() {
+            match token.token_type {
+                crate::token::TokenType::Function => {
+                    let fn_data = parse_fn_header(&mut iter, self)?;
 
-        None
+                    if &fn_data.name == name {
+                        return Ok(Some(fn_data));
+                    }
+                    continue;
+                }
+                _ => continue,
+            }
+        }
+
+        Ok(None)
     }
 }
 

@@ -25,11 +25,12 @@ custom_error! {pub TypeError
 
     ParseInt{source: ParseIntError} = "{source}",
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}"
+    ,Custom{data:String} = "{data}"
 }
 
 pub fn type_from_expression(
     expr: &Expression,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
     tokens: Option<&mut std::iter::Peekable<std::slice::Iter<'_, Token>>>,
 ) -> Result<VariableType, TypeError> {
     match expr {
@@ -40,9 +41,9 @@ pub fn type_from_expression(
         Expression::Boolean(_) => Ok(VariableType::Boolean),
         Expression::Null => Err(TypeError::ExpressionNull),
         Expression::DictionaryExpression(_) => Ok(VariableType::Dictionary),
-        Expression::Variable(var_name) => {
-            symbol_table.get_variable(var_name, None).map(|var| var.var_type)
-        }
+        Expression::Variable(var_name) => symbol_table
+            .get_variable(var_name, None)
+            .map(|var| var.var_type),
         Expression::BinaryOperation {
             left,
             operator,
@@ -91,16 +92,19 @@ pub fn type_from_expression(
         Expression::FunctionCall(call) => {
             match symbol_table
                 .get_function(&call.function_name, tokens.unwrap())
-                .map(|var| var.return_type)
+                .map(|var| var)
             {
-                Ok(r) => {
-                    if r.is_some() {
-                        Ok(r.unwrap())
+                Ok(f) => {
+                    symbol_table.insert_function_in_advance(&f);
+                    if f.return_type.is_some() {
+                        Ok(f.return_type.unwrap())
                     } else {
                         Err(TypeError::ExpressionNull)
                     }
                 }
-                Err(e) => Err(e.into()),
+                Err(e) => Err(TypeError::Custom {
+                    data: e.to_string(),
+                }),
             }
         }
     }
