@@ -130,7 +130,7 @@ fn parse_primary_expression(
                     return Ok(Expression::FunctionCall(fn_call));
                 }
 
-                let var = symbol_table.get_variable(&token.value)?;
+                let var = symbol_table.get_variable(&token.value, None)?;
                 if var.var_type != VariableType::Vector {
                     Ok(Expression::Variable(token.value.clone()))
                 } else {

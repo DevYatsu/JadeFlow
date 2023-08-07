@@ -40,7 +40,7 @@ pub fn check_and_insert_expression(
 ) -> Result<(), ParsingError> {
     match &expression {
         Expression::Variable(name) => {
-            symbol_table.get_variable(name)?; // error if var not defined
+            symbol_table.get_variable(name, None)?; // error if var not defined
         }
         _ => (),
     }

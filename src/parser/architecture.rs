@@ -4,7 +4,7 @@ use super::{
     expression::parse_expression, functions::FunctionParsingError, types::type_from_expression,
     ParsingError, TypeError,
 };
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, iter::Peekable};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
@@ -400,12 +400,14 @@ pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
     variables: HashMap<String, Declaration>,
     functions: HashMap<String, Function>,
+    functions_before_declaration: HashMap<String, MainFunctionData>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
+            functions_before_declaration: HashMap::new(),
         }
     }
     pub fn merge(first_table: &SymbolTable, second_table: SymbolTable) -> SymbolTable {
@@ -425,8 +427,8 @@ impl SymbolTable {
     pub fn insert_function(&mut self, f: &Function) {
         self.functions.insert(f.name.clone(), f.clone());
     }
-    pub fn reassign_variable(&mut self, reassignement: Reassignment) {
-        let initial_var = self.get_variable(&reassignement.name).unwrap();
+    pub fn reassign_variable(&mut self, reassignement: Reassignment, tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
+        let initial_var = self.get_variable(&reassignement.name, Some(tokens)).unwrap();
 
         self.variables.insert(
             reassignement.name.clone(),
@@ -439,7 +441,7 @@ impl SymbolTable {
         );
     }
 
-    pub fn get_variable(&self, name: &str) -> Result<Declaration, TypeError> {
+    pub fn get_variable(&self, name: &str, tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>) -> Result<Declaration, TypeError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
@@ -475,7 +477,7 @@ impl SymbolTable {
                     }
                     return Ok(Declaration {
                         name: name_vec[0].to_owned(),
-                        var_type: type_from_expression(&vec[index], &self)?,
+                        var_type: type_from_expression(&vec[index], &self, tokens)?,
                         value: vec[index].clone(),
                         is_mutable: true,
                     });
@@ -498,7 +500,7 @@ impl SymbolTable {
                     if let Some(e) = expr.get(*prop) {
                         match e {
                             Expression::Variable(name) => {
-                                var = self.get_variable(&name)?.value;
+                                var = self.get_variable(&name, None)?.value;
                                 continue;
                             }
                             _ => {
@@ -520,7 +522,7 @@ impl SymbolTable {
             }
         }
 
-        let var_type = type_from_expression(&var, &self)?;
+        let var_type = type_from_expression(&var, &self, tokens)?;
 
         Ok(Declaration {
             name: name_vec.last().unwrap().to_string(),
@@ -530,15 +532,49 @@ impl SymbolTable {
         })
     }
 
-    pub fn get_function(&self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
-        Ok(self
-            .functions
-            .get(name)
-            .cloned()
-            .map(|f| MainFunctionData::from_function(&f))
-            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            })?)
+    pub fn is_fn_declared(&self, name: &str) -> bool {
+        self.functions.get(name).is_some()
+    }
+
+    pub fn get_function(
+        &self,
+        name: &str,
+        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+    ) -> Result<MainFunctionData, FunctionParsingError> {
+        let func = self.functions.get(name);
+
+        if func.is_none() {
+            let func = self.get_fn_in_advance(name, tokens);
+
+            Ok(func
+                .cloned()
+                .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                    fn_name: name.to_owned(),
+                })?)
+        } else {
+            Ok(func
+                .cloned()
+                .map(|f| MainFunctionData::from_function(&f))
+                .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                    fn_name: name.to_owned(),
+                })?)
+        }
+    }
+
+    fn get_fn_in_advance(
+        &self,
+        name: &str,
+        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+    ) -> Option<&MainFunctionData> {
+        let func = self.functions_before_declaration.get(name);
+
+        if func.is_some() {
+            return Some(func.unwrap());
+        }
+
+        let iter = tokens.clone();
+
+        None
     }
 }
 

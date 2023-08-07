@@ -67,7 +67,7 @@ pub fn parse_var_declaration(
                 });
             }
 
-            let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
+            let var_type_from_expression = type_from_expression(&expression, symbol_table, Some(tokens))?;
             if var_type != var_type_from_expression {
                 return Err(ParsingError::AssignedTypeNotFound {
                     assigned_t: var_type,
@@ -106,7 +106,7 @@ pub fn parse_var_declaration(
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
             _ => {
-                let var_type = type_from_expression(&expression, symbol_table)?;
+                let var_type = type_from_expression(&expression, symbol_table, Some(tokens))?;
 
                 return Ok(Declaration {
                     name,
@@ -154,7 +154,7 @@ pub fn parse_var_reassignment(
             parse_with_operator(&operator, after_assignment_expression, &initial_var.name);
         println!("{initial_var} => {expression}");
 
-        let t = type_from_expression(&expression, symbol_table)?;
+        let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
 
         if initial_var.var_type != t {
             return Err(ParsingError::CannotChangeAssignedType {

@@ -64,7 +64,7 @@ pub fn parse_fn_declaration(
     {
         let name = value;
 
-        if symbol_table.get_function(name).is_ok() {
+        if symbol_table.is_fn_declared(name) {
             return Err(FunctionParsingError::NameAlreadyTaken {
                 name: name.to_owned(),
             }
@@ -158,7 +158,7 @@ pub fn parse_fn_declaration(
 
             println!("fn context \n {}", function_context.symbol_table);
 
-            let returned_type = returned_type(&function_context);
+            let returned_type = returned_type(&function_context, tokens);
 
             if return_type != returned_type {
                 if let Some(return_type) = return_type {
@@ -213,7 +213,7 @@ pub fn parse_fn_call(
     tokens.next();
     println!("st: \n {}", symbol_table);
 
-    let fn_data = symbol_table.get_function(function_name)?;
+    let fn_data = symbol_table.get_function(function_name, tokens)?;
     let arguments = fn_data.arguments;
 
     if arguments.len() == 0 {
@@ -242,7 +242,7 @@ pub fn parse_fn_call(
     let call_args: Vec<Expression> = parse_call_args(tokens, function_name, symbol_table)?;
     let args_types = call_args
         .iter()
-        .map(|expr| type_from_expression(expr, symbol_table))
+        .map(|expr| type_from_expression(expr, symbol_table, Some(tokens)))
         .collect::<Vec<Result<VariableType, TypeError>>>();
 
     let required_num = arguments.len();
@@ -395,12 +395,15 @@ fn add_global_content(global_symbol_table: &SymbolTable, function_context: Progr
     }
 }
 
-fn returned_type(program: &Program) -> Option<VariableType> {
+fn returned_type(
+    program: &Program,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+) -> Option<VariableType> {
     if let Some(Statement {
         node: ASTNode::Return(returned),
     }) = program.statements.last()
     {
-        type_from_expression(returned, &program.symbol_table).ok()
+        type_from_expression(returned, &program.symbol_table, Some(tokens)).ok()
     } else {
         None
     }

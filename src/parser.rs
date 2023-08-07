@@ -79,7 +79,7 @@ custom_error! {pub ParsingError
 
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
-    optional_symbol_table: Option<&SymbolTable>
+    optional_symbol_table: Option<&SymbolTable>,
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
@@ -107,7 +107,7 @@ pub fn parse(
                         ..
                     }) = next_token
                     {
-                        let var = symbol_table.get_variable(&token.value)?;
+                        let var = symbol_table.get_variable(&token.value, None)?;
                         if !var.is_mutable {
                             return Err(ParsingError::CannotReassignConst {
                                 var_name: token.value.clone(),
@@ -117,7 +117,7 @@ pub fn parse(
                         let assignment =
                             parse_var_reassignment(&mut tokens_iter, &var, &mut symbol_table)?;
 
-                        symbol_table.reassign_variable(assignment.clone());
+                        symbol_table.reassign_variable(assignment.clone(), &mut tokens_iter);
                         statements.push(reassignment(assignment));
                     } else if let Some(Token {
                         token_type: TokenType::OpenParen,

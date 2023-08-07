@@ -30,6 +30,7 @@ custom_error! {pub TypeError
 pub fn type_from_expression(
     expr: &Expression,
     symbol_table: &SymbolTable,
+    tokens: Option<&mut std::iter::Peekable<std::slice::Iter<'_, Token>>>,
 ) -> Result<VariableType, TypeError> {
     match expr {
         Expression::Number(_) => Ok(VariableType::Number),
@@ -40,15 +41,16 @@ pub fn type_from_expression(
         Expression::Null => Err(TypeError::ExpressionNull),
         Expression::DictionaryExpression(_) => Ok(VariableType::Dictionary),
         Expression::Variable(var_name) => {
-            symbol_table.get_variable(var_name).map(|var| var.var_type)
+            symbol_table.get_variable(var_name, None).map(|var| var.var_type)
         }
         Expression::BinaryOperation {
             left,
             operator,
             right,
         } => {
-            let left_type = type_from_expression(left, symbol_table)?;
-            let right_type = type_from_expression(right, symbol_table)?;
+            let mut t = tokens.cloned();
+            let left_type = type_from_expression(left, symbol_table, t.as_mut())?;
+            let right_type = type_from_expression(right, symbol_table, t.as_mut())?;
 
             match operator {
                 BinaryOperator::Plus => {
@@ -88,7 +90,7 @@ pub fn type_from_expression(
         }
         Expression::FunctionCall(call) => {
             match symbol_table
-                .get_function(&call.function_name)
+                .get_function(&call.function_name, tokens.unwrap())
                 .map(|var| var.return_type)
             {
                 Ok(r) => {
