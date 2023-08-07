@@ -12,6 +12,7 @@ pub enum TokenType {
 
     String,
     FormatedString, //format with #{} inside `` quote
+    SpecialString, // string to specify certain things for the file, for instance 'strict' at the start of the file
 
     Boolean,
     Null,
@@ -314,7 +315,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     }
                 }
             }
-            '"' => {
+            '"' | '\'' => {
                 // for strings
                 let mut string_lexeme = String::new();
 
@@ -323,7 +324,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 while position < source_code.len() {
                     let c: char = source_code.as_bytes()[position] as char;
 
-                    if c == '"' {
+                    if c == character {
                         break;
                     }
                     if position == source_code.len() - 1 {
@@ -334,7 +335,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     position += 1;
                 }
 
-                tokens.push(token(string_lexeme, TokenType::String));
+                if character == '"' {
+                    tokens.push(token(string_lexeme, TokenType::String));
+                } else {
+                    tokens.push(token(string_lexeme, TokenType::SpecialString));
+                }
             }
             '`' => {
                 // for strings

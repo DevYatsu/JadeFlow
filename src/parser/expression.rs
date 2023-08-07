@@ -190,7 +190,7 @@ fn parse_primary_expression(
                 value: token.value.clone(),
             }),
         }
-    } else {                    
+    } else {
         Err(ParsingError::UnexpectedEndOfInput)
     }
 }

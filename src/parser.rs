@@ -32,7 +32,12 @@ custom_error! {pub ParsingError
     ParsingTypyError{source: TypeError} = "{source}",
     ParseInt{source: ParseIntError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
+
     Default = "Failed to parse tokens",
+    SpecialStringOnlyAtFileStart = "Special strings ('') can only appear at the start of the file",
+    InvalidSpecialStringContent{invalid_content: String} = "Special strings ('') content is invalid. Supported values: 'strict' and 'soft', found '{invalid_content}'",
+    RequiredNewLineAfterSpecialString = "Special strings ('') require to be followed by another special string or nothing",
+
     UnexpectedEndOfInput = "No more token left to parse",
     ExpectedVarInitialization{var_value: String, found: String} = "Expected identifier after \"{var_value}\", found '{found}'",
     ExpectedReassignment{var_name: String} = "Expected assignment of new value to \"{var_name}\"",
@@ -75,6 +80,7 @@ custom_error! {pub ParsingError
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
     optional_symbol_table: Option<&SymbolTable>,
+    parsing_mode: &mut String
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
@@ -164,6 +170,29 @@ pub fn parse(
                                 value: ",".to_string(),
                             })
                         }
+                    }
+                }
+                TokenType::SpecialString => {
+                    if statements.len() == 0 {
+                        if &token.value == "strict" {
+                            println!("parsing mode set to strict")
+                        } else if token.value == "soft" {
+                            //initial mode
+                            println!("parsing mode set to soft")
+                        } else {
+                            return Err(ParsingError::InvalidSpecialStringContent { invalid_content: token.value.to_owned() });
+                        }
+                        parsing_mode.clear();
+                        parsing_mode.push_str(&token.value);
+                        if let Some(t) = tokens_iter.peek() {
+                            match t.token_type {
+                                TokenType::Separator | TokenType::SpecialString => (),
+                                _ => return Err(ParsingError::RequiredNewLineAfterSpecialString)
+                            }
+                        }
+
+                    } else {
+                        return Err(ParsingError::SpecialStringOnlyAtFileStart);
                     }
                 }
                 _ => {
