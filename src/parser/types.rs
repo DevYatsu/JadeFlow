@@ -92,12 +92,11 @@ pub fn type_from_expression(
         Expression::FunctionCall(call) => {
             match symbol_table
                 .get_function(&call.function_name, tokens.unwrap())
-                .map(|var| var)
+                .map(|var| var.return_type)
             {
-                Ok(f) => {
-                    symbol_table.insert_function_in_advance(&f);
-                    if f.return_type.is_some() {
-                        Ok(f.return_type.unwrap())
+                Ok(r) => {
+                    if r.is_some() {
+                        Ok(r.unwrap())
                     } else {
                         Err(TypeError::ExpressionNull)
                     }

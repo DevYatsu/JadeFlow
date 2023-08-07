@@ -25,3 +25,7 @@ const test_arr = [
     test2,
     test3
 ]
+
+const hey = concat("str", " test")
+
+fn concat(s: str, s1: str): str => s + s1

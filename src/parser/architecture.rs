@@ -595,19 +595,18 @@ impl SymbolTable {
 
         let mut iter = tokens.clone();
         while let Some(token) = iter.peek() {
-            println!("tokens :{:?}", tokens);
             match token.token_type {
                 crate::token::TokenType::Function => {
-                    tokens.next();
-                    let fn_data = parse_fn_header(&mut iter, self)?;
-
+                    iter.next();
+                    let fn_data: MainFunctionData = parse_fn_header(&mut iter, self)?;
                     self.insert_function_in_advance(&fn_data);
-
+                    
+                    println!("data {:?} = {}", fn_data.name, name);
                     if &fn_data.name == name {
                         return Ok(Some(fn_data));
                     }
                 }
-                _ => {tokens.next();},
+                _ => {iter.next();},
             }
         }
 
