@@ -1,7 +1,6 @@
-'strict';
 fn concatenate(s: str, s2: str): str {
     mut o = s + s2
-    
+
     return o
 }
 // fn concatenate (s:str, s2:str): str => s + s2
