@@ -594,17 +594,20 @@ impl SymbolTable {
         }
 
         let mut iter = tokens.clone();
-        while let Some(token) = iter.next() {
+        while let Some(token) = iter.peek() {
+            println!("tokens :{:?}", tokens);
             match token.token_type {
                 crate::token::TokenType::Function => {
+                    tokens.next();
                     let fn_data = parse_fn_header(&mut iter, self)?;
+
+                    self.insert_function_in_advance(&fn_data);
 
                     if &fn_data.name == name {
                         return Ok(Some(fn_data));
                     }
-                    continue;
                 }
-                _ => continue,
+                _ => {tokens.next();},
             }
         }
 
@@ -626,6 +629,18 @@ impl fmt::Display for SymbolTable {
         write!(f, "-- FUNCTIONS -- \n",)?;
 
         if self.functions.len() == 0 {
+            {
+                write!(f, "None\n")?;
+            }
+        } else {
+            for var in &self.functions {
+                write!(f, "- {}\n", var.1.to_string())?;
+            }
+        }
+
+        write!(f, "-- COMING FUNCTIONS -- \n",)?;
+
+        if self.functions_before_declaration.len() == 0 {
             Ok({
                 write!(f, "None\n")?;
             })

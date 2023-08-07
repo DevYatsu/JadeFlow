@@ -229,7 +229,7 @@ pub fn parse_fn_call(
     // jump the '('
     tokens.next();
     println!("st: \n {}", symbol_table);
-
+    println!("t: {:?}", tokens);
     let fn_data = symbol_table.get_function(function_name, tokens)?;
     let arguments = fn_data.arguments;
 
