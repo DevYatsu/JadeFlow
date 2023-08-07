@@ -298,15 +298,6 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     while position < source_code.len() {
                         slash_lexeme.push(source_code.as_bytes()[position] as char);
 
-                        if slash_lexeme.ends_with("//") {
-                            return Err(SyntaxError::Comment {
-                                line: get_line(position, source_code),
-                                message: format!(
-                                    "Cannot start a comment in another comment: '{slash_lexeme}'"
-                                ),
-                            });
-                        }
-
                         if slash_lexeme.ends_with('\n') {
                             break;
                         }
@@ -483,7 +474,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
         ..
     }) = tokens.first()
     {
-        tokens.pop();
+        tokens.remove(0);
     }
 
     while let Some(Token {
