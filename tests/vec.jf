@@ -1,4 +1,4 @@
-'strict';
+'strict'
 const a = {o: [2]}
 const arr = ["test", "str", 3, a, [2]]
 

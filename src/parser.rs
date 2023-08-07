@@ -79,8 +79,7 @@ custom_error! {pub ParsingError
 
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
-    optional_symbol_table: Option<&SymbolTable>,
-    parsing_mode: &mut String
+    optional_symbol_table: Option<&SymbolTable>
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
@@ -170,29 +169,6 @@ pub fn parse(
                                 value: ",".to_string(),
                             })
                         }
-                    }
-                }
-                TokenType::SpecialString => {
-                    if statements.len() == 0 {
-                        if &token.value == "strict" {
-                            println!("parsing mode set to strict")
-                        } else if token.value == "soft" {
-                            //initial mode
-                            println!("parsing mode set to soft")
-                        } else {
-                            return Err(ParsingError::InvalidSpecialStringContent { invalid_content: token.value.to_owned() });
-                        }
-                        parsing_mode.clear();
-                        parsing_mode.push_str(&token.value);
-                        if let Some(t) = tokens_iter.peek() {
-                            match t.token_type {
-                                TokenType::Separator | TokenType::SpecialString => (),
-                                _ => return Err(ParsingError::RequiredNewLineAfterSpecialString)
-                            }
-                        }
-
-                    } else {
-                        return Err(ParsingError::SpecialStringOnlyAtFileStart);
                     }
                 }
                 _ => {

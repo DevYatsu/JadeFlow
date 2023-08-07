@@ -42,10 +42,9 @@ fn main() {
 
     let first_timer = (end - start).as_secs_f64();
     println!("{} seconds to execute tokenisation", first_timer);
-    let mut parsing_mode = String::from("soft");
 
     let start = Instant::now();
-    let program = match parse(tokens_iter, None, &mut parsing_mode) {
+    let program = match parse(tokens_iter, None) {
         Ok(p) => p,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
@@ -61,7 +60,6 @@ fn main() {
         }
         _ => unreachable!(),
     }
-    println!("parsing mdoe: {:?}", parsing_mode);
 
     let second_timer = (end - start).as_secs_f64();
     println!("{} seconds to execute parsing", second_timer);
