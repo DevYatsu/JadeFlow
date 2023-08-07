@@ -108,7 +108,7 @@ pub fn parse_fn_declaration(
                         .collect();
 
                     ctx_tokens.extend(parse_fn_block(tokens, &name)?);
-
+                    println!("ctx t: {:?}", ctx_tokens);
                     let ctx_tokens_iter = ctx_tokens.iter().peekable();
                     parse(ctx_tokens_iter, Some(&symbol_table))?
                 }

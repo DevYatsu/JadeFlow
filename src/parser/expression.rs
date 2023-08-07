@@ -92,9 +92,10 @@ fn parse_expression_with_precedence(
         }
 
         tokens.next();
-        expression = parse_primary_expression(tokens, symbol_table)?;
-
-        operand_stack.push(expression.clone());
+        if let Some(_) = tokens.peek() {
+            expression = parse_primary_expression(tokens, symbol_table)?;
+            operand_stack.push(expression.clone());
+        }
     }
 
     while let Some(operator) = operator_stack.pop() {
@@ -189,7 +190,7 @@ fn parse_primary_expression(
                 value: token.value.clone(),
             }),
         }
-    } else {
+    } else {                    
         Err(ParsingError::UnexpectedEndOfInput)
     }
 }
