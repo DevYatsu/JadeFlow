@@ -26,14 +26,13 @@ JadeFlow supports the following data types:
 You can declare functions using the fn keyword and the following syntax:
 
 ```rust
-fn functionName(param1: str): str {
-    return param1
+fn hello(name: str): str {
+    return "hello " + name + "!" 
 }
 
-fn functionName(param1: str): str => param1
+fn hello(name: str): str => "hello " + name + "!"
 // is also valid actually
 ```
-
 > **_Note:_** The arrow syntax can only be used for simple functions, that is functions that have not complex context and that directly something with the arguments. For instance you cannot initialize variables in these functions.
 
 #### Return Statement in Functions
@@ -43,7 +42,6 @@ JadeFlow allows you to return values from functions using the return statement:
 ```rust
 return x
 ```
-
 > **_Note:_** Alternatively, you can use `>>x`.
 
 ### Conditional Statements
