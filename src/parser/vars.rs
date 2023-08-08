@@ -153,7 +153,6 @@ pub fn parse_var_reassignment(
 
         let expression =
             parse_with_operator(&operator, after_assignment_expression, &initial_var.name);
-        println!("{initial_var} => {expression}");
 
         let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
 
