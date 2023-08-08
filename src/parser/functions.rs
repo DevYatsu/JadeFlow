@@ -364,6 +364,7 @@ fn parse_fn_args(
                         var_type: arg_type.clone(),
                         value: Expression::Null,
                         is_mutable: true,
+                        is_object_prop: false,
                     });
 
                     let next = tokens.next();

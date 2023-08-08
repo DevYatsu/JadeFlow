@@ -64,6 +64,7 @@ pub fn parse_var_declaration(
                     var_type,
                     value: expression,
                     is_mutable,
+                    is_object_prop: false,
                 });
             }
 
@@ -81,6 +82,7 @@ pub fn parse_var_declaration(
                 var_type,
                 value: expression,
                 is_mutable,
+                is_object_prop: false,
             });
         } else {
             return Err(ParsingError::MissingInitializer {
@@ -114,6 +116,7 @@ pub fn parse_var_declaration(
                     var_type,
                     value: expression,
                     is_mutable,
+                    is_object_prop: false,
                 });
             }
         }
@@ -130,10 +133,13 @@ pub fn parse_var_declaration(
 
 pub fn parse_var_reassignment(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    initial_var: &Declaration,
+    initial_var: Option<&Declaration>,
     symbol_table: &mut SymbolTable,
+    identifier: &str,
 ) -> Result<Reassignment, ParsingError> {
     ignore_whitespace(tokens);
+
+    // initial_var is none if it's an object prop reassignment
 
     let next = tokens.next();
     if next.is_none() {
@@ -151,32 +157,43 @@ pub fn parse_var_reassignment(
 
         let after_assignment_expression_string = after_assignment_expression.to_owned();
 
-        let expression =
-            parse_with_operator(&operator, after_assignment_expression, &initial_var.name);
-        println!("{initial_var} => {expression}");
-
-        let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
-
-        if initial_var.var_type != t {
-            return Err(ParsingError::CannotChangeAssignedType {
-                assigned_t: initial_var.var_type.to_owned(),
-                found_t: t,
-                var_name: initial_var.name.to_owned(),
-                at: format!(
-                    "{} {} {}",
-                    initial_var.name, operator, after_assignment_expression_string
-                ),
+        if operator != "=" && initial_var.is_none() {
+            return Err(ParsingError::CannotReassignNotDefinedDictProp {
+                operator: operator.to_owned(),
+                prop: identifier.to_owned(),
             });
+        }
+
+        let expression = parse_with_operator(
+            &operator,
+            after_assignment_expression,
+            &identifier.to_owned(),
+        );
+
+        if let Some(initial_var) = initial_var {
+            let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
+
+            if initial_var.var_type != t {
+                return Err(ParsingError::CannotChangeAssignedType {
+                    assigned_t: initial_var.var_type.to_owned(),
+                    found_t: t,
+                    var_name: initial_var.name.to_owned(),
+                    at: format!(
+                        "{} {} {}",
+                        initial_var.name, operator, after_assignment_expression_string
+                    ),
+                });
+            }
         }
 
         return Ok(Reassignment {
             value: expression,
-            name: initial_var.name.to_owned(),
+            name: identifier.to_owned(),
         });
     } else {
         // If there's no assignment operator, it's an error.
         return Err(ParsingError::ExpectedReassignment {
-            var_name: initial_var.name.to_owned(),
+            var_name: identifier.to_owned(),
         });
     }
 }

@@ -153,6 +153,7 @@ pub struct Declaration {
     pub var_type: VariableType,
     pub value: Expression,
     pub is_mutable: bool,
+    pub is_object_prop: bool,
 }
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -549,20 +550,36 @@ impl SymbolTable {
         &mut self,
         reassignement: Reassignment,
         tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-    ) {
-        let initial_var = self
-            .get_variable(&reassignement.name, Some(tokens))
-            .unwrap();
+    ) -> Result<(), ParsingError> {
+        if self.is_object_prop(&reassignement.name) {
+            let initial_var = self.get_variable(
+                &reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>()[1],
+                Some(tokens),
+            )?;
 
-        self.variables.insert(
-            reassignement.name.clone(),
-            Declaration {
-                name: initial_var.name,
-                var_type: initial_var.var_type,
+            let dec = Declaration {
+                name: reassignement.name.clone(),
+                var_type: type_from_expression(&reassignement.value, self, Some(tokens))?,
                 value: reassignement.value,
                 is_mutable: true,
-            },
-        );
+                is_object_prop: true,
+            };
+            self.variables.insert(reassignement.name, dec);
+        } else {
+            let initial_var = self.get_variable(&reassignement.name, Some(tokens))?;
+
+            self.variables.insert(
+                reassignement.name.clone(),
+                Declaration {
+                    name: initial_var.name,
+                    var_type: initial_var.var_type,
+                    value: reassignement.value,
+                    is_mutable: true,
+                    is_object_prop: initial_var.is_object_prop,
+                },
+            );
+        }
+        Ok(())
     }
 
     pub fn get_variable(
@@ -608,6 +625,7 @@ impl SymbolTable {
                         var_type: type_from_expression(&vec[index], self, tokens)?,
                         value: vec[index].clone(),
                         is_mutable: true,
+                        is_object_prop: false,
                     });
                 }
                 _ => unreachable!(),
@@ -620,7 +638,8 @@ impl SymbolTable {
             .map(|declaration| declaration.value.clone())
             .ok_or_else(|| TypeError::CannotDetermineVarType {
                 name: name.to_owned(),
-            })?;
+            })?
+            .clone();
 
         for (i, prop) in name_vec.iter().skip(1).enumerate() {
             match var {
@@ -657,7 +676,18 @@ impl SymbolTable {
             var_type,
             value: var,
             is_mutable: true,
+            is_object_prop: true,
         })
+    }
+
+    pub fn is_object_prop(&mut self, name: &str) -> bool {
+        let name_vec = name.split('.').collect::<Vec<&str>>();
+
+        if name_vec.len() == 1 {
+            false
+        } else {
+            true
+        }
     }
 
     pub fn is_fn_declared(&self, name: &str) -> bool {

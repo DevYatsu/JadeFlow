@@ -1,0 +1,13 @@
+class Human (name: str, age: num, gender: str) {
+    pub {
+        fn presentation(ctx) {
+            print("I am #{ctx.age} years old #{ctx.gender}, my name is #{ctx.name}!")
+        }
+
+        fn increase_age(ctx) {
+            ctx.age += 1
+        }
+    }
+
+    private {}
+}

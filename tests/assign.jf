@@ -26,6 +26,17 @@ const test_arr = [
     test3
 ]
 
+const test = "string for test" 
+const formatted = `hey dude #{test}`
+const calc3 = `3 = #{1 + 2}`
+
+const a = {o: [2]}
+const arr = ["test", "str", 3, a, [2]]
+
+const b = arr[0]
+const arr = arr + arr[2] * 2
+
+
 const hey = concat("str", " test")
 
 fn concat(s: str, s1: str): str => s + s1

@@ -74,6 +74,8 @@ custom_error! {pub ParsingError
     ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
 
     UnwantedColon = "Type annotation only allowed on variable initialization",
+
+    CannotReassignNotDefinedDictProp{operator: String, prop: String} = "Cannot reassign with {operator} operator {prop} property"
 }
 
 // need to resolve the UnexpectedEndOfInput error that appears randomly for instance in fn.jf
@@ -108,17 +110,30 @@ pub fn parse(
                         ..
                     }) = next_token
                     {
-                        let var = symbol_table.get_variable(&token.value, None)?;
-                        if !var.is_mutable {
-                            return Err(ParsingError::CannotReassignConst {
-                                var_name: token.value.clone(),
-                            });
-                        }
+                        let assignment = if symbol_table.is_object_prop(&token.value) {
+                            parse_var_reassignment(
+                                &mut tokens_iter,
+                                None,
+                                &mut symbol_table,
+                                &token.value,
+                            )?
+                        } else {
+                            let var = symbol_table.get_variable(&token.value, None)?;
+                            if !var.is_mutable {
+                                return Err(ParsingError::CannotReassignConst {
+                                    var_name: token.value.clone(),
+                                });
+                            }
 
-                        let assignment =
-                            parse_var_reassignment(&mut tokens_iter, &var, &mut symbol_table)?;
+                            parse_var_reassignment(
+                                &mut tokens_iter,
+                                Some(&var),
+                                &mut symbol_table,
+                                &token.value,
+                            )?
+                        };
 
-                        symbol_table.reassign_variable(assignment.clone(), &mut tokens_iter);
+                        symbol_table.reassign_variable(assignment.clone(), &mut tokens_iter)?;
                         statements.push(reassignment(assignment));
                     } else if let Some(Token {
                         token_type: TokenType::OpenParen,

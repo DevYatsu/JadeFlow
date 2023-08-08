@@ -8,5 +8,7 @@ const obj2 = {
     }
 }
 
+obj2.test = "test" 
+
 const val = obj2.d
 const val2 = obj2.s.obj.s
