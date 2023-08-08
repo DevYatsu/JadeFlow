@@ -7,7 +7,8 @@ A powerful, efficient, and simplified programming language. That is what I aspir
 ## Features
 
 Variables
-JadeFlow allows you to declare variables without a keyword, similar to Python.
+JadeFlow allows you to declare variables with either `const` or `mut` keywords. 
+You guessed it, `const` shall be used for variables that have unchanging values and `mut` for mutable values.
 
 ### Data Types
 
@@ -16,58 +17,68 @@ JadeFlow supports the following data types:
 - Boolean
 - String
 - Numbers (integer and float as one type)
-- Objects (Classes, Functions, Arrays)
-- Null
+- Vectors/Arrays
+- Dictionaries/Objects
+- Null (actually not a data type)
 
 ### Declaring Functions
 
 You can declare functions using the fn keyword and the following syntax:
 
 ```rust
-fn functionName(params) {
-    // Function body
+fn functionName(param1: str): str {
+    return param1
 }
+
+fn functionName(param1: str): str => param1
+// is also valid actually
 ```
+> **_Note:_** The arrow syntax can only be used for simple functions, that is functions that have not complex context and that directly something with the arguments. For instance you cannot initialize variables in these functions.
 
-> **_Note:_** Parameter type annotations will be introduced in a future update.
-
-### Return Statement in Functions
+#### Return Statement in Functions
 
 JadeFlow allows you to return values from functions using the return statement:
 
 ```rust
 return x
 ```
-
-> **_Note:_** Alternatively, you can use `>>x` or simply `x` to indicate the return value as JadeFlow possesses implicit value return.
+> **_Note:_** Alternatively, you can use `>>x`.
 
 ### Conditional Statements
 
 In a future update, JadeFlow will support conditional statements like if, while and match (similar to switch in javascript). Here's a preview of the syntax:
 
 ```rust
+mut x = 3;
+const y = 5;
+
 if x == x {
     // Code block for true condition
 } else {
     // Code block for false condition
 }
 
+x += 2;
+
 while x == y {
-    if y > x {
-        y--
-    }else{
-        y++
+    match x {
+        x > 10 {
+            x--
+        }
+        x <= 10 {
+            x++
+        }
     }
 }
-
+const z = "test"; 
 match z {
-    "test"::{
+    "test" {
         // Code block for "test" case
     }
-    "hey"::{
+    "hey" {
         // Code block for "hey" case
     }
-    _::{
+    _ {
         // block code for other cases
     }
 }
@@ -97,19 +108,12 @@ In a future update, JadeFlow will provide a set of built-in functions for common
 JadeFlow supports both single-line and multi-line comments:
 
 ```
-# This is a single-line comment
+// This is a single-line comment
 
-###
+/*
 This is a
 multi-line comment
-###
-
-# This is a single-line comment
-
-###
-This is a
-multi-line comment
-###
+*/
 ```
 
 ### Standard Libraries
@@ -133,7 +137,7 @@ fn hello() {
 }
 
 # Example 2: Fibonacci Series
-fn fibonacci(n) {
+fn fibonacci(n: num) {
     if n <= 1 {
         return n
     }
@@ -141,11 +145,11 @@ fn fibonacci(n) {
 }
 
 fn main() {
-    num = 10
-    for i in 0->num { # range non including 10
+    n = 10
+    for i in 0..n { // range non including 10
         print(fibonacci(i))
     }
-    for i in 0=>num { # range including 10
+    for i in 0..=n { // range including 10
         print(fibonacci(i))
     }
 }
