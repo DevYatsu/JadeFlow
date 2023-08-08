@@ -33,15 +33,15 @@ fn main() {
             return;
         }
     };
-    let tokens_iter = tokens.iter().peekable();
     let end = Instant::now();
+    let tokens_iter = tokens.iter().peekable();
 
     for token in &tokens {
         println!("{:?}", token)
     }
 
     let first_timer = (end - start).as_secs_f64();
-    println!("{} seconds to execute tokenisation", first_timer);
+    println!("tokenization: {}s", first_timer);
 
     let start = Instant::now();
     let program = match parse(tokens_iter, None) {
@@ -62,7 +62,7 @@ fn main() {
     }
 
     let second_timer = (end - start).as_secs_f64();
-    println!("{} seconds to execute parsing", second_timer);
+    println!("parsing: {}s", second_timer);
 
-    println!("total time: {}", first_timer + second_timer);
+    println!("total time: {}s", first_timer + second_timer);
 }
