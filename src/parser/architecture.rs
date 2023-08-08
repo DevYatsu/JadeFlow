@@ -520,6 +520,7 @@ impl SymbolTable {
             functions_before_declaration: HashMap::new(),
         }
     }
+
     pub fn merge(first_table: &SymbolTable, second_table: SymbolTable) -> SymbolTable {
         let mut table = SymbolTable::new();
 
@@ -553,16 +554,24 @@ impl SymbolTable {
     ) -> Result<(), ParsingError> {
         if self.is_object_prop(&reassignement.name) {
             let parent_name = reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>();
-            let initial_var = self.get_variable(
-                &parent_name[1],
-                Some(tokens),
-            )?;
+            let initial_var = self.get_variable(&parent_name[1], Some(tokens))?;
 
             match initial_var.value {
                 Expression::DictionaryExpression(mut hash) => {
-                    hash.insert(parent_name[0].to_owned(), reassignement.value);
+                    hash.insert(parent_name[0].to_owned(), reassignement.value.clone());
 
-                    self.insert_variable(Declaration { value: Expression::DictionaryExpression(hash), ..initial_var })
+                    self.insert_variable(Declaration {
+                        value: Expression::DictionaryExpression(hash),
+                        ..initial_var
+                    });
+                    let var_type = type_from_expression(&reassignement.value, self, Some(tokens))?;
+                    self.insert_variable(Declaration {
+                        value: reassignement.value,
+                        name: reassignement.name,
+                        var_type,
+                        is_mutable: true,
+                        is_object_prop: true,
+                    });
                 }
                 _ => {
                     return Err(ParsingError::Custom {

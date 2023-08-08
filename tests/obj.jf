@@ -9,6 +9,7 @@ const obj2 = {
 }
 
 obj2.test = "test" 
+obj2.test = "not a test anymore" 
 
 const val = obj2.d
 const val2 = obj2.s.obj.s
