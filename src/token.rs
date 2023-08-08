@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use self::{errors::SyntaxError, line::get_line};
 
 mod errors;
@@ -14,10 +12,12 @@ pub enum TokenType {
 
     String,
     FormatedString, //format with #{} inside `` quote
+    SpecialString, // string to specify certain things for the file, for instance 'strict' at the start of the file
 
     Boolean,
     Null,
     Function,
+    OptionArgFunction,
     Class,
     OpenParen,
     OpenBrace,
@@ -67,8 +67,8 @@ fn token(value: String, token_type: TokenType) -> Token {
     Token { value, token_type }
 }
 
-pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
-    let mut tokens: VecDeque<Token> = VecDeque::new();
+pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
+    let mut tokens: Vec<Token> = Vec::new();
     let mut position: usize = 0;
 
     while position < source_code.len() {
@@ -77,12 +77,18 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
 
         match character {
             ' ' | '\t' => (),
-            '\n' | ';' => tokens.push_back(token(character.to_string(), TokenType::Separator)),
-            ',' => tokens.push_back(token(character.to_string(), TokenType::Comma)),
+            '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
+            ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
             '.' => match character {
                 _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8)) => {
                     position += 1;
-                    tokens.push_back(token("..".to_string(), TokenType::Range));
+                    tokens.push(token("..".to_string(), TokenType::Range));
+                }
+                _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8))
+                    && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
+                {
+                    position += 1;
+                    tokens.push(token("..".to_string(), TokenType::Range));
                 }
                 _ => {
                     return Err(SyntaxError::UnexpectedToken {
@@ -97,7 +103,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                         && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
                     {
                         position += 3;
-                        tokens.push_back(token("**=".to_string(), TokenType::AssignmentOperator));
+                        tokens.push(token("**=".to_string(), TokenType::AssignmentOperator));
                         continue;
                     }
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) => {
@@ -106,20 +112,19 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     }
                     '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
                         position += 2;
-                        tokens.push_back(token("*=".to_string(), TokenType::AssignmentOperator));
+                        tokens.push(token("*=".to_string(), TokenType::AssignmentOperator));
                         continue;
                     }
                     _ => character.to_string(),
                 };
-
-                tokens.push_back(token(operator_lexeme, TokenType::BinaryOperator));
+                tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
             }
             '+' | '%' => {
                 // for binary and assignment operators
                 let operator_lexeme = match character {
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
                         position += 1;
-                        tokens.push_back(token("++".to_string(), TokenType::IncrementOperator));
+                        tokens.push(token("++".to_string(), TokenType::IncrementOperator));
                         continue;
                     }
                     '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
@@ -136,29 +141,25 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
 
                 if operator_lexeme.len() == 2 {
                     position += 1;
-                    tokens.push_back(token(operator_lexeme, TokenType::AssignmentOperator));
+                    tokens.push(token(operator_lexeme, TokenType::AssignmentOperator));
                 } else {
-                    tokens.push_back(token(operator_lexeme, TokenType::BinaryOperator));
+                    tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
-            ':' => tokens.push_back(token(":".to_string(), TokenType::Colon)),
+            ':' => tokens.push(token(":".to_string(), TokenType::Colon)),
             '-' => {
                 // for equality and value assignment
                 match character {
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
                         position += 1;
-                        tokens.push_back(token("--".to_string(), TokenType::DecrementOperator));
-                    }
-                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) => {
-                        position += 1;
-                        tokens.push_back(token("->".to_string(), TokenType::Range));
+                        tokens.push(token("--".to_string(), TokenType::DecrementOperator));
                     }
                     '-' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
                         position += 1;
-                        tokens.push_back(token("-=".to_string(), TokenType::AssignmentOperator));
+                        tokens.push(token("-=".to_string(), TokenType::AssignmentOperator));
                     }
                     _ => {
-                        tokens.push_back(token(character.to_string(), TokenType::BinaryOperator));
+                        tokens.push(token(character.to_string(), TokenType::BinaryOperator));
                     }
                 };
             }
@@ -171,7 +172,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     operator_lexeme.push('=');
                 }
 
-                tokens.push_back(token(operator_lexeme, TokenType::ComparisonOperator));
+                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
             }
             '>' => {
                 let mut operator_lexeme = character.to_string();
@@ -183,12 +184,12 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     } else if *next_char == b'>' {
                         position += 1; //position increased here cause we continue in the while and what comes next is jumped
                         operator_lexeme.push('>');
-                        tokens.push_back(token(operator_lexeme, TokenType::Return));
+                        tokens.push(token(operator_lexeme, TokenType::Return));
                         continue; // continue in the while
                     }
                 }
 
-                tokens.push_back(token(operator_lexeme, TokenType::ComparisonOperator));
+                tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
             }
             '?' => {
                 let mut question_lexeme = character.to_string();
@@ -202,12 +203,12 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     } else if *next_char == b'<' {
                         question_lexeme.push('<');
                     } else {
-                        tokens.push_back(token(question_lexeme, TokenType::QuestionMarkMatch));
+                        tokens.push(token(question_lexeme, TokenType::QuestionMarkMatch));
                         continue;
                     }
                 }
 
-                tokens.push_back(token(question_lexeme, TokenType::ComparisonOperator));
+                tokens.push(token(question_lexeme, TokenType::ComparisonOperator));
             }
             '!' => {
                 let mut operator_lexeme = character.to_string();
@@ -215,9 +216,9 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     operator_lexeme.push('=');
-                    tokens.push_back(token(operator_lexeme, TokenType::ComparisonOperator));
+                    tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
                 } else {
-                    tokens.push_back(token(operator_lexeme, TokenType::LogicalOperator))
+                    tokens.push(token(operator_lexeme, TokenType::LogicalOperator))
                 }
             }
             '=' => {
@@ -227,13 +228,13 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                 if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push_back(token(equal_lexeme, TokenType::ComparisonOperator));
+                    tokens.push(token(equal_lexeme, TokenType::ComparisonOperator));
                 } else if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) {
                     position += 1;
                     equal_lexeme.push(source_code.as_bytes()[position] as char);
-                    tokens.push_back(token(equal_lexeme, TokenType::FunctionArrow));
+                    tokens.push(token(equal_lexeme, TokenType::FunctionArrow));
                 } else {
-                    tokens.push_back(token(equal_lexeme, TokenType::AssignmentOperator));
+                    tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
                 }
             }
             character if character.is_digit(10) => {
@@ -265,7 +266,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                         at: number_lexeme.clone(),
                     });
                 }
-                tokens.push_back(token(number_lexeme, TokenType::Number));
+                tokens.push(token(number_lexeme, TokenType::Number));
             }
             '/' => {
                 // for comments
@@ -290,7 +291,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                         position += 1;
                     }
 
-                    tokens.push_back(token(slash_lexeme, TokenType::Separator));
+                    tokens.push(token(slash_lexeme, TokenType::Separator));
                 } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
                     slash_lexeme.push_str("/");
                     position += 1;
@@ -298,32 +299,23 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     while position < source_code.len() {
                         slash_lexeme.push(source_code.as_bytes()[position] as char);
 
-                        if slash_lexeme.ends_with("//") {
-                            return Err(SyntaxError::Comment {
-                                line: get_line(position, source_code),
-                                message: format!(
-                                    "Cannot start a comment in another comment: '{slash_lexeme}'"
-                                ),
-                            });
-                        }
-
                         if slash_lexeme.ends_with('\n') {
                             break;
                         }
                         position += 1;
                     }
-                    // no need to push_back as there is nothing to analyse
-                    tokens.push_back(token(slash_lexeme, TokenType::Separator));
+                    // no need to push as there is nothing to analyse
+                    tokens.push(token(slash_lexeme, TokenType::Separator));
                 } else {
                     if source_code.as_bytes().get(position) == Some(&(b'=' as u8)) {
                         slash_lexeme.push('=');
-                        tokens.push_back(token(slash_lexeme, TokenType::AssignmentOperator));
+                        tokens.push(token(slash_lexeme, TokenType::AssignmentOperator));
                     } else {
-                        tokens.push_back(token(slash_lexeme, TokenType::BinaryOperator));
+                        tokens.push(token(slash_lexeme, TokenType::BinaryOperator));
                     }
                 }
             }
-            '"' => {
+            '"' | '\'' => {
                 // for strings
                 let mut string_lexeme = String::new();
 
@@ -332,7 +324,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                 while position < source_code.len() {
                     let c: char = source_code.as_bytes()[position] as char;
 
-                    if c == '"' {
+                    if c == character {
                         break;
                     }
                     if position == source_code.len() - 1 {
@@ -343,7 +335,11 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     position += 1;
                 }
 
-                tokens.push_back(token(string_lexeme, TokenType::String));
+                if character == '"' {
+                    tokens.push(token(string_lexeme, TokenType::String));
+                } else {
+                    tokens.push(token(string_lexeme, TokenType::SpecialString));
+                }
             }
             '`' => {
                 // for strings
@@ -365,14 +361,14 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     position += 1;
                 }
 
-                tokens.push_back(token(string_lexeme, TokenType::FormatedString));
+                tokens.push(token(string_lexeme, TokenType::FormatedString));
             }
-            '(' => tokens.push_back(token(character.to_string(), TokenType::OpenParen)),
-            ')' => tokens.push_back(token(character.to_string(), TokenType::CloseParen)),
-            '{' => tokens.push_back(token(character.to_string(), TokenType::OpenBrace)),
-            '}' => tokens.push_back(token(character.to_string(), TokenType::CloseBrace)),
+            '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
+            ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
+            '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
+            '}' => tokens.push(token(character.to_string(), TokenType::CloseBrace)),
             '[' => {
-                tokens.push_back(token(character.to_string(), TokenType::OpenBracket))
+                tokens.push(token(character.to_string(), TokenType::OpenBracket))
                 // for arrays
 
                 /*
@@ -391,7 +387,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                             }
                             .to_string())
                         }
-                        _ => array_lexeme.push_back(c),
+                        _ => array_lexeme.push(c),
                     }
 
                     position += 1;
@@ -413,10 +409,10 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
 
                 tockenize values of an array
 
-                tokens.push_back(token(array_lexeme, TokenType::Array));
+                tokens.push(token(array_lexeme, TokenType::Array));
                 */
             }
-            ']' => tokens.push_back(token(character.to_string(), TokenType::CloseBracket)),
+            ']' => tokens.push(token(character.to_string(), TokenType::CloseBracket)),
             character if character.is_alphabetic() => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
@@ -459,6 +455,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     "dict" => TokenType::TypeDict,
                     "and" | "or" => TokenType::LogicalOperator,
                     "let" => return Err(SyntaxError::ExpectedMutNotLet),
+                    "opt" => TokenType::OptionArgFunction,
                     val if value_lexeme.ends_with('.') => {
                         return Err(SyntaxError::ExpectingSomethingAfterDot {
                             id: val.to_string(),
@@ -467,7 +464,7 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
                     _ => TokenType::Identifier,
                 };
 
-                tokens.push_back(token(value_lexeme, token_type));
+                tokens.push(token(value_lexeme, token_type));
             }
             _ => {
                 return Err(SyntaxError::NonAlphabeticCharacter);
@@ -475,6 +472,22 @@ pub fn tokenize(source_code: &str) -> Result<VecDeque<Token>, SyntaxError> {
         };
 
         position += 1;
+    }
+
+    while let Some(Token {
+        token_type: TokenType::Separator,
+        ..
+    }) = tokens.first()
+    {
+        tokens.remove(0);
+    }
+
+    while let Some(Token {
+        token_type: TokenType::Separator,
+        ..
+    }) = tokens.last()
+    {
+        tokens.pop();
     }
 
     Ok(tokens)

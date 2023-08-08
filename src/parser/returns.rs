@@ -6,13 +6,10 @@ use super::{
 };
 
 pub fn parse_return_statement(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {
-    *position += 1;
-
-    let expr = parse_expression(tokens, position, symbol_table)?;
+    let expr = parse_expression(tokens, symbol_table)?;
 
     Ok(return_statement(expr))
 }

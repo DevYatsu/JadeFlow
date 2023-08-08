@@ -11,12 +11,11 @@ DATA TYPES:
 - Null
 
 Declaring functions:
-- fn <name>(params) {}
-- (params:type) // future update
+- fn <name>(params: type): return_type {}
 
 Return statement in fn:// future update
 - return x;
-- >x;
+- >>x;
 - x
 
 Conditional statements:// future update
@@ -41,8 +40,8 @@ Built-in Functions:// future update
 - String Functions: length, substring, concat, indexOf
 
 Comments:
-- Single-line comments: # comment
-- Multi-line comments: ### comment ###
+- Single-line comments: // comment
+- Multi-line comments: /* comment */
 
 
 Standard Libraries:// future update

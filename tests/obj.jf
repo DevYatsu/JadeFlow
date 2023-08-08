@@ -1,4 +1,4 @@
-const obj = {s: "str",}
+const obj = {s: "str"}
 
 const obj2 = {
     t: "t",

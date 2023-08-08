@@ -1,30 +1,31 @@
 use super::{
     architecture::{Declaration, Expression, SymbolTable},
     expression::parse_expression,
-    ParsingError,
+    ignore_whitespace, ParsingError,
 };
 use crate::token::{Token, TokenType};
 
 pub fn parse_array_expression(
-    tokens: &[Token],
-    position: &mut usize,
-    symbol_table: &SymbolTable,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let mut vec_expressions = Vec::new();
-    *position += 1;
+    ignore_whitespace(tokens);
 
-    while let Some(token) = tokens.get(*position) {
-        match &token.token_type {
+    while let Some(token) = tokens.peek() {
+        match token.token_type {
             TokenType::CloseBracket => {
-                *position += 1;
+                tokens.next();
                 break;
             }
-            TokenType::Comma => {
-                *position += 1;
+            TokenType::Comma | TokenType::Separator => {
+                tokens.next();
+                continue; // still an issue if there is an expr, then two /n and an expr again
             }
             _ => {
-                let value = parse_expression(tokens, position, symbol_table)?;
-                check_and_insert_expression(&value, symbol_table, &mut vec_expressions)?;
+                let value = parse_expression(tokens, symbol_table)?;
+
+                check_and_insert_expression(value, symbol_table, &mut vec_expressions)?;
             }
         }
     }
@@ -32,37 +33,35 @@ pub fn parse_array_expression(
     Ok(Expression::ArrayExpression(vec_expressions))
 }
 
-fn check_and_insert_expression(
-    expression: &Expression,
-    symbol_table: &SymbolTable,
+pub fn check_and_insert_expression(
+    expression: Expression,
+    symbol_table: &mut SymbolTable,
     vec_expressions: &mut Vec<Expression>,
 ) -> Result<(), ParsingError> {
-    match expression {
+    match &expression {
         Expression::Variable(name) => {
-            symbol_table.get_variable(name)?; // error if var not defined
+            symbol_table.get_variable(name, None)?; // error if var not defined
         }
         _ => (),
     }
-    vec_expressions.push(expression.clone());
+    vec_expressions.push(expression);
     Ok(())
 }
 
 pub fn parse_array_indexing(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var: Declaration,
 ) -> Result<Expression, ParsingError> {
-    *position += 1;
-    // we are passed the '[' now
+    let next = tokens.next();
+
     if let Some(Token {
         token_type: TokenType::Number,
         value,
-    }) = tokens.get(*position)
+    }) = next
     {
         let index: usize = value.parse()?;
-        *position += 1;
 
-        if let Some(token) = tokens.get(*position) {
+        if let Some(token) = tokens.next() {
             if token.token_type == TokenType::CloseBracket {
                 return Ok(Expression::Variable(format!("{}[{}", var.name, index)));
             } else {
@@ -73,7 +72,7 @@ pub fn parse_array_indexing(
         } else {
             return Err(ParsingError::UnexpectedEndOfInput);
         }
-    } else if let Some(Token { value, .. }) = tokens.get(*position) {
+    } else if let Some(Token { value, .. }) = next {
         return Err(ParsingError::ExpectedValidVectorIndex {
             found: value.to_owned(),
         });

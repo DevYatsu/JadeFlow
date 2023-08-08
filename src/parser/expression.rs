@@ -9,11 +9,11 @@ use super::{
 use crate::token::{Token, TokenType};
 
 pub fn parse_expression(
-    tokens: &[Token],
-    position: &mut usize,
-    symbol_table: &SymbolTable,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    parse_expression_with_precedence(tokens, position, symbol_table, 0)
+    let expression = parse_expression_with_precedence(tokens, symbol_table)?;
+    Ok(expression)
 }
 
 pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {
@@ -39,160 +39,141 @@ pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &
 }
 
 fn parse_expression_with_precedence(
-    tokens: &[Token],
-    position: &mut usize,
-    symbol_table: &SymbolTable,
-    precedence: u8,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    let mut expression = parse_primary_expression(tokens, position, symbol_table)?;
+    let mut operand_stack: Vec<Expression> = Vec::new();
+    let mut operator_stack: Vec<BinaryOperator> = Vec::new();
 
-    while let Some(token) = tokens.get(*position) {
-        match &token.token_type {
+    let mut expression = parse_primary_expression(tokens, symbol_table)?;
+    operand_stack.push(expression.clone());
+
+    while let Some(token) = tokens.peek() {
+        match token.token_type {
             TokenType::BinaryOperator => {
-                let operator_precedence = match token.value.as_str() {
-                    "**" => 3,            // Highest precedence for exponentiation
-                    "*" | "/" | "%" => 2, // Multiplication, Division, and Modulo
-                    "+" | "-" => 1,       // Addition and Subtraction
-                    _ => {
-                        return Err(ParsingError::InvalidExpression {
-                            value: token.value.clone(),
-                        })
-                    }
-                };
+                while let Some(operator) = operator_stack.last() {
+                    let operator_precedence = get_precedence(&operator);
 
-                if operator_precedence < precedence {
-                    break; // Exit the loop if the operator has lower precedence
+                    if operator_precedence >= get_precedence(&str_as_operator(&token.value)?) {
+                        apply_operator(&mut operand_stack, operator_stack.pop().unwrap());
+                    } else {
+                        break;
+                    }
                 }
 
-                *position += 1;
-                let operator = match token.value.as_str() {
-                    "+" => BinaryOperator::Plus,
-                    "-" => BinaryOperator::Minus,
-                    "*" => BinaryOperator::Multiply,
-                    "/" => BinaryOperator::Divide,
-                    "%" => BinaryOperator::Modulo,
-                    "**" => BinaryOperator::Exponential,
-                    _ => unreachable!(), // This should never happen due to the match above
-                };
+                operator_stack.push(str_as_operator(&token.value)?);
+            }
+            TokenType::Separator => {
+                if token.value == ";" {
+                    break;
+                } else {
+                    let mut clone_iter = tokens.clone().peekable();
+                    clone_iter.next();
 
-                let right_expr = parse_expression_with_precedence(
-                    tokens,
-                    position,
-                    symbol_table,
-                    operator_precedence + 1,
-                )?;
-                expression = Expression::BinaryOperation {
-                    left: Box::new(expression),
-                    operator,
-                    right: Box::new(right_expr),
-                };
+                    if let Some(token) = clone_iter.peek() {
+                        match token.token_type {
+                            TokenType::BinaryOperator | TokenType::Separator => {
+                                tokens.next();
+                                continue;
+                            }
+                            _ => break,
+                        }
+                    }
+                }
             }
             TokenType::CloseParen
             | TokenType::CloseBracket
             | TokenType::Colon
-            | TokenType::Comma
-            | TokenType::Separator => break,
-
-            TokenType::Var
-            | TokenType::For
-            | TokenType::Function
-            | TokenType::CloseBrace
-            | TokenType::While
-            | TokenType::Match
-            | TokenType::Identifier => {
-                *position -= 1;
+            | TokenType::Comma => {
+                // If a closing parenthesis, bracket, or colon is encountered, stop parsing
                 break;
             }
-            _ => {
-                return Err(ParsingError::UnexpectedToken {
-                    expected: ";".to_owned(),
-                    found: token.value.to_owned(),
-                })
-            }
+            _ => return Ok(expression),
+        }
+
+        tokens.next();
+        if let Some(_) = tokens.peek() {
+            expression = parse_primary_expression(tokens, symbol_table)?;
+            operand_stack.push(expression.clone());
         }
     }
 
-    Ok(expression)
+    while let Some(operator) = operator_stack.pop() {
+        apply_operator(&mut operand_stack, operator);
+    }
+
+    // The final result will be the last remaining expression on the operand stack
+    let result_expression = operand_stack
+        .pop()
+        .ok_or(ParsingError::UnexpectedEndOfInput)?;
+    println!("resulting expr {:?}", operand_stack);
+
+    Ok(result_expression)
 }
+
 fn parse_primary_expression(
-    tokens: &[Token],
-    position: &mut usize,
-    symbol_table: &SymbolTable,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    if let Some(token) = tokens.get(*position) {
+    ignore_whitespace(tokens);
+    if let Some(token) = tokens.next() {
         match &token.token_type {
             TokenType::Identifier => {
-                *position += 1;
-
+                let next = tokens.peek();
                 if let Some(Token {
                     token_type: TokenType::OpenParen,
                     ..
-                }) = tokens.get(*position)
+                }) = next
                 {
-                    let function = symbol_table.get_function(&token.value)?;
+                    let fn_call = parse_fn_call(tokens, &token.value, symbol_table)?;
 
-                    let assignment = parse_fn_call(tokens, position, &symbol_table, &function)?;
+                    return Ok(Expression::FunctionCall(fn_call));
                 }
 
-                let var = symbol_table.get_variable(&token.value)?;
+                let var = symbol_table.get_variable(&token.value, None)?;
                 if var.var_type != VariableType::Vector {
                     Ok(Expression::Variable(token.value.clone()))
                 } else {
                     if let Some(Token {
                         token_type: TokenType::OpenBracket,
                         ..
-                    }) = tokens.get(*position)
+                    }) = next
                     {
-                        Ok(parse_array_indexing(tokens, position, var)?)
+                        tokens.next();
+                        Ok(parse_array_indexing(tokens, var)?)
                     } else {
                         Ok(Expression::Variable(token.value.clone()))
                     }
                 }
             }
             TokenType::Number => {
-                *position += 1;
-
-                token
+                let number = token
                     .value
                     .parse::<f64>()
                     .map(Expression::Number)
                     .map_err(|_| ParsingError::InvalidNumber {
                         value: token.value.clone(),
-                    })
-            }
-            TokenType::String => {
-                *position += 1;
+                    })?;
 
-                Ok(Expression::String(token.value.clone()))
+                return Ok(number);
             }
-            TokenType::FormatedString => {
-                *position += 1;
-                Ok(Expression::FormattedString(FormattedSegment::from_str(
-                    &token.value,
-                    symbol_table,
-                )?))
-            }
-            TokenType::Null => {
-                *position += 1;
-                Ok(Expression::Null)
-            }
+            TokenType::String => Ok(Expression::String(token.value.clone())),
+            TokenType::FormatedString => Ok(Expression::FormattedString(
+                FormattedSegment::from_str(&token.value, symbol_table)?,
+            )),
+            TokenType::Null => Ok(Expression::Null),
             TokenType::Boolean => {
-                *position += 1;
-                let b = token.value == "true";
-                return Ok(Expression::Boolean(b));
+                return Ok(Expression::Boolean(token.value == "true"));
             }
-            TokenType::OpenBracket => parse_array_expression(tokens, position, symbol_table),
-            TokenType::OpenBrace => parse_dictionary_expression(tokens, position, symbol_table),
+            TokenType::OpenBracket => parse_array_expression(tokens, symbol_table),
+            TokenType::OpenBrace => parse_dictionary_expression(tokens, symbol_table),
             TokenType::OpenParen => {
-                *position += 1;
-                ignore_whitespace(tokens, position);
+                ignore_whitespace(tokens);
+                let expr = parse_expression(tokens, symbol_table)?;
+                ignore_whitespace(tokens);
 
-                let expr = parse_expression(tokens, position, symbol_table)?;
-                ignore_whitespace(tokens, position);
-
-                if let Some(close_paren) = tokens.get(*position) {
+                if let Some(close_paren) = tokens.next() {
                     if close_paren.token_type == TokenType::CloseParen {
-                        *position += 1;
                         Ok(expr)
                     } else {
                         Err(ParsingError::UnexpectedToken {
@@ -212,4 +193,39 @@ fn parse_primary_expression(
     } else {
         Err(ParsingError::UnexpectedEndOfInput)
     }
+}
+
+fn get_precedence(operator: &BinaryOperator) -> u8 {
+    match operator {
+        BinaryOperator::Exponential => 3,
+        BinaryOperator::Multiply | BinaryOperator::Divide | BinaryOperator::Modulo => 2,
+        BinaryOperator::Plus | BinaryOperator::Minus => 1,
+    }
+}
+fn str_as_operator(string: &str) -> Result<BinaryOperator, ParsingError> {
+    Ok(match string {
+        "+" => BinaryOperator::Plus,
+        "-" => BinaryOperator::Minus,
+        "*" => BinaryOperator::Multiply,
+        "/" => BinaryOperator::Divide,
+        "%" => BinaryOperator::Modulo,
+        "**" => BinaryOperator::Exponential,
+        _ => {
+            return Err(ParsingError::InvalidExpression {
+                value: string.to_owned(),
+            })
+        }
+    })
+}
+
+fn apply_operator(operands: &mut Vec<Expression>, operator: BinaryOperator) {
+    let right_expr = operands.pop().unwrap();
+    let left_expr = operands.pop().unwrap();
+    let binary_expr = Expression::BinaryOperation {
+        left: Box::new(left_expr),
+        operator,
+        right: Box::new(right_expr),
+    };
+
+    operands.push(binary_expr);
 }

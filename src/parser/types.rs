@@ -25,11 +25,13 @@ custom_error! {pub TypeError
 
     ParseInt{source: ParseIntError} = "{source}",
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}"
+    ,Custom{data:String} = "{data}"
 }
 
 pub fn type_from_expression(
     expr: &Expression,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
+    tokens: Option<&mut std::iter::Peekable<std::slice::Iter<'_, Token>>>,
 ) -> Result<VariableType, TypeError> {
     match expr {
         Expression::Number(_) => Ok(VariableType::Number),
@@ -39,16 +41,17 @@ pub fn type_from_expression(
         Expression::Boolean(_) => Ok(VariableType::Boolean),
         Expression::Null => Err(TypeError::ExpressionNull),
         Expression::DictionaryExpression(_) => Ok(VariableType::Dictionary),
-        Expression::Variable(var_name) => {
-            symbol_table.get_variable(var_name).map(|var| var.var_type)
-        }
+        Expression::Variable(var_name) => symbol_table
+            .get_variable(var_name, None)
+            .map(|var| var.var_type),
         Expression::BinaryOperation {
             left,
             operator,
             right,
         } => {
-            let left_type = type_from_expression(left, symbol_table)?;
-            let right_type = type_from_expression(right, symbol_table)?;
+            let mut t = tokens.cloned();
+            let left_type = type_from_expression(left, symbol_table, t.as_mut())?;
+            let right_type = type_from_expression(right, symbol_table, t.as_mut())?;
 
             match operator {
                 BinaryOperator::Plus => {
@@ -86,9 +89,9 @@ pub fn type_from_expression(
                 }
             }
         }
-        Expression::FunctionCall { function_name, .. } => {
+        Expression::FunctionCall(call) => {
             match symbol_table
-                .get_function(&function_name)
+                .get_function(&call.function_name, tokens.unwrap())
                 .map(|var| var.return_type)
             {
                 Ok(r) => {
@@ -98,50 +101,50 @@ pub fn type_from_expression(
                         Err(TypeError::ExpressionNull)
                     }
                 }
-                Err(e) => Err(e.into()),
+                Err(e) => Err(TypeError::Custom {
+                    data: e.to_string(),
+                }),
             }
         }
     }
 }
 
-pub fn parse_type(tokens: &[Token], position: &mut usize) -> Result<VariableType, ParsingError> {
+pub fn parse_type(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+) -> Result<VariableType, ParsingError> {
+    let next = tokens.next();
     // fn to use after encountering ':'
     if let Some(Token {
         token_type: TokenType::TypeBool,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Boolean)
     } else if let Some(Token {
         token_type: TokenType::TypeDict,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Dictionary)
     } else if let Some(Token {
         token_type: TokenType::TypeNumber,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Number)
     } else if let Some(Token {
         token_type: TokenType::TypeString,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::String)
     } else if let Some(Token {
         token_type: TokenType::TypeVec,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
         Ok(VariableType::Vector)
-    } else if let Some(Token { value, .. }) = tokens.get(*position) {
+    } else if let Some(Token { value, .. }) = next {
         return Err(TypeError::ExpectedType {
             value: value.to_owned(),
         }

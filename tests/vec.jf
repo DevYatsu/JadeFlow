@@ -1,5 +1,6 @@
+'strict'
 const a = {o: [2]}
 const arr = ["test", "str", 3, a, [2]]
 
-const b = arr [0]
-
+const b = arr[0]
+const arr = arr + arr[2] * 2

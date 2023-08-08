@@ -1,10 +1,13 @@
 use crate::token::{tokenize, Token};
 
 use super::{
-    expression::parse_expression, functions::FunctionParsingError, types::type_from_expression,
+    expression::parse_expression,
+    functions::{parse_fn_header, FunctionParsingError},
+    parse,
+    types::type_from_expression,
     ParsingError, TypeError,
 };
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, iter::Peekable};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
@@ -15,9 +18,9 @@ pub enum ASTNode {
     FunctionDeclaration(Function),
     // corresponds to both {} and => functions
     ClassDeclaration(Class),
-    Expression(Expression),
 
     Return(Expression),
+    FunctionCall(FunctionCall),
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +60,11 @@ pub fn function(f: Function) -> Statement {
         node: ASTNode::FunctionDeclaration(f),
     }
 }
+pub fn function_call(call: FunctionCall) -> Statement {
+    Statement {
+        node: ASTNode::FunctionCall(call),
+    }
+}
 pub fn return_statement(expr: Expression) -> Statement {
     Statement {
         node: ASTNode::Return(expr),
@@ -78,10 +86,7 @@ pub enum Expression {
         right: Box<Expression>,
     },
     FormattedString(Vec<FormattedSegment>),
-    FunctionCall {
-        function_name: String,
-        arguments: Vec<Expression>,
-    },
+    FunctionCall(FunctionCall),
 }
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -128,15 +133,12 @@ impl fmt::Display for Expression {
                 }
                 write!(f, "\"")
             }
-            Expression::FunctionCall {
-                function_name,
-                arguments,
-            } => {
+            Expression::FunctionCall(call) => {
                 write!(f, "fn ")?;
-                write!(f, "{} ", function_name)?;
+                write!(f, "{} ", call.function_name)?;
                 write!(f, "(")?;
 
-                for argument in arguments {
+                for argument in &call.arguments {
                     write!(f, "{}, ", argument)?;
                 }
                 write!(f, ")")
@@ -201,7 +203,7 @@ pub enum FormattedSegment {
 impl FormattedSegment {
     pub fn from_str(
         input: &str,
-        symbol_table: &SymbolTable,
+        symbol_table: &mut SymbolTable,
     ) -> Result<Vec<FormattedSegment>, ParsingError> {
         let mut result: Vec<FormattedSegment> = Vec::new();
         let mut current_part = String::new();
@@ -213,7 +215,7 @@ impl FormattedSegment {
                 if c == '}' {
                     // Finished parsing the expression, add it to the result
                     inside_expression = false;
-                    let mut t: Vec<Token> = match tokenize(&expression[1..]) {
+                    let t: Vec<Token> = match tokenize(&expression[1..]) {
                         Ok(t) => t.into(),
                         Err(_) => {
                             return Err(ParsingError::ExpectedValidExpressionInFormattedString)
@@ -221,8 +223,7 @@ impl FormattedSegment {
                     };
 
                     let expr = FormattedSegment::Expression(parse_expression(
-                        &t,
-                        &mut 0,
+                        &mut t.iter().peekable(),
                         symbol_table,
                     )?);
                     result.push(expr);
@@ -241,7 +242,7 @@ impl FormattedSegment {
 
                         // Add the current string part to the result
                         if !current_part.is_empty() {
-                            result.push(FormattedSegment::Literal(current_part.to_owned()));
+                            result.push(FormattedSegment::Literal(current_part.clone()));
                         }
                         current_part.clear();
                     } else {
@@ -302,9 +303,136 @@ impl BinaryOperator {
 pub struct Function {
     pub name: String,
     pub arguments: Vec<Declaration>,
-    pub context: Box<ASTNode>,
+    pub context: Vec<Token>,
     pub return_type: Option<VariableType>,
 }
+impl Function {
+    pub fn with_args(
+        &mut self,
+        args: &Vec<Expression>,
+        symbol_table: &mut SymbolTable,
+    ) -> Result<Expression, ParsingError> {
+        let types_vec = self.args_types();
+
+        for (i, arg) in args.iter().enumerate() {
+            let actual_arg_type = type_from_expression(arg, symbol_table, None)?;
+
+            if types_vec[i] != actual_arg_type {
+                return Err(FunctionParsingError::InvalidFnCallArgType {
+                    fn_name: self.name.to_owned(),
+                    arg_name: self.arguments[i].name.to_owned(),
+                    required_t: types_vec[i].clone(),
+                    found_t: actual_arg_type,
+                }
+                .into());
+            }
+        }
+
+        let new_args = self
+            .arguments
+            .iter()
+            .enumerate()
+            .map(|(i, arg)| {
+                let mut new_arg = arg.clone();
+                new_arg.value = args[i].clone();
+                new_arg
+            })
+            .collect::<Vec<Declaration>>();
+
+        self.arguments = new_args;
+
+        let mut tokens = self.args_as_tokens();
+        tokens.append(&mut self.context);
+
+        let tokens_iter = tokens.iter().peekable();
+
+        let mut program = match parse(tokens_iter.clone(), Some(symbol_table))? {
+            ASTNode::Program(p) => p,
+            _ => unreachable!(),
+        };
+
+        self.compare_types(&mut program)?; // return an error if returned type is different from expected
+
+        Ok(Expression::Null)
+    }
+
+    fn args_as_tokens(&self) -> Vec<Token> {
+        self.arguments
+            .iter()
+            .flat_map(|dec| dec.equivalent_tokens())
+            .collect()
+    }
+
+    fn args_types(&self) -> Vec<VariableType> {
+        self.arguments
+            .iter()
+            .map(|dec| dec.var_type.clone())
+            .collect()
+    }
+
+    fn get_returned_type(program: &mut Program) -> Option<VariableType> {
+        if let Some(Statement {
+            node: ASTNode::Return(returned),
+        }) = program.statements.last()
+        {
+            type_from_expression(returned, &mut program.symbol_table, None).ok()
+        } else {
+            None
+        }
+    }
+
+    fn compare_types(&self, program: &mut Program) -> Result<(), ParsingError> {
+        let return_type = self.return_type.clone();
+
+        let found = Function::get_returned_type(program).clone();
+
+        if return_type != found {
+            if let Some(return_type) = return_type {
+                if let Some(found) = found {
+                    return Err(FunctionParsingError::ReturnTypeInvalid {
+                        fn_name: self.name.to_owned(),
+                        return_type: return_type.to_string(),
+                        found: found.to_string(),
+                    }
+                    .into());
+                } else {
+                    return Err(FunctionParsingError::MissingReturnStatement {
+                        fn_name: self.name.to_owned(),
+                    }
+                    .into());
+                }
+            } else {
+                return Err(FunctionParsingError::MissingReturnStatement {
+                    fn_name: self.name.to_owned(),
+                }
+                .into());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "fn {}({}) => {}",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+            if let Some(output_t) = &self.return_type {
+                output_t.as_assignment()
+            } else {
+                "null"
+            },
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MainFunctionData {
     pub name: String,
@@ -314,11 +442,17 @@ pub struct MainFunctionData {
 impl MainFunctionData {
     pub fn from_function(f: &Function) -> MainFunctionData {
         MainFunctionData {
-            name: f.name.to_owned(),
+            name: f.name.clone(),
             arguments: f.arguments.clone(),
             return_type: f.return_type.clone(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionCall {
+    pub function_name: String,
+    pub arguments: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]
@@ -375,27 +509,53 @@ pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
     variables: HashMap<String, Declaration>,
     functions: HashMap<String, Function>,
+    functions_before_declaration: HashMap<String, MainFunctionData>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
+            functions_before_declaration: HashMap::new(),
         }
+    }
+    pub fn merge(first_table: &SymbolTable, second_table: SymbolTable) -> SymbolTable {
+        let mut table = SymbolTable::new();
+
+        table.variables.extend(first_table.variables.clone());
+        table.functions.extend(first_table.functions.clone());
+        table.variables.extend(second_table.variables);
+        table.functions.extend(second_table.functions);
+
+        table
     }
 
     pub fn insert_variable(&mut self, declaration: Declaration) {
-        self.variables
-            .insert(declaration.name.to_owned(), declaration);
+        self.variables.insert(declaration.name.clone(), declaration);
     }
     pub fn insert_function(&mut self, f: &Function) {
-        self.functions.insert(f.name.to_owned(), f.clone());
+        self.functions.insert(f.name.clone(), f.clone());
     }
-    pub fn reassign_variable(&mut self, reassignement: Reassignment) {
-        let initial_var = self.get_variable(&reassignement.name).unwrap();
+    pub fn insert_function_in_advance(&mut self, f: &MainFunctionData) {
+        if self.functions_before_declaration.get(&f.name).is_none()
+            && self.functions.get(&f.name).is_none()
+        {
+            self.functions_before_declaration
+                .insert(f.name.clone(), f.clone());
+        }
+    }
+
+    pub fn reassign_variable(
+        &mut self,
+        reassignement: Reassignment,
+        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+    ) {
+        let initial_var = self
+            .get_variable(&reassignement.name, Some(tokens))
+            .unwrap();
 
         self.variables.insert(
-            reassignement.name.to_owned(),
+            reassignement.name.clone(),
             Declaration {
                 name: initial_var.name,
                 var_type: initial_var.var_type,
@@ -405,7 +565,11 @@ impl SymbolTable {
         );
     }
 
-    pub fn get_variable(&self, name: &str) -> Result<Declaration, TypeError> {
+    pub fn get_variable(
+        &mut self,
+        name: &str,
+        tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>,
+    ) -> Result<Declaration, TypeError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
@@ -441,7 +605,7 @@ impl SymbolTable {
                     }
                     return Ok(Declaration {
                         name: name_vec[0].to_owned(),
-                        var_type: type_from_expression(&vec[index], &self)?,
+                        var_type: type_from_expression(&vec[index], self, tokens)?,
                         value: vec[index].clone(),
                         is_mutable: true,
                     });
@@ -464,11 +628,11 @@ impl SymbolTable {
                     if let Some(e) = expr.get(*prop) {
                         match e {
                             Expression::Variable(name) => {
-                                var = self.get_variable(&name)?.value;
+                                var = self.get_variable(&name, None)?.value;
                                 continue;
                             }
                             _ => {
-                                var = e.to_owned();
+                                var = e.clone();
                                 continue;
                             }
                         }
@@ -480,13 +644,13 @@ impl SymbolTable {
                     }
                 }
                 expr => {
-                    var = expr.to_owned();
+                    var = expr.clone();
                     continue;
                 }
             }
         }
 
-        let var_type = type_from_expression(&var, &self)?;
+        let var_type = type_from_expression(&var, self, tokens)?;
 
         Ok(Declaration {
             name: name_vec.last().unwrap().to_string(),
@@ -496,14 +660,102 @@ impl SymbolTable {
         })
     }
 
-    pub fn get_function(&self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
-        Ok(self
-            .functions
-            .get(name)
-            .cloned()
-            .map(|f| MainFunctionData::from_function(&f))
-            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            })?)
+    pub fn is_fn_declared(&self, name: &str) -> bool {
+        self.functions.get(name).is_some()
+    }
+
+    pub fn get_function(
+        &mut self,
+        name: &str,
+        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+    ) -> Result<MainFunctionData, ParsingError> {
+        let func = self.functions.get(name);
+
+        if func.is_none() {
+            let func = self.get_fn_in_advance(name, tokens)?;
+
+            Ok(
+                func.ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                    fn_name: name.to_owned(),
+                })?,
+            )
+        } else {
+            Ok(func
+                .cloned()
+                .map(|f| MainFunctionData::from_function(&f))
+                .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                    fn_name: name.to_owned(),
+                })?)
+        }
+    }
+
+    fn get_fn_in_advance(
+        &mut self,
+        name: &str,
+        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+    ) -> Result<Option<MainFunctionData>, ParsingError> {
+        let func = self.functions_before_declaration.get(name);
+
+        if func.is_some() {
+            return Ok(Some(func.unwrap().clone()));
+        }
+
+        let mut iter = tokens.clone();
+        while let Some(token) = iter.peek() {
+            match token.token_type {
+                crate::token::TokenType::Function => {
+                    iter.next();
+                    let fn_data: MainFunctionData = parse_fn_header(&mut iter, self)?;
+                    self.insert_function_in_advance(&fn_data);
+
+                    println!("data {:?} = {}", fn_data.name, name);
+                    if &fn_data.name == name {
+                        return Ok(Some(fn_data));
+                    }
+                }
+                _ => {
+                    iter.next();
+                }
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+impl fmt::Display for SymbolTable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "-- VARIABLES -- \n",)?;
+        if self.variables.len() == 0 {
+            write!(f, "None\n")?;
+        } else {
+            for var in &self.variables {
+                write!(f, "{}\n", var.1.to_string())?;
+            }
+        }
+
+        write!(f, "-- FUNCTIONS -- \n",)?;
+
+        if self.functions.len() == 0 {
+            {
+                write!(f, "None\n")?;
+            }
+        } else {
+            for var in &self.functions {
+                write!(f, "- {}\n", var.1.to_string())?;
+            }
+        }
+
+        write!(f, "-- COMING FUNCTIONS -- \n",)?;
+
+        if self.functions_before_declaration.len() == 0 {
+            Ok({
+                write!(f, "None\n")?;
+            })
+        } else {
+            Ok(for var in &self.functions {
+                write!(f, "- {}\n", var.1.to_string())?;
+            })
+        }
     }
 }
