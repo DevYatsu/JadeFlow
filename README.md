@@ -145,7 +145,7 @@ fn fibonacci(n: num) {
 }
 
 fn main() {
-    n = 10
+    const n = 10
     for i in 0..n { // range non including 10
         print(fibonacci(i))
     }
