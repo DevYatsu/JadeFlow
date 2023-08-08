@@ -12,3 +12,9 @@ fn concatenate(s: str, s2: str): str {
 
     return o
 }
+
+fn hello() {
+    print("Hello, world!")
+}
+
+hello();

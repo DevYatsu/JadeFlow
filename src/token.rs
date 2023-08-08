@@ -18,7 +18,7 @@ pub enum TokenType {
     Null,
     Function,
     OptionArgFunction,
-    Class,
+
     OpenParen,
     OpenBrace,
     OpenBracket,
@@ -55,6 +55,10 @@ pub enum TokenType {
     TypeString,
     TypeVec,
     TypeDict,
+
+    Class,
+    ClassPublic,
+    ClassPrivate,
 }
 
 #[derive(Debug, Clone)]
@@ -456,6 +460,8 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     "and" | "or" => TokenType::LogicalOperator,
                     "let" => return Err(SyntaxError::ExpectedMutNotLet),
                     "opt" => TokenType::OptionArgFunction,
+                    "pub" => TokenType::ClassPublic,
+                    "priv" => TokenType::ClassPrivate,
                     val if value_lexeme.ends_with('.') => {
                         return Err(SyntaxError::ExpectingSomethingAfterDot {
                             id: val.to_string(),

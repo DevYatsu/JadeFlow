@@ -1,5 +1,13 @@
 class Human (name: str, age: num, gender: str) {
+    ctx.name = name
+    ctx.age = age
+    ctx.gender = gender
+    // can be accessed anywhere in the class and outside of it
+
     pub {
+        ctx.counter = 0
+        // can be accessed in this block and outside
+
         fn presentation(ctx) {
             print("I am #{ctx.age} years old #{ctx.gender}, my name is #{ctx.name}!")
         }
@@ -9,5 +17,8 @@ class Human (name: str, age: num, gender: str) {
         }
     }
 
-    private {}
+    priv {
+        ctx.hey = `hey #{ctx.name}`
+        // can only be accessed here
+    }
 }

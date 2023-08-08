@@ -195,6 +195,21 @@ pub struct Reassignment {
     pub value: Expression,
 }
 
+#[derive(Debug, Clone)]
+pub struct Class {
+    pub name: String,
+    pub arguments: Vec<Declaration>,
+    pub global_properties: HashMap<String, Expression>,
+    pub public_ctx: ClassCtx,
+    pub private_ctx: ClassCtx
+}
+#[derive(Debug, Clone)]
+pub struct ClassCtx {
+    pub methods: HashMap<String, Function>,
+    pub properties: HashMap<String, Expression>,
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum FormattedSegment {
     // exemple "hey #{2 + 3} how r u ?"
@@ -454,13 +469,6 @@ impl MainFunctionData {
 pub struct FunctionCall {
     pub function_name: String,
     pub arguments: Vec<Expression>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Class {
-    pub name: String,
-    pub arguments: Vec<(String, VariableType)>,
-    pub context: Vec<Vec<Statement>>, // methods and declarations
 }
 
 #[derive(Debug, Clone, PartialEq)]
