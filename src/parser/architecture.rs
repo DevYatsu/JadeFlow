@@ -3,6 +3,7 @@ use crate::token::{tokenize, Token};
 use super::{
     expression::parse_expression,
     functions::{parse_fn_header, FunctionParsingError},
+    parse,
     types::type_from_expression,
     ParsingError, TypeError,
 };
@@ -302,8 +303,114 @@ impl BinaryOperator {
 pub struct Function {
     pub name: String,
     pub arguments: Vec<Declaration>,
-    pub context: Box<ASTNode>,
+    pub context: Vec<Token>,
     pub return_type: Option<VariableType>,
+}
+impl Function {
+    pub fn with_args(
+        &mut self,
+        args: &Vec<Expression>,
+        symbol_table: &mut SymbolTable,
+    ) -> Result<Expression, ParsingError> {
+        let types_vec = self.args_types();
+
+        for (i, arg) in args.iter().enumerate() {
+            let actual_arg_type = type_from_expression(arg, symbol_table, None)?;
+
+            if types_vec[i] != actual_arg_type {
+                return Err(FunctionParsingError::InvalidFnCallArgType {
+                    fn_name: self.name.to_owned(),
+                    arg_name: self.arguments[i].name.to_owned(),
+                    required_t: types_vec[i].clone(),
+                    found_t: actual_arg_type,
+                }
+                .into());
+            }
+        }
+
+        let new_args = self
+            .arguments
+            .iter()
+            .enumerate()
+            .map(|(i, arg)| {
+                let mut new_arg = arg.clone();
+                new_arg.value = args[i].clone();
+                new_arg
+            })
+            .collect::<Vec<Declaration>>();
+
+        self.arguments = new_args;
+
+        let mut tokens = self.args_as_tokens();
+        tokens.append(&mut self.context);
+
+        let tokens_iter = tokens.iter().peekable();
+
+        let mut program = match parse(tokens_iter.clone(), Some(symbol_table))? {
+            ASTNode::Program(p) => p,
+            _ => unreachable!(),
+        };
+
+        self.compare_types(&mut program)?; // return an error if returned type is different from expected
+
+        Ok(Expression::Null)
+    }
+
+    fn args_as_tokens(&self) -> Vec<Token> {
+        self.arguments
+            .iter()
+            .flat_map(|dec| dec.equivalent_tokens())
+            .collect()
+    }
+
+    fn args_types(&self) -> Vec<VariableType> {
+        self.arguments
+            .iter()
+            .map(|dec| dec.var_type.clone())
+            .collect()
+    }
+
+    fn get_returned_type(program: &mut Program) -> Option<VariableType> {
+        if let Some(Statement {
+            node: ASTNode::Return(returned),
+        }) = program.statements.last()
+        {
+            type_from_expression(returned, &mut program.symbol_table, None).ok()
+        } else {
+            None
+        }
+    }
+
+    fn compare_types(&self, program: &mut Program) -> Result<(), ParsingError> {
+        let return_type = self.return_type.clone();
+
+        let found = Function::get_returned_type(program).clone();
+
+        if return_type != found {
+            if let Some(return_type) = return_type {
+                if let Some(found) = found {
+                    return Err(FunctionParsingError::ReturnTypeInvalid {
+                        fn_name: self.name.to_owned(),
+                        return_type: return_type.to_string(),
+                        found: found.to_string(),
+                    }
+                    .into());
+                } else {
+                    return Err(FunctionParsingError::MissingReturnStatement {
+                        fn_name: self.name.to_owned(),
+                    }
+                    .into());
+                }
+            } else {
+                return Err(FunctionParsingError::MissingReturnStatement {
+                    fn_name: self.name.to_owned(),
+                }
+                .into());
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl fmt::Display for Function {
@@ -600,13 +707,15 @@ impl SymbolTable {
                     iter.next();
                     let fn_data: MainFunctionData = parse_fn_header(&mut iter, self)?;
                     self.insert_function_in_advance(&fn_data);
-                    
+
                     println!("data {:?} = {}", fn_data.name, name);
                     if &fn_data.name == name {
                         return Ok(Some(fn_data));
                     }
                 }
-                _ => {iter.next();},
+                _ => {
+                    iter.next();
+                }
             }
         }
 

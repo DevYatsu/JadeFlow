@@ -1,8 +1,7 @@
 use crate::{
     parser::{
-        architecture::{function, program, MainFunctionData},
+        architecture::{function, MainFunctionData},
         expression::parse_expression,
-        parse,
         types::TypeError,
         vectors::check_and_insert_expression,
     },
@@ -11,8 +10,7 @@ use crate::{
 
 use super::{
     architecture::{
-        ASTNode, Declaration, Expression, Function, FunctionCall, Program, Statement, SymbolTable,
-        VariableType,
+        Declaration, Expression, Function, FunctionCall, Statement, SymbolTable, VariableType,
     },
     ignore_whitespace,
     types::type_from_expression,
@@ -62,26 +60,12 @@ pub fn parse_fn_declaration(
         Some(Token {
             token_type: TokenType::OpenBrace,
             ..
-        }) => {
-            let mut ctx_tokens: Vec<Token> = fn_data
-                .arguments
-                .iter()
-                .flat_map(|dec| dec.equivalent_tokens())
-                .collect();
-
-            ctx_tokens.extend(parse_fn_block(tokens, &fn_data.name)?);
-            let ctx_tokens_iter = ctx_tokens.iter().peekable();
-            parse(ctx_tokens_iter, Some(&symbol_table))?
-        }
+        }) => parse_fn_block(tokens, &fn_data.name)?,
         Some(Token {
             token_type: TokenType::FunctionArrow,
             ..
         }) => {
-            let mut ctx_tokens: Vec<Token> = fn_data
-                .arguments
-                .iter()
-                .flat_map(|dec| dec.equivalent_tokens())
-                .collect();
+            let mut ctx_tokens: Vec<Token> = Vec::new();
 
             ctx_tokens.push(Token {
                 value: "return".to_owned(),
@@ -104,8 +88,7 @@ pub fn parse_fn_declaration(
                 .into());
             }
 
-            let ctx_tokens_iter = ctx_tokens.iter().peekable();
-            parse(ctx_tokens_iter, Some(&symbol_table))?
+            ctx_tokens
         }
         _ => {
             return Err(FunctionParsingError::ExpectedBrace {
@@ -115,41 +98,10 @@ pub fn parse_fn_declaration(
         }
     };
 
-    let function_context = keep_useful_content(function_context);
-    println!("global st:\n {}", symbol_table);
-    let mut function_context = add_global_content(&symbol_table, function_context);
-
-    println!("fn {}:: {}\n ", fn_data.name, function_context.symbol_table);
-
-    let returned_type = returned_type(&mut function_context, tokens);
-
-    if fn_data.return_type != returned_type {
-        if let Some(return_type) = fn_data.return_type {
-            if let Some(returned_type) = returned_type {
-                return Err(FunctionParsingError::ReturnTypeInvalid {
-                    fn_name: fn_data.name.to_owned(),
-                    return_type: return_type.to_string(),
-                    found: returned_type.to_string(),
-                }
-                .into());
-            } else {
-                return Err(FunctionParsingError::MissingReturnStatement {
-                    fn_name: fn_data.name.to_owned(),
-                }
-                .into());
-            }
-        } else {
-            return Err(FunctionParsingError::MissingReturnStatement {
-                fn_name: fn_data.name.to_owned(),
-            }
-            .into());
-        }
-    }
-
     let f = Function {
         name: fn_data.name.to_owned(),
         arguments: fn_data.arguments,
-        context: Box::new(program(function_context)),
+        context: function_context,
         return_type: fn_data.return_type,
     };
 
@@ -380,55 +332,6 @@ fn parse_fn_block(
     }
 
     Ok(ctx_tokens)
-}
-
-fn keep_useful_content(function_context: ASTNode) -> Program {
-    match function_context {
-        ASTNode::Program(Program {
-            statements,
-            symbol_table,
-        }) => {
-            if let Some(return_index) = statements
-                .iter()
-                .position(|s| matches!(s.node, ASTNode::Return(_)))
-            {
-                Program {
-                    statements: statements[0..=return_index].to_vec(),
-                    symbol_table,
-                }
-            } else {
-                Program {
-                    statements,
-                    symbol_table,
-                }
-            }
-        }
-        _ => unreachable!(),
-    }
-}
-
-fn add_global_content(global_symbol_table: &SymbolTable, function_context: Program) -> Program {
-    let merged_symbol_table =
-        SymbolTable::merge(global_symbol_table, function_context.symbol_table);
-
-    Program {
-        statements: function_context.statements,
-        symbol_table: merged_symbol_table,
-    }
-}
-
-fn returned_type(
-    program: &mut Program,
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Option<VariableType> {
-    if let Some(Statement {
-        node: ASTNode::Return(returned),
-    }) = program.statements.last()
-    {
-        type_from_expression(returned, &mut program.symbol_table, Some(tokens)).ok()
-    } else {
-        None
-    }
 }
 
 fn parse_fn_args(
