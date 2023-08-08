@@ -178,7 +178,7 @@ impl Declaration {
             self.var_type.as_assignment(),
             self.value
         );
-        tokenize(&source_code).unwrap().into()
+        tokenize(source_code.as_bytes()).unwrap().into()
     }
     fn get_var_keyword(&self) -> &str {
         if self.is_mutable {
@@ -216,7 +216,7 @@ impl FormattedSegment {
                 if c == '}' {
                     // Finished parsing the expression, add it to the result
                     inside_expression = false;
-                    let t: Vec<Token> = match tokenize(&expression[1..]) {
+                    let t: Vec<Token> = match tokenize(expression[1..].as_bytes()) {
                         Ok(t) => t.into(),
                         Err(_) => {
                             return Err(ParsingError::ExpectedValidExpressionInFormattedString)

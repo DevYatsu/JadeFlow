@@ -67,12 +67,12 @@ fn token(value: String, token_type: TokenType) -> Token {
     Token { value, token_type }
 }
 
-pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
+pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut position: usize = 0;
 
     while position < source_code.len() {
-        let character: char = source_code.as_bytes()[position] as char;
+        let character: char = source_code[position] as char;
         // most efficient way to retrieve a char at a given index
 
         match character {
@@ -80,12 +80,12 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
             '\n' | ';' => tokens.push(token(character.to_string(), TokenType::Separator)),
             ',' => tokens.push(token(character.to_string(), TokenType::Comma)),
             '.' => match character {
-                _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8)) => {
+                _ if source_code.get(position + 1) == Some(&(b'.' as u8)) => {
                     position += 1;
                     tokens.push(token("..".to_string(), TokenType::Range));
                 }
-                _ if source_code.as_bytes().get(position + 1) == Some(&(b'.' as u8))
-                    && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
+                _ if source_code.get(position + 1) == Some(&(b'.' as u8))
+                    && source_code.get(position + 2) == Some(&(b'=' as u8)) =>
                 {
                     position += 1;
                     tokens.push(token("..".to_string(), TokenType::Range));
@@ -99,18 +99,18 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
             },
             '*' => {
                 let operator_lexeme = match character {
-                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8))
-                        && source_code.as_bytes().get(position + 2) == Some(&(b'=' as u8)) =>
+                    '*' if source_code.get(position + 1) == Some(&(b'*' as u8))
+                        && source_code.get(position + 2) == Some(&(b'=' as u8)) =>
                     {
                         position += 3;
                         tokens.push(token("**=".to_string(), TokenType::AssignmentOperator));
                         continue;
                     }
-                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'*' as u8)) => {
+                    '*' if source_code.get(position + 1) == Some(&(b'*' as u8)) => {
                         position += 1;
                         "**".to_string()
                     }
-                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                    '*' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
                         position += 2;
                         tokens.push(token("*=".to_string(), TokenType::AssignmentOperator));
                         continue;
@@ -122,18 +122,18 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
             '+' | '%' => {
                 // for binary and assignment operators
                 let operator_lexeme = match character {
-                    '+' if source_code.as_bytes().get(position + 1) == Some(&(b'+' as u8)) => {
+                    '+' if source_code.get(position + 1) == Some(&(b'+' as u8)) => {
                         position += 1;
                         tokens.push(token("++".to_string(), TokenType::IncrementOperator));
                         continue;
                     }
-                    '+' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                    '+' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
                         "+=".to_string()
                     }
-                    '*' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                    '*' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
                         "*=".to_string()
                     }
-                    '%' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                    '%' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
                         "%=".to_string()
                     }
                     _ => character.to_string(),
@@ -150,11 +150,11 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
             '-' => {
                 // for equality and value assignment
                 match character {
-                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'-' as u8)) => {
+                    '-' if source_code.get(position + 1) == Some(&(b'-' as u8)) => {
                         position += 1;
                         tokens.push(token("--".to_string(), TokenType::DecrementOperator));
                     }
-                    '-' if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) => {
+                    '-' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
                         position += 1;
                         tokens.push(token("-=".to_string(), TokenType::AssignmentOperator));
                     }
@@ -167,7 +167,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 // for binary and assignment operators
                 let mut operator_lexeme = character.to_string();
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                if source_code.get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     operator_lexeme.push('=');
                 }
@@ -178,7 +178,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 let mut operator_lexeme = character.to_string();
                 position += 1;
 
-                if let Some(next_char) = source_code.as_bytes().get(position) {
+                if let Some(next_char) = source_code.get(position) {
                     if *next_char == b'=' {
                         operator_lexeme.push('=');
                     } else if *next_char == b'>' {
@@ -195,7 +195,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 let mut question_lexeme = character.to_string();
                 position += 1;
 
-                if let Some(next_char) = source_code.as_bytes().get(position) {
+                if let Some(next_char) = source_code.get(position) {
                     if *next_char == b'=' {
                         question_lexeme.push('=');
                     } else if *next_char == b'>' {
@@ -213,7 +213,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
             '!' => {
                 let mut operator_lexeme = character.to_string();
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                if source_code.get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
                     operator_lexeme.push('=');
                     tokens.push(token(operator_lexeme, TokenType::ComparisonOperator));
@@ -225,13 +225,13 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 // for equality and value assignment
                 let mut equal_lexeme = character.to_string();
 
-                if source_code.as_bytes().get(position + 1) == Some(&(b'=' as u8)) {
+                if source_code.get(position + 1) == Some(&(b'=' as u8)) {
                     position += 1;
-                    equal_lexeme.push(source_code.as_bytes()[position] as char);
+                    equal_lexeme.push(source_code[position] as char);
                     tokens.push(token(equal_lexeme, TokenType::ComparisonOperator));
-                } else if source_code.as_bytes().get(position + 1) == Some(&(b'>' as u8)) {
+                } else if source_code.get(position + 1) == Some(&(b'>' as u8)) {
                     position += 1;
-                    equal_lexeme.push(source_code.as_bytes()[position] as char);
+                    equal_lexeme.push(source_code[position] as char);
                     tokens.push(token(equal_lexeme, TokenType::FunctionArrow));
                 } else {
                     tokens.push(token(equal_lexeme, TokenType::AssignmentOperator));
@@ -241,7 +241,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 // for numbers
                 let mut number_lexeme = character.to_string();
 
-                while let Some(&next_char) = source_code.as_bytes().get(position + 1) {
+                while let Some(&next_char) = source_code.get(position + 1) {
                     let next_char: char = next_char as char;
 
                     match next_char {
@@ -273,7 +273,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 let mut slash_lexeme = character.to_string();
                 position += 1;
 
-                if source_code.as_bytes().get(position) == Some(&(b'*' as u8))
+                if source_code.get(position) == Some(&(b'*' as u8))
                 // if "/*" then block comment
                 {
                     position += 1;
@@ -281,7 +281,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     //jumping next chars and adding the / cause we know the next char is /
 
                     while position < source_code.len() {
-                        slash_lexeme.push(source_code.as_bytes()[position] as char);
+                        slash_lexeme.push(source_code[position] as char);
 
                         if slash_lexeme.ends_with("*/") {
                             position += 1; //to get past the two #
@@ -292,12 +292,12 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     }
 
                     tokens.push(token(slash_lexeme, TokenType::Separator));
-                } else if source_code.as_bytes().get(position) == Some(&(b'/' as u8)) {
+                } else if source_code.get(position) == Some(&(b'/' as u8)) {
                     slash_lexeme.push_str("/");
                     position += 1;
 
                     while position < source_code.len() {
-                        slash_lexeme.push(source_code.as_bytes()[position] as char);
+                        slash_lexeme.push(source_code[position] as char);
 
                         if slash_lexeme.ends_with('\n') {
                             break;
@@ -307,7 +307,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                     // no need to push as there is nothing to analyse
                     tokens.push(token(slash_lexeme, TokenType::Separator));
                 } else {
-                    if source_code.as_bytes().get(position) == Some(&(b'=' as u8)) {
+                    if source_code.get(position) == Some(&(b'=' as u8)) {
                         slash_lexeme.push('=');
                         tokens.push(token(slash_lexeme, TokenType::AssignmentOperator));
                     } else {
@@ -322,7 +322,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 position += 1;
 
                 while position < source_code.len() {
-                    let c: char = source_code.as_bytes()[position] as char;
+                    let c: char = source_code[position] as char;
 
                     if c == character {
                         break;
@@ -348,7 +348,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 position += 1;
 
                 while position < source_code.len() {
-                    let c: char = source_code.as_bytes()[position] as char;
+                    let c: char = source_code[position] as char;
 
                     if c == '`' {
                         break;
@@ -376,7 +376,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 position += 1;
 
                 while position < source_code.len() {
-                    let c: char = source_code.as_bytes()[position] as char;
+                    let c: char = source_code[position] as char;
 
                     match c {
                         ']' => break,
@@ -420,7 +420,7 @@ pub fn tokenize(source_code: &str) -> Result<Vec<Token>, SyntaxError> {
                 position += 1;
 
                 while position < source_code.len() {
-                    let c = source_code.as_bytes()[position] as char;
+                    let c = source_code[position] as char;
 
                     match c {
                         ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'

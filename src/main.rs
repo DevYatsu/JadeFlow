@@ -17,7 +17,7 @@ fn main() {
             return;
         }
     };
-    let contents: String = match fs::read_to_string(file_name) {
+    let content = match fs::read(file_name) {
         Ok(c) => c,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
@@ -26,7 +26,7 @@ fn main() {
     };
 
     let start = Instant::now();
-    let tokens = match tokenize(&contents) {
+    let tokens = match tokenize(&content) {
         Ok(t) => t,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
