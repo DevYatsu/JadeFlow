@@ -552,19 +552,33 @@ impl SymbolTable {
         tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
     ) -> Result<(), ParsingError> {
         if self.is_object_prop(&reassignement.name) {
+            let parent_name = reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>();
             let initial_var = self.get_variable(
-                &reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>()[1],
+                &parent_name[1],
                 Some(tokens),
             )?;
 
-            let dec = Declaration {
-                name: reassignement.name.clone(),
-                var_type: type_from_expression(&reassignement.value, self, Some(tokens))?,
-                value: reassignement.value,
-                is_mutable: true,
-                is_object_prop: true,
-            };
-            self.variables.insert(reassignement.name, dec);
+            match initial_var.value {
+                Expression::DictionaryExpression(mut hash) => {
+                    hash.insert(parent_name[0].to_owned(), reassignement.value);
+
+                    self.insert_variable(Declaration { value: Expression::DictionaryExpression(hash), ..initial_var })
+                }
+                _ => {
+                    return Err(ParsingError::Custom {
+                        data: format!("'{}' is not a valid object", parent_name[1]),
+                    })
+                }
+            }
+
+            // let dec = Declaration {
+            //     name: reassignement.name.clone(),
+            //     var_type: type_from_expression(&reassignement.value, self, Some(tokens))?,
+            //     value: reassignement.value,
+            //     is_mutable: true,
+            //     is_object_prop: true,
+            // };
+            // self.variables.insert(reassignement.name, dec);
         } else {
             let initial_var = self.get_variable(&reassignement.name, Some(tokens))?;
 
