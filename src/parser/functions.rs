@@ -1,16 +1,18 @@
 use crate::{
     parser::{
-        architecture::{function, program},
-        parse,
+        architecture::{function, MainFunctionData},
+        expression::parse_expression,
+        types::TypeError,
+        vectors::check_and_insert_expression,
     },
     token::{Token, TokenType},
 };
 
 use super::{
     architecture::{
-        ASTNode, Declaration, Expression, Function, MainFunctionData, Program, Statement,
-        SymbolTable, VariableType,
+        Declaration, Expression, Function, FunctionCall, Statement, SymbolTable, VariableType,
     },
+    ignore_whitespace,
     types::type_from_expression,
     ParsingError,
 };
@@ -41,25 +43,86 @@ custom_error! {pub FunctionParsingError
     ReturnTypeInvalid{fn_name: String, return_type: String, found: String} = "Return Type '{return_type}' of function \"{fn_name}\" does not correspond to returned type '{found}'",
 
     NotDefinedFunction{fn_name: String} = "\"{fn_name}\" does not correspond to any defined function",
+
+    MissingClosingParenInFnCall{fn_name: String} = "Missing a closing parenthesis in \"{fn_name}\" call",
+    InvalidFnCallArg{fn_name: String, err: String} = "Invalid \"{fn_name}\" call arguments: {err}",
+    InvalidFnCallArgType{fn_name: String, arg_name: String, required_t: VariableType, found_t: VariableType} = "In \"{fn_name}\" call, '{arg_name}' must be of type {required_t} whereas a value of type {found_t} was provided!",
+    InvalidFnCallArgNumber{fn_name: String, required_num: usize, found_num: usize} = "\"{fn_name}\" requires {required_num} arguments whereas {found_num} were provided!",
 }
-// update to support return statement in parse
+
 pub fn parse_fn_declaration(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {
-    *position += 1;
+    let fn_data = parse_fn_header(tokens, symbol_table)?;
 
+    let function_context = match tokens.next() {
+        Some(Token {
+            token_type: TokenType::OpenBrace,
+            ..
+        }) => parse_fn_block(tokens, &fn_data.name)?,
+        Some(Token {
+            token_type: TokenType::FunctionArrow,
+            ..
+        }) => {
+            let mut ctx_tokens: Vec<Token> = Vec::new();
+
+            ctx_tokens.push(Token {
+                value: "return".to_owned(),
+                token_type: TokenType::Return,
+            });
+            let before_expr_length = ctx_tokens.len();
+
+            while let Some(token) = tokens.next() {
+                match token.token_type {
+                    TokenType::Separator => break,
+                    _ => (),
+                }
+                ctx_tokens.push(token.clone());
+            }
+
+            if ctx_tokens.len() == before_expr_length {
+                return Err(FunctionParsingError::ExpectingExpressionAfterArrow {
+                    fn_name: fn_data.name.to_owned(),
+                }
+                .into());
+            }
+
+            ctx_tokens
+        }
+        _ => {
+            return Err(FunctionParsingError::ExpectedBrace {
+                fn_name: fn_data.name.to_owned(),
+            }
+            .into());
+        }
+    };
+
+    let f = Function {
+        name: fn_data.name.to_owned(),
+        arguments: fn_data.arguments,
+        context: function_context,
+        return_type: fn_data.return_type,
+    };
+
+    symbol_table.insert_function(&f);
+
+    return Ok(function(f));
+}
+
+pub fn parse_fn_header(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    symbol_table: &mut SymbolTable,
+) -> Result<MainFunctionData, ParsingError> {
     // Expect an identifier token (function name)
     if let Some(Token {
         token_type: TokenType::Identifier,
         value,
-    }) = tokens.get(*position)
+    }) = tokens.next()
     {
-        *position += 1;
         let name = value;
 
-        if symbol_table.get_function(name).is_ok() {
+        if symbol_table.is_fn_declared(name) {
             return Err(FunctionParsingError::NameAlreadyTaken {
                 name: name.to_owned(),
             }
@@ -70,120 +133,35 @@ pub fn parse_fn_declaration(
         if let Some(Token {
             token_type: TokenType::OpenParen,
             ..
-        }) = tokens.get(*position)
+        }) = tokens.next()
         {
-            *position += 1;
-            let arguments = parse_args(tokens, position)?;
+            let arguments = parse_fn_args(tokens)?;
 
             let mut return_type: Option<VariableType> = None;
 
             // Check if the next token is a colon
             // determine function output type
             // if no colon -> no output
+
+            ignore_whitespace(tokens);
+
             if let Some(Token {
                 token_type: TokenType::Colon,
                 ..
-            }) = tokens.get(*position)
+            }) = tokens.peek()
             {
-                *position += 1;
-
-                return_type = parse_return_type(tokens, position, &name)?;
+                tokens.next();
+                return_type = parse_return_type(tokens, &name)?;
             }
+            ignore_whitespace(tokens);
 
-            let function_context = match tokens.get(*position) {
-                Some(Token {
-                    token_type: TokenType::OpenBrace,
-                    ..
-                }) => {
-                    *position += 1;
-                    let mut ctx_tokens: Vec<Token> = arguments
-                        .iter()
-                        .flat_map(|dec| dec.equivalent_tokens())
-                        .collect();
-
-                    ctx_tokens.extend(parse_fn_block(tokens, position, &name)?);
-
-                    parse(&mut ctx_tokens)?
-                }
-                Some(Token {
-                    token_type: TokenType::FunctionArrow,
-                    ..
-                }) => {
-                    *position += 1;
-                    let mut ctx_tokens: Vec<Token> = arguments
-                        .iter()
-                        .flat_map(|dec| dec.equivalent_tokens())
-                        .collect();
-
-                    ctx_tokens.push(Token {
-                        value: "return".to_owned(),
-                        token_type: TokenType::Return,
-                    });
-                    let before_expr_length = ctx_tokens.len();
-
-                    while let Some(token) = tokens.get(*position) {
-                        match token.token_type {
-                            TokenType::Separator => break,
-                            _ => (),
-                        }
-                        ctx_tokens.push(token.clone());
-                        *position += 1;
-                    }
-
-                    if ctx_tokens.len() == before_expr_length {
-                        return Err(FunctionParsingError::ExpectingExpressionAfterArrow {
-                            fn_name: name.to_owned(),
-                        }
-                        .into());
-                    }
-
-                    parse(&mut ctx_tokens)?
-                }
-                _ => {
-                    return Err(FunctionParsingError::ExpectedBrace {
-                        fn_name: name.to_owned(),
-                    }
-                    .into());
-                }
-            };
-
-            let function_context = keep_useful_content(function_context);
-
-            let returned_type = returned_type(&function_context);
-
-            if return_type != returned_type {
-                if let Some(return_type) = return_type {
-                    if let Some(returned_type) = returned_type {
-                        return Err(FunctionParsingError::ReturnTypeInvalid {
-                            fn_name: name.to_owned(),
-                            return_type: return_type.to_string(),
-                            found: returned_type.to_string(),
-                        }
-                        .into());
-                    } else {
-                        return Err(FunctionParsingError::MissingReturnStatement {
-                            fn_name: name.to_owned(),
-                        }
-                        .into());
-                    }
-                } else {
-                    return Err(FunctionParsingError::MissingReturnStatement {
-                        fn_name: name.to_owned(),
-                    }
-                    .into());
-                }
-            }
-
-            let f = Function {
+            let fn_data = MainFunctionData {
                 name: name.to_owned(),
                 arguments,
-                context: Box::new(program(function_context)),
                 return_type,
             };
 
-            symbol_table.insert_function(&f);
-
-            return Ok(function(f));
+            return Ok(fn_data);
         } else {
             return Err(FunctionParsingError::ExpectedOpenParen {
                 name: name.to_owned(),
@@ -196,31 +174,155 @@ pub fn parse_fn_declaration(
 }
 
 pub fn parse_fn_call(
-    tokens: &[Token],
-    position: &mut usize,
-    symbol_table: &SymbolTable,
-    f: &MainFunctionData,
-) -> Result<Expression, FunctionParsingError> {
-    todo!()
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    function_name: &str,
+    symbol_table: &mut SymbolTable,
+) -> Result<FunctionCall, ParsingError> {
+    // jump the '('
+    tokens.next();
+    println!("st: \n {}", symbol_table);
+    println!("t: {:?}", tokens);
+    let fn_data = symbol_table.get_function(function_name, tokens)?;
+    let arguments = fn_data.arguments;
+
+    if arguments.len() == 0 {
+        if let Some(token) = tokens.next() {
+            match token.token_type {
+                TokenType::CloseParen => {
+                    return Ok(FunctionCall {
+                        function_name: function_name.to_owned(),
+                        arguments: vec![],
+                    })
+                }
+                _ => {
+                    return Err(FunctionParsingError::MissingClosingParenInFnCall {
+                        fn_name: function_name.to_owned(),
+                    }
+                    .into())
+                }
+            }
+        } else {
+            // unexpected end of input
+            return Err(FunctionParsingError::MissingClosingParenInFnCall {
+                fn_name: function_name.to_owned(),
+            }
+            .into());
+        }
+    }
+
+    let call_args: Vec<Expression> = parse_call_args(tokens, function_name, symbol_table)?;
+    let args_types = call_args
+        .iter()
+        .map(|expr| type_from_expression(expr, symbol_table, Some(tokens)))
+        .collect::<Vec<Result<VariableType, TypeError>>>();
+
+    let required_num = arguments.len();
+    let found_num = call_args.len();
+
+    if required_num != required_num {
+        return Err(FunctionParsingError::InvalidFnCallArgNumber {
+            fn_name: function_name.to_string(),
+            required_num,
+            found_num,
+        }
+        .into());
+    }
+
+    for (i, arg) in args_types.iter().enumerate() {
+        match arg {
+            Ok(t) => {
+                let required_t = &arguments[i].var_type;
+                if t != required_t {
+                    return Err(FunctionParsingError::InvalidFnCallArgType {
+                        fn_name: function_name.to_owned(),
+                        arg_name: arguments[i].name.to_owned(),
+                        found_t: t.clone(),
+                        required_t: required_t.clone(),
+                    }
+                    .into());
+                }
+            }
+            Err(e) => {
+                return Err(FunctionParsingError::InvalidFnCallArg {
+                    fn_name: function_name.to_owned(),
+                    err: e.to_string(),
+                }
+                .into())
+            }
+        }
+    }
+
+    Ok(FunctionCall {
+        function_name: function_name.to_owned(),
+        arguments: call_args,
+    })
+}
+
+fn parse_call_args(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    fn_name: &str,
+    symbol_table: &mut SymbolTable,
+) -> Result<Vec<Expression>, FunctionParsingError> {
+    let mut args = Vec::new();
+    ignore_whitespace(tokens);
+
+    while let Some(token) = tokens.peek() {
+        match token.token_type {
+            TokenType::CloseParen => {
+                tokens.next();
+                break;
+            }
+            TokenType::Comma | TokenType::Separator => {
+                tokens.next();
+                continue;
+            }
+            _ => {
+                let value = match parse_expression(tokens, symbol_table) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Err(FunctionParsingError::InvalidFnCallArg {
+                            fn_name: fn_name.to_owned(),
+                            err: e.to_string(),
+                        })
+                    }
+                };
+
+                match check_and_insert_expression(value, symbol_table, &mut args) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(FunctionParsingError::InvalidFnCallArg {
+                            fn_name: fn_name.to_owned(),
+                            err: e.to_string(),
+                        })
+                    }
+                };
+            }
+        }
+    }
+
+    Ok(args)
 }
 
 fn parse_fn_block(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     fn_name: &str,
 ) -> Result<Vec<Token>, ParsingError> {
     let mut ctx_tokens: Vec<Token> = Vec::new();
     let mut brace_count = 1;
 
     while brace_count > 0 {
-        if let Some(token) = tokens.get(*position) {
+        if let Some(token) = tokens.next() {
             match token.token_type {
                 TokenType::OpenBrace => brace_count += 1,
-                TokenType::CloseBrace => brace_count -= 1,
+                TokenType::CloseBrace => {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        break;
+                    }
+                }
                 _ => (),
             }
             ctx_tokens.push(token.clone());
-            *position += 1;
         } else {
             return Err(FunctionParsingError::ExpectedBrace {
                 fn_name: fn_name.to_owned(), // You can customize the error message here.
@@ -232,67 +334,23 @@ fn parse_fn_block(
     Ok(ctx_tokens)
 }
 
-fn keep_useful_content(function_context: ASTNode) -> Program {
-    match function_context {
-        ASTNode::Program(Program {
-            statements,
-            symbol_table,
-        }) => {
-            if let Some(return_index) = statements
-                .iter()
-                .position(|s| matches!(s.node, ASTNode::Return(_)))
-            {
-                Program {
-                    statements: statements[0..=return_index].to_vec(),
-                    symbol_table,
-                }
-            } else {
-                Program {
-                    statements,
-                    symbol_table,
-                }
-            }
-        }
-        _ => unreachable!(),
-    }
-}
-
-fn returned_type(program: &Program) -> Option<VariableType> {
-    if let Some(Statement {
-        node: ASTNode::Return(returned),
-    }) = program.statements.last()
-    {
-        type_from_expression(returned, &program.symbol_table).ok()
-    } else {
-        None
-    }
-}
-
-fn parse_args(
-    tokens: &[Token],
-    position: &mut usize,
+fn parse_fn_args(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
 ) -> Result<Vec<Declaration>, FunctionParsingError> {
     let mut arguments: Vec<Declaration> = Vec::new();
 
-    while let Some(initial_token) = tokens.get(*position) {
+    while let Some(initial_token) = tokens.next() {
         if initial_token.token_type == TokenType::CloseParen {
-            *position += 1;
             break;
         }
 
         if initial_token.token_type == TokenType::Identifier {
-            *position += 1;
-
             if let Some(Token {
                 token_type: TokenType::Colon,
                 ..
-            }) = tokens.get(*position)
+            }) = tokens.next()
             {
-                *position += 1;
-
-                if let Some(Token { value, .. }) = tokens.get(*position) {
-                    *position += 1;
-
+                if let Some(Token { value, .. }) = tokens.next() {
                     let arg_type = match VariableType::from_assignment(&value) {
                         Some(t) => t,
                         None => {
@@ -308,23 +366,23 @@ fn parse_args(
                         is_mutable: true,
                     });
 
+                    let next = tokens.next();
                     if let Some(Token {
                         token_type: TokenType::Comma,
                         ..
-                    }) = tokens.get(*position)
+                    }) = next
                     {
-                        *position += 1;
+                        continue;
                     } else if let Some(Token {
                         token_type: TokenType::CloseParen,
                         ..
-                    }) = tokens.get(*position)
+                    }) = next
                     {
-                        *position += 1;
                         break;
                     } else if let Some(Token {
                         token_type: TokenType::Identifier,
                         ..
-                    }) = tokens.get(*position)
+                    }) = next
                     {
                         return Err(FunctionParsingError::ExpectedCommaBetweenArgs {
                             arg_name: initial_token.value.to_owned(),
@@ -357,12 +415,10 @@ fn parse_args(
 }
 
 fn parse_return_type(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     fn_name: &str,
 ) -> Result<Option<VariableType>, FunctionParsingError> {
-    if let Some(Token { value, .. }) = tokens.get(*position) {
-        *position += 1;
+    if let Some(Token { value, .. }) = tokens.next() {
         match VariableType::from_assignment(&value) {
             Some(t) => Ok(Some(t)),
             None => {

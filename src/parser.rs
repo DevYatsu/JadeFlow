@@ -7,7 +7,7 @@ mod types;
 mod vars;
 mod vectors;
 
-use std::{io::Error, num::ParseIntError};
+use std::{io::Error, iter::Peekable, num::ParseIntError, slice::Iter};
 
 use custom_error::custom_error;
 
@@ -18,10 +18,10 @@ use crate::{
 
 use self::{
     architecture::{
-        reassignment, variable, ASTNode, Expression, Statement, SymbolTable, VariableType,
+        function_call, reassignment, variable, ASTNode, Expression, Statement, SymbolTable,
+        VariableType,
     },
-    expression::parse_expression,
-    functions::{parse_fn_declaration, FunctionParsingError},
+    functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
     types::TypeError,
     vars::{parse_var_declaration, parse_var_reassignment},
@@ -32,7 +32,13 @@ custom_error! {pub ParsingError
     ParsingTypyError{source: TypeError} = "{source}",
     ParseInt{source: ParseIntError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
+    Custom{data: String} = "{data}",
+
     Default = "Failed to parse tokens",
+    SpecialStringOnlyAtFileStart = "Special strings ('') can only appear at the start of the file",
+    InvalidSpecialStringContent{invalid_content: String} = "Special strings ('') content is invalid. Supported values: 'strict' and 'soft', found '{invalid_content}'",
+    RequiredNewLineAfterSpecialString = "Special strings ('') require to be followed by another special string or nothing",
+
     UnexpectedEndOfInput = "No more token left to parse",
     ExpectedVarInitialization{var_value: String, found: String} = "Expected identifier after \"{var_value}\", found '{found}'",
     ExpectedReassignment{var_name: String} = "Expected assignment of new value to \"{var_name}\"",
@@ -59,7 +65,7 @@ custom_error! {pub ParsingError
     IncompleteDeclaration{keyword: String, name: String} = "Incomplete declaration: {keyword} {name} requires a value assignment",
     IncompleteReassagnment{keyword: String, name: String} = "Incomplete reassignment: {keyword} {name} requires a value assignment",
 
-    ExpectedSomething = "Expected a value, found nothing",
+    ExpectedSomething = "Expected an expression, found nothing",
     ExpectedValidExpressionInFormattedString = "Expected a valid expression in formatted string argument",
 
     TypeInvalidExpressionElement{expr: Expression} = "Cannot use a type as an expression value: {expr}",
@@ -67,201 +73,182 @@ custom_error! {pub ParsingError
     ExpectedValidVectorIndex{found: String} = "Expected valid vector index, found {found}",
     ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
 
-    UnwantedColon = "Type annotation only allowed on variable initialization"
+    UnwantedColon = "Type annotation only allowed on variable initialization",
 }
 
-// add support for formatted string, and errors when we expect a token and it is not present
+// need to resolve the UnexpectedEndOfInput error that appears randomly for instance in fn.jf
 
-pub fn parse(tokens: &mut Vec<Token>) -> Result<ASTNode, ParsingError> {
-    let mut position = 0;
+pub fn parse(
+    mut tokens_iter: Peekable<Iter<'_, Token>>,
+    optional_symbol_table: Option<&SymbolTable>,
+) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
-    let mut symbol_table = SymbolTable::new();
+    let mut symbol_table = if let Some(table) = optional_symbol_table {
+        table.clone()
+    } else {
+        SymbolTable::new()
+    };
 
-    while position < tokens.len() {
-        if let Some(Token { token_type, .. }) = tokens.get(position) {
-            if token_type == &TokenType::Separator
-                || ((token_type != &TokenType::Var)
-                    && (token_type != &TokenType::Function)
-                    && (token_type != &TokenType::For)
-                    && (token_type != &TokenType::While)
-                    && (token_type != &TokenType::Match)
-                    && (token_type != &TokenType::Class)
-                    && (token_type != &TokenType::Identifier)
-                    && (token_type != &TokenType::Return))
-            {
-                position += 1;
-                continue;
-            }
-        }
+    while 0 != tokens_iter.clone().count() {
+        if let Some(token) = tokens_iter.next() {
+            match &token.token_type {
+                TokenType::Separator => continue,
+                TokenType::Var => {
+                    let declaration =
+                        parse_var_declaration(&mut tokens_iter, &token.value, &mut symbol_table)?;
+                    symbol_table.insert_variable(declaration.clone());
+                    statements.push(variable(declaration));
+                }
+                TokenType::Identifier => {
+                    let mut peek_iter = tokens_iter.clone().peekable();
+                    let next_token = peek_iter.peek();
 
-        let statement = parse_statement(tokens, &mut position, &mut symbol_table)?;
-
-        statements.push(statement);
-
-        if let Some(Token { token_type, .. }) = tokens.get(position) {
-            if token_type == &TokenType::Separator {
-                position += 1;
-                continue;
-            }
-        }
-
-        if tokens.len() == position {
-            break;
-        }
-
-        match &statements[statements.len() - 1].node {
-            ASTNode::VariableDeclaration(declaration) => {
-                // in case several vars are declaring one after another
-                // with the comma notation: const x: num, y: num
-
-                if let Some(Token {
-                    token_type: TokenType::Comma,
-                    ..
-                }) = tokens.get(position)
-                {
-                    position += 1;
-                    let var_keyword = if declaration.is_mutable {
-                        "mut"
-                    } else {
-                        "const"
-                    };
-
-                    ignore_whitespace(tokens, &mut position);
-
-                    if let Some(Token { token_type, .. }) = tokens.get(position) {
-                        if token_type == &TokenType::Identifier {
-                            tokens.insert(
-                                position,
-                                Token {
-                                    token_type: TokenType::Var,
-                                    value: var_keyword.to_string(),
-                                },
-                            );
-                        } else {
-                            return Err(ParsingError::ExpectedIdentifier {
-                                after: format!("{},", declaration.to_string()),
+                    if let Some(Token {
+                        token_type: TokenType::AssignmentOperator,
+                        ..
+                    }) = next_token
+                    {
+                        let var = symbol_table.get_variable(&token.value, None)?;
+                        if !var.is_mutable {
+                            return Err(ParsingError::CannotReassignConst {
+                                var_name: token.value.clone(),
                             });
                         }
-                    }
 
-                    continue;
+                        let assignment =
+                            parse_var_reassignment(&mut tokens_iter, &var, &mut symbol_table)?;
+
+                        symbol_table.reassign_variable(assignment.clone(), &mut tokens_iter);
+                        statements.push(reassignment(assignment));
+                    } else if let Some(Token {
+                        token_type: TokenType::OpenParen,
+                        ..
+                    }) = next_token
+                    {
+                        let call =
+                            parse_fn_call(&mut tokens_iter, &token.value, &mut symbol_table)?;
+
+                        statements.push(function_call(call));
+                    } else if let Some(Token {
+                        token_type: TokenType::Colon,
+                        ..
+                    }) = next_token
+                    {
+                        return Err(ParsingError::UnwantedColon);
+                    } else {
+                        ignore_until_statement(&mut tokens_iter)?;
+                    }
                 }
-            }
-            ASTNode::FunctionDeclaration(_) => {
-                position += 1;
-                continue;
-            }
-            ASTNode::ClassDeclaration(_) => {
-                position += 1;
-                continue;
-            }
-            _ => {
-                if let Some(token) = tokens.get(position) {
-                    return Err(ParsingError::ExpectedSeparator {
-                        value: token.value.to_string(),
-                    });
-                } else {
-                    return Err(ParsingError::UnexpectedEndOfInput);
+                TokenType::Function => {
+                    statements.push(parse_fn_declaration(&mut tokens_iter, &mut symbol_table)?);
+                }
+                TokenType::Return => {
+                    statements.push(parse_return_statement(&mut tokens_iter, &mut symbol_table)?);
+                }
+                TokenType::Comma => {
+                    if statements.len() == 0 {
+                        return Err(ParsingError::InvalidExpression {
+                            value: ",".to_string(),
+                        });
+                    }
+                    match &statements[statements.len() - 1] {
+                        Statement {
+                            node: ASTNode::VariableDeclaration(dec),
+                        } => {
+                            let keyword = if dec.is_mutable { "mut" } else { "const" };
+
+                            let declaration = parse_var_declaration(
+                                &mut tokens_iter,
+                                &keyword,
+                                &mut symbol_table,
+                            )?;
+                            symbol_table.insert_variable(declaration.clone());
+                            statements.push(variable(declaration));
+                        }
+                        _ => {
+                            return Err(ParsingError::InvalidExpression {
+                                value: ",".to_string(),
+                            })
+                        }
+                    }
+                }
+                _ => {
+                    ignore_until_statement(&mut tokens_iter)?;
                 }
             }
         }
     }
 
-    println!("symbol {:?}", symbol_table);
     Ok(program(Program {
         statements,
         symbol_table,
     }))
 }
 
-fn parse_statement(
-    tokens: &mut Vec<Token>,
-    position: &mut usize,
-    symbol_table: &mut SymbolTable,
-) -> Result<Statement, ParsingError> {
+pub fn ignore_whitespace(tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
     while let Some(Token {
         token_type: TokenType::Separator,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-    }
-
-    if let Some(Token {
-        token_type: TokenType::Var,
         value,
-    }) = tokens.get(*position)
+    }) = tokens.peek()
     {
-        let declaration = parse_var_declaration(tokens, position, value, symbol_table)?;
-        symbol_table.insert_variable(declaration.clone());
-
-        return Ok(variable(declaration));
-    }
-
-    if let Some(Token {
-        token_type: TokenType::Identifier,
-        value,
-    }) = tokens.get(*position)
-    {
-        if let Some(Token {
-            token_type: TokenType::AssignmentOperator,
-            ..
-        }) = tokens.get(*position + 1)
-        {
-            let var = symbol_table.get_variable(value)?;
-            if !var.is_mutable {
-                return Err(ParsingError::CannotReassignConst {
-                    var_name: value.to_owned(),
-                });
-            }
-
-            let assignment = parse_var_reassignment(tokens, position, value, symbol_table)?;
-            symbol_table.reassign_variable(assignment.clone());
-
-            return Ok(reassignment(assignment));
+        if value == "\n" {
+            tokens.next();
         } else {
-            if let Some(Token {
-                token_type: TokenType::Colon,
-                ..
-            }) = tokens.get(*position + 1)
-            {
-                return Err(ParsingError::UnwantedColon);
-            }
+            break;
+        }
+    }
+}
 
-            parse_expression(tokens, position, symbol_table)?;
-            return Ok(Statement {
-                node: ASTNode::Expression(Expression::Null),
-            });
+pub fn ignore_until_statement(
+    tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+) -> Result<(), ParsingError> {
+    let mut last_val: Option<&str> = None;
+
+    while let Some(Token { token_type, value }) = tokens.peek() {
+        match token_type {
+            TokenType::Separator => {
+                tokens.next();
+                if let Some(Token {
+                    token_type,
+                    value: next_val,
+                }) = tokens.peek()
+                {
+                    match token_type {
+                        TokenType::Var
+                        | TokenType::For
+                        | TokenType::Function
+                        | TokenType::If
+                        | TokenType::Return
+                        | TokenType::While
+                        | TokenType::Class
+                        | TokenType::Match => break,
+                        _ => {
+                            last_val = Some(next_val);
+
+                            continue;
+                        }
+                    }
+                }
+            }
+            TokenType::Var
+            | TokenType::For
+            | TokenType::Function
+            | TokenType::If
+            | TokenType::Return
+            | TokenType::While
+            | TokenType::Class
+            | TokenType::Match => {
+                return Err(ParsingError::ExpectedSeparator {
+                    value: last_val.unwrap_or(value).to_owned(),
+                })
+            }
+            _ => {
+                tokens.next();
+                last_val = Some(value);
+                continue;
+            }
         }
     }
 
-    if let Some(Token {
-        token_type: TokenType::Function,
-        ..
-    }) = tokens.get(*position)
-    {
-        return Ok(parse_fn_declaration(tokens, position, symbol_table)?);
-    }
-
-    if let Some(Token {
-        token_type: TokenType::Return,
-        ..
-    }) = tokens.get(*position)
-    {
-        return Ok(parse_return_statement(tokens, position, symbol_table)?);
-    }
-
-    Ok(Statement {
-        node: ASTNode::Expression(Expression::Null),
-    })
-}
-
-pub fn ignore_whitespace(tokens: &[Token], position: &mut usize) {
-    while let Some(Token {
-        token_type: TokenType::Separator,
-        ..
-    }) = tokens.get(*position)
-    {
-        *position += 1;
-    }
+    Ok(())
 }

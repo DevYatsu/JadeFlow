@@ -2,15 +2,12 @@ mod parser;
 mod select_test;
 mod token;
 
-use std::{collections::VecDeque, fs, time::Instant};
-
-use token::Token;
-
 use crate::{
     parser::{architecture::ASTNode, parse},
     select_test::run_file,
     token::tokenize,
 };
+use std::{fs, time::Instant};
 
 fn main() {
     let file_name = match run_file() {
@@ -29,13 +26,14 @@ fn main() {
     };
 
     let start = Instant::now();
-    let mut tokens: Vec<Token> = match tokenize(&contents) {
-        Ok(t) => t.into(),
+    let tokens = match tokenize(&contents) {
+        Ok(t) => t,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
             return;
         }
     };
+    let tokens_iter = tokens.iter().peekable();
     let end = Instant::now();
 
     for token in &tokens {
@@ -46,7 +44,7 @@ fn main() {
     println!("{} seconds to execute tokenisation", first_timer);
 
     let start = Instant::now();
-    let program = match parse(&mut tokens) {
+    let program = match parse(tokens_iter, None) {
         Ok(p) => p,
         Err(e) => {
             println!("ERROR: {}", e.to_string());
@@ -57,9 +55,7 @@ fn main() {
 
     match program {
         ASTNode::Program(p) => {
-            for s in &p.statements {
-                println!("{:?}", s);
-            }
+            println!("symbol table: \n {}", p.symbol_table);
             println!("statements number: {}", p.statements.len());
         }
         _ => unreachable!(),

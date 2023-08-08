@@ -6,26 +6,21 @@ use crate::{
 use super::{
     architecture::{Declaration, Expression, Reassignment, SymbolTable},
     expression::parse_with_operator,
+    ignore_whitespace,
     types::{parse_type, type_from_expression},
     ParsingError,
 };
 
 pub fn parse_var_declaration(
-    tokens: &[Token],
-    position: &mut usize,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var_keyword: &str,
-    symbol_table: &SymbolTable,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Declaration, ParsingError> {
-    *position += 1;
-
     let is_mutable = var_keyword == "mut";
-
-    if tokens.get(*position).is_none() {
-        return Err(ParsingError::UnexpectedEndOfInput);
-    }
+    ignore_whitespace(tokens);
 
     // Expect an identifier token (variable name)
-    let name = tokens.get(*position).map_or_else(
+    let name = tokens.next().map_or_else(
         || Err(ParsingError::UnexpectedEndOfInput),
         |token| match &token.token_type {
             TokenType::Identifier => Ok(token.value.clone()),
@@ -35,21 +30,22 @@ pub fn parse_var_declaration(
             }),
         },
     )?;
+    ignore_whitespace(tokens);
 
-    *position += 1;
+    let next = tokens.next();
 
     if let Some(Token {
         token_type: TokenType::Colon,
         ..
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
-        let var_type = parse_type(tokens, position)?;
+        let var_type = parse_type(tokens)?;
+        ignore_whitespace(tokens);
 
         if let Some(Token {
             token_type: TokenType::AssignmentOperator,
             value,
-        }) = tokens.get(*position)
+        }) = tokens.next()
         {
             if value != "=" {
                 return Err(ParsingError::CannotReassignIfNotAssigned {
@@ -57,9 +53,10 @@ pub fn parse_var_declaration(
                     var_name: name,
                 });
             }
+            ignore_whitespace(tokens);
 
-            *position += 1;
-            let expression = parse_expression(tokens, position, symbol_table)?;
+            let expression = parse_expression(tokens, symbol_table)?;
+            println!("{var_keyword} {name}: {var_type} = {expression}");
 
             if let Expression::Null = &expression {
                 return Ok(Declaration {
@@ -70,7 +67,8 @@ pub fn parse_var_declaration(
                 });
             }
 
-            let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
+            let var_type_from_expression =
+                type_from_expression(&expression, symbol_table, Some(tokens))?;
             if var_type != var_type_from_expression {
                 return Err(ParsingError::AssignedTypeNotFound {
                     assigned_t: var_type,
@@ -93,7 +91,7 @@ pub fn parse_var_declaration(
     } else if let Some(Token {
         token_type: TokenType::AssignmentOperator,
         value,
-    }) = tokens.get(*position)
+    }) = next
     {
         // If there is an assignment operator without a preceding colon, it's an error.
         if value != "=" {
@@ -102,14 +100,15 @@ pub fn parse_var_declaration(
                 var_name: name,
             });
         }
+        ignore_whitespace(tokens);
 
-        *position += 1;
-        let expression = parse_expression(tokens, position, symbol_table)?;
+        let expression = parse_expression(tokens, symbol_table)?;
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
             _ => {
-                let var_type = type_from_expression(&expression, symbol_table)?;
+                let var_type = type_from_expression(&expression, symbol_table, Some(tokens))?;
+
                 return Ok(Declaration {
                     name,
                     var_type,
@@ -130,56 +129,54 @@ pub fn parse_var_declaration(
 // prevent concatenation of objects {} + 2 but allow it for vectors
 
 pub fn parse_var_reassignment(
-    tokens: &[Token],
-    position: &mut usize,
-    name: &str,
-    symbol_table: &SymbolTable,
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    initial_var: &Declaration,
+    symbol_table: &mut SymbolTable,
 ) -> Result<Reassignment, ParsingError> {
-    *position += 1;
-    let initial_var = symbol_table.get_variable(name)?;
+    ignore_whitespace(tokens);
 
-    if tokens.get(*position).is_none() {
+    let next = tokens.next();
+    if next.is_none() {
         return Err(ParsingError::UnexpectedEndOfInput);
     }
 
     if let Some(Token {
         token_type: TokenType::AssignmentOperator,
         value: operator,
-    }) = tokens.get(*position)
+    }) = next
     {
-        *position += 1;
+        ignore_whitespace(tokens);
 
-        // Parse the expression following the assignment operator
-        let after_assignment_expression = parse_expression(tokens, position, symbol_table)?;
+        let after_assignment_expression = parse_expression(tokens, symbol_table)?;
 
         let after_assignment_expression_string = after_assignment_expression.to_owned();
 
-        // Parse the expression with the operator
-        let expression = parse_with_operator(&operator, after_assignment_expression, name);
+        let expression =
+            parse_with_operator(&operator, after_assignment_expression, &initial_var.name);
+        println!("{initial_var} => {expression}");
 
-        // Check if the expression type matches the declared variable type
-        let t = type_from_expression(&expression, symbol_table)?;
+        let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
 
         if initial_var.var_type != t {
             return Err(ParsingError::CannotChangeAssignedType {
-                assigned_t: initial_var.var_type,
+                assigned_t: initial_var.var_type.to_owned(),
                 found_t: t,
-                var_name: name.to_owned(),
+                var_name: initial_var.name.to_owned(),
                 at: format!(
                     "{} {} {}",
-                    name, operator, after_assignment_expression_string
+                    initial_var.name, operator, after_assignment_expression_string
                 ),
             });
         }
 
         return Ok(Reassignment {
             value: expression,
-            name: initial_var.name,
+            name: initial_var.name.to_owned(),
         });
     } else {
         // If there's no assignment operator, it's an error.
         return Err(ParsingError::ExpectedReassignment {
-            var_name: name.to_owned(),
+            var_name: initial_var.name.to_owned(),
         });
     }
 }
