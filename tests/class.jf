@@ -22,3 +22,7 @@ class Human (name: str, age: num, gender: str) {
         // can only be accessed here
     }
 }
+
+let human = Human('Bob', 23, 'male')
+human.presentation()
+human.increase_age()

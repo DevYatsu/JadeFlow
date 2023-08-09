@@ -131,15 +131,9 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                         tokens.push(token("++".to_string(), TokenType::IncrementOperator));
                         continue;
                     }
-                    '+' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
-                        "+=".to_string()
-                    }
-                    '*' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
-                        "*=".to_string()
-                    }
-                    '%' if source_code.get(position + 1) == Some(&(b'=' as u8)) => {
-                        "%=".to_string()
-                    }
+                    '+' if source_code.get(position + 1) == Some(&(b'=' as u8)) => "+=".to_string(),
+                    '*' if source_code.get(position + 1) == Some(&(b'=' as u8)) => "*=".to_string(),
+                    '%' if source_code.get(position + 1) == Some(&(b'=' as u8)) => "%=".to_string(),
                     _ => character.to_string(),
                 };
 

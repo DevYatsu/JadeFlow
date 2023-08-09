@@ -201,14 +201,13 @@ pub struct Class {
     pub arguments: Vec<Declaration>,
     pub global_properties: HashMap<String, Expression>,
     pub public_ctx: ClassCtx,
-    pub private_ctx: ClassCtx
+    pub private_ctx: ClassCtx,
 }
 #[derive(Debug, Clone)]
 pub struct ClassCtx {
     pub methods: HashMap<String, Function>,
     pub properties: HashMap<String, Expression>,
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FormattedSegment {
@@ -598,17 +597,18 @@ impl SymbolTable {
             // self.variables.insert(reassignement.name, dec);
         } else {
             let initial_var = self.get_variable(&reassignement.name, Some(tokens))?;
-
-            self.variables.insert(
-                reassignement.name.clone(),
-                Declaration {
-                    name: initial_var.name,
-                    var_type: initial_var.var_type,
-                    value: reassignement.value,
-                    is_mutable: true,
-                    is_object_prop: initial_var.is_object_prop,
-                },
-            );
+            if reassignement.value != initial_var.value {
+                self.variables.insert(
+                    reassignement.name.clone(),
+                    Declaration {
+                        name: initial_var.name,
+                        var_type: initial_var.var_type,
+                        value: reassignement.value,
+                        is_mutable: true,
+                        is_object_prop: initial_var.is_object_prop,
+                    },
+                );
+            }
         }
         Ok(())
     }
