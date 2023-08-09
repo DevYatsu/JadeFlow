@@ -1,11 +1,8 @@
 use crate::token::{tokenize, Token};
 
 use super::{
-    expression::parse_expression,
-    functions::{parse_fn_header, FunctionParsingError},
-    parse,
-    types::type_from_expression,
-    ParsingError, TypeError,
+    expression::parse_expression, functions::FunctionParsingError, parse,
+    types::type_from_expression, ParsingError, TypeError,
 };
 use std::{collections::HashMap, fmt, iter::Peekable};
 
@@ -721,10 +718,7 @@ impl SymbolTable {
         self.functions.get(name).is_some()
     }
 
-    pub fn get_function(
-        &mut self,
-        name: &str,
-    ) -> Result<MainFunctionData, ParsingError> {
+    pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, ParsingError> {
         let func = self.registered_functions.get(name);
 
         if func.is_none() {
