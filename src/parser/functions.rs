@@ -53,7 +53,7 @@ custom_error! {pub FunctionParsingError
 pub fn parse_fn_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
-) -> Result<Statement, ParsingError> {
+) -> Result<Function, ParsingError> {
     let fn_data = parse_fn_header(tokens, symbol_table)?;
 
     let function_context = match tokens.next() {
@@ -105,9 +105,7 @@ pub fn parse_fn_declaration(
         return_type: fn_data.return_type,
     };
 
-    symbol_table.insert_function(&f);
-
-    return Ok(function(f));
+    return Ok(f);
 }
 
 pub fn parse_fn_header(

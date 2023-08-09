@@ -18,8 +18,8 @@ use crate::{
 
 use self::{
     architecture::{
-        function_call, reassignment, variable, ASTNode, Expression, Statement, SymbolTable,
-        VariableType,
+        function, function_call, reassignment, variable, ASTNode, Expression, Statement,
+        SymbolTable, VariableType,
     },
     functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
@@ -86,9 +86,9 @@ pub fn parse(
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
-        table.clone()
+        SymbolTable::merge(&parse_all_fns_dec(tokens_iter.clone())?, table.clone())
     } else {
-        SymbolTable::new()
+        parse_all_fns_dec(tokens_iter.clone())?
     };
 
     while 0 != tokens_iter.clone().count() {
@@ -155,7 +155,9 @@ pub fn parse(
                     }
                 }
                 TokenType::Function => {
-                    statements.push(parse_fn_declaration(&mut tokens_iter, &mut symbol_table)?);
+                    let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table)?;
+                    symbol_table.insert_function(&f);
+                    statements.push(function(f));
                 }
                 TokenType::Return => {
                     statements.push(parse_return_statement(&mut tokens_iter, &mut symbol_table)?);
@@ -266,4 +268,25 @@ pub fn ignore_until_statement(
     }
 
     Ok(())
+}
+
+pub fn parse_all_fns_dec(
+    mut tokens_iter: Peekable<Iter<'_, Token>>,
+) -> Result<SymbolTable, ParsingError> {
+    let mut symbol_table = SymbolTable::new();
+
+    while let Some(token) = tokens_iter.peek() {
+        match token.token_type {
+            crate::token::TokenType::Function => {
+                tokens_iter.next();
+                let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table)?;
+                symbol_table.register_function(&f);
+            }
+            _ => {
+                tokens_iter.next();
+            }
+        }
+    }
+
+    Ok(symbol_table)
 }

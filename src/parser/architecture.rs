@@ -517,14 +517,14 @@ pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
     variables: HashMap<String, Declaration>,
     functions: HashMap<String, Function>,
-    functions_before_declaration: HashMap<String, MainFunctionData>,
+    registered_functions: HashMap<String, MainFunctionData>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
-            functions_before_declaration: HashMap::new(),
+            registered_functions: HashMap::new(),
         }
     }
 
@@ -543,15 +543,11 @@ impl SymbolTable {
         self.variables.insert(declaration.name.clone(), declaration);
     }
     pub fn insert_function(&mut self, f: &Function) {
-        self.functions.insert(f.name.clone(), f.clone());
+        self.functions.insert(f.name.to_owned(), f.clone());
     }
-    pub fn insert_function_in_advance(&mut self, f: &MainFunctionData) {
-        if self.functions_before_declaration.get(&f.name).is_none()
-            && self.functions.get(&f.name).is_none()
-        {
-            self.functions_before_declaration
-                .insert(f.name.clone(), f.clone());
-        }
+    pub fn register_function(&mut self, f: &Function) {
+        self.registered_functions
+            .insert(f.name.to_owned(), MainFunctionData::from_function(&f));
     }
 
     pub fn reassign_variable(
@@ -733,54 +729,18 @@ impl SymbolTable {
         let func = self.functions.get(name);
 
         if func.is_none() {
-            let func = self.get_fn_in_advance(name, tokens)?;
-
-            Ok(
-                func.ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                    fn_name: name.to_owned(),
-                })?,
-            )
-        } else {
-            Ok(func
-                .cloned()
-                .map(|f| MainFunctionData::from_function(&f))
-                .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                    fn_name: name.to_owned(),
-                })?)
-        }
-    }
-
-    fn get_fn_in_advance(
-        &mut self,
-        name: &str,
-        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-    ) -> Result<Option<MainFunctionData>, ParsingError> {
-        let func = self.functions_before_declaration.get(name);
-
-        if func.is_some() {
-            return Ok(Some(func.unwrap().clone()));
-        }
-
-        let mut iter = tokens.clone();
-        while let Some(token) = iter.peek() {
-            match token.token_type {
-                crate::token::TokenType::Function => {
-                    iter.next();
-                    let fn_data: MainFunctionData = parse_fn_header(&mut iter, self)?;
-                    self.insert_function_in_advance(&fn_data);
-
-                    println!("data {:?} = {}", fn_data.name, name);
-                    if &fn_data.name == name {
-                        return Ok(Some(fn_data));
-                    }
-                }
-                _ => {
-                    iter.next();
-                }
+            return Err(FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_owned(),
             }
+            .into());
         }
 
-        Ok(None)
+        Ok(func
+            .cloned()
+            .map(|f| MainFunctionData::from_function(&f))
+            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_owned(),
+            })?)
     }
 }
 
@@ -807,9 +767,9 @@ impl fmt::Display for SymbolTable {
             }
         }
 
-        write!(f, "-- COMING FUNCTIONS -- \n",)?;
+        write!(f, "-- Registered FUNCTIONS -- \n",)?;
 
-        if self.functions_before_declaration.len() == 0 {
+        if self.registered_functions.len() == 0 {
             Ok({
                 write!(f, "None\n")?;
             })
