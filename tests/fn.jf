@@ -17,4 +17,8 @@ fn hello() {
     print("Hello, world!")
 }
 
+fn print(s: str) {
+    // print in the console, but dont know how yet
+}
+
 hello();

@@ -7,8 +7,10 @@ use crate::{
 };
 
 use super::{
-    architecture::{Declaration, Expression, Function, FunctionCall, SymbolTable, VariableType},
-    ignore_whitespace,
+    architecture::{
+        Declaration, Expression, Function, FunctionCall, Program, SymbolTable, VariableType,
+    },
+    ignore_whitespace, parse,
     types::type_from_expression,
     ParsingError,
 };
@@ -56,17 +58,25 @@ pub fn parse_fn_declaration(
         Some(Token {
             token_type: TokenType::OpenBrace,
             ..
-        }) => parse_fn_block(tokens, &fn_data.name)?,
+        }) => {
+            let mut ctx_tokens = Vec::new();
+            ctx_tokens.extend(fn_data.args_as_tokens());
+            ctx_tokens.extend(parse_fn_block(tokens, &fn_data.name)?);
+            parse(ctx_tokens.iter().peekable(), Some(symbol_table))
+        }
         Some(Token {
             token_type: TokenType::FunctionArrow,
             ..
-        }) => {
+        }) => Ok({
             let mut ctx_tokens: Vec<Token> = Vec::new();
+
+            ctx_tokens.extend(fn_data.args_as_tokens());
 
             ctx_tokens.push(Token {
                 value: "return".to_owned(),
                 token_type: TokenType::Return,
             });
+
             let before_expr_length = ctx_tokens.len();
 
             while let Some(token) = tokens.next() {
@@ -84,8 +94,8 @@ pub fn parse_fn_declaration(
                 .into());
             }
 
-            ctx_tokens
-        }
+            parse(ctx_tokens.iter().peekable(), Some(symbol_table))?
+        }),
         _ => {
             return Err(FunctionParsingError::ExpectedBrace {
                 fn_name: fn_data.name.to_owned(),
@@ -93,6 +103,15 @@ pub fn parse_fn_declaration(
             .into());
         }
     };
+
+    let mut program = match function_context? {
+        super::architecture::ASTNode::Program(p) => p,
+        _ => unreachable!(),
+    };
+
+    err_if_fn_type_issue(&fn_data, &mut program)?;
+
+    let function_context = program.statements;
 
     let f = Function {
         name: fn_data.name.to_owned(),
@@ -425,4 +444,38 @@ fn parse_return_type(
             fn_name: fn_name.to_owned(),
         });
     }
+}
+
+fn err_if_fn_type_issue(
+    fn_data: &MainFunctionData,
+    program: &mut Program,
+) -> Result<(), ParsingError> {
+    let found = Function::get_returned_type(program);
+
+    let return_type = &fn_data.return_type;
+
+    if return_type != &found {
+        if let Some(return_type) = return_type {
+            if let Some(found) = found {
+                return Err(FunctionParsingError::ReturnTypeInvalid {
+                    fn_name: fn_data.name.to_owned(),
+                    return_type: return_type.to_string(),
+                    found: found.to_string(),
+                }
+                .into());
+            } else {
+                return Err(FunctionParsingError::MissingReturnStatement {
+                    fn_name: fn_data.name.to_owned(),
+                }
+                .into());
+            }
+        } else {
+            return Err(FunctionParsingError::MissingReturnStatement {
+                fn_name: fn_data.name.to_owned(),
+            }
+            .into());
+        }
+    }
+
+    Ok(())
 }

@@ -315,7 +315,7 @@ impl BinaryOperator {
 pub struct Function {
     pub name: String,
     pub arguments: Vec<Declaration>,
-    pub context: Vec<Token>,
+    pub context: Vec<Statement>,
     pub return_type: Option<VariableType>,
 }
 impl Function {
@@ -354,7 +354,6 @@ impl Function {
         self.arguments = new_args;
 
         let mut tokens = self.args_as_tokens();
-        tokens.append(&mut self.context);
 
         let tokens_iter = tokens.iter().peekable();
 
@@ -363,7 +362,7 @@ impl Function {
             _ => unreachable!(),
         };
 
-        self.compare_types(&mut program)?; // return an error if returned type is different from expected
+        // still need to do the rest
 
         Ok(Expression::Null)
     }
@@ -382,7 +381,7 @@ impl Function {
             .collect()
     }
 
-    fn get_returned_type(program: &mut Program) -> Option<VariableType> {
+    pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
         if let Some(Statement {
             node: ASTNode::Return(returned),
         }) = program.statements.last()
@@ -391,37 +390,6 @@ impl Function {
         } else {
             None
         }
-    }
-
-    fn compare_types(&self, program: &mut Program) -> Result<(), ParsingError> {
-        let return_type = self.return_type.clone();
-
-        let found = Function::get_returned_type(program).clone();
-
-        if return_type != found {
-            if let Some(return_type) = return_type {
-                if let Some(found) = found {
-                    return Err(FunctionParsingError::ReturnTypeInvalid {
-                        fn_name: self.name.to_owned(),
-                        return_type: return_type.to_string(),
-                        found: found.to_string(),
-                    }
-                    .into());
-                } else {
-                    return Err(FunctionParsingError::MissingReturnStatement {
-                        fn_name: self.name.to_owned(),
-                    }
-                    .into());
-                }
-            } else {
-                return Err(FunctionParsingError::MissingReturnStatement {
-                    fn_name: self.name.to_owned(),
-                }
-                .into());
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -458,6 +426,32 @@ impl MainFunctionData {
             arguments: f.arguments.clone(),
             return_type: f.return_type.clone(),
         }
+    }
+
+    pub fn args_as_tokens(&self) -> Vec<Token> {
+        self.arguments
+            .iter()
+            .flat_map(|dec| dec.equivalent_tokens())
+            .collect()
+    }
+}
+impl fmt::Display for MainFunctionData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "fn {}({}) => {}",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+            if let Some(output_t) = &self.return_type {
+                output_t.as_assignment()
+            } else {
+                "null"
+            },
+        )
     }
 }
 
@@ -542,9 +536,8 @@ impl SymbolTable {
     pub fn insert_function(&mut self, f: &Function) {
         self.functions.insert(f.name.to_owned(), f.clone());
     }
-    pub fn register_function(&mut self, f: &Function) {
-        self.registered_functions
-            .insert(f.name.to_owned(), MainFunctionData::from_function(&f));
+    pub fn register_function(&mut self, f: MainFunctionData) {
+        self.registered_functions.insert(f.name.to_owned(), f);
     }
 
     pub fn reassign_variable(
@@ -766,7 +759,7 @@ impl fmt::Display for SymbolTable {
                 write!(f, "None\n")?;
             })
         } else {
-            Ok(for var in &self.functions {
+            Ok(for var in &self.registered_functions {
                 write!(f, "- {}\n", var.1.to_string())?;
             })
         }

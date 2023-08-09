@@ -12,7 +12,10 @@ use std::{io::Error, iter::Peekable, num::ParseIntError, slice::Iter};
 use custom_error::custom_error;
 
 use crate::{
-    parser::architecture::{program, Program},
+    parser::{
+        architecture::{program, Program},
+        functions::parse_fn_header,
+    },
     token::{Token, TokenType},
 };
 
@@ -86,7 +89,7 @@ pub fn parse(
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
-        SymbolTable::merge(&table, parse_all_fns_dec(tokens_iter.clone())?)
+        table.clone()
     } else {
         parse_all_fns_dec(tokens_iter.clone())?
     };
@@ -279,14 +282,15 @@ pub fn parse_all_fns_dec(
         match token.token_type {
             crate::token::TokenType::Function => {
                 tokens_iter.next();
-                let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table)?;
-                symbol_table.register_function(&f);
+                let f = parse_fn_header(&mut tokens_iter, &mut symbol_table)?;
+                symbol_table.register_function(f);
             }
             _ => {
                 tokens_iter.next();
             }
         }
     }
+    println!("sss {}", symbol_table);
 
     Ok(symbol_table)
 }
