@@ -91,7 +91,7 @@ pub fn type_from_expression(
         }
         Expression::FunctionCall(call) => {
             match symbol_table
-                .get_function(&call.function_name, tokens.unwrap())
+                .get_function(&call.function_name)
                 .map(|var| var.return_type)
             {
                 Ok(r) => {

@@ -1,17 +1,13 @@
 use crate::{
     parser::{
-        architecture::{function, MainFunctionData},
-        expression::parse_expression,
-        types::TypeError,
+        architecture::MainFunctionData, expression::parse_expression, types::TypeError,
         vectors::check_and_insert_expression,
     },
     token::{Token, TokenType},
 };
 
 use super::{
-    architecture::{
-        Declaration, Expression, Function, FunctionCall, Statement, SymbolTable, VariableType,
-    },
+    architecture::{Declaration, Expression, Function, FunctionCall, SymbolTable, VariableType},
     ignore_whitespace,
     types::type_from_expression,
     ParsingError,
@@ -178,9 +174,7 @@ pub fn parse_fn_call(
 ) -> Result<FunctionCall, ParsingError> {
     // jump the '('
     tokens.next();
-    println!("st: \n {}", symbol_table);
-    println!("t: {:?}", tokens);
-    let fn_data = symbol_table.get_function(function_name, tokens)?;
+    let fn_data = symbol_table.get_function(function_name)?;
     let arguments = fn_data.arguments;
 
     if arguments.len() == 0 {

@@ -724,9 +724,8 @@ impl SymbolTable {
     pub fn get_function(
         &mut self,
         name: &str,
-        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
     ) -> Result<MainFunctionData, ParsingError> {
-        let func = self.functions.get(name);
+        let func = self.registered_functions.get(name);
 
         if func.is_none() {
             return Err(FunctionParsingError::NotDefinedFunction {
@@ -737,7 +736,6 @@ impl SymbolTable {
 
         Ok(func
             .cloned()
-            .map(|f| MainFunctionData::from_function(&f))
             .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_owned(),
             })?)

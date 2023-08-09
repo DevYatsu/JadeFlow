@@ -86,7 +86,7 @@ pub fn parse(
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
-        SymbolTable::merge(&parse_all_fns_dec(tokens_iter.clone())?, table.clone())
+        SymbolTable::merge(&table, parse_all_fns_dec(tokens_iter.clone())?)
     } else {
         parse_all_fns_dec(tokens_iter.clone())?
     };
