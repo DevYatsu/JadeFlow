@@ -51,7 +51,7 @@ fn main() {
     });
 
     if parsing.data.is_err() {
-        println!("{}", parsing.data.unwrap_err().to_string());
+        println!("Error: {}", parsing.data.unwrap_err().to_string());
         return;
     }
 
