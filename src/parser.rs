@@ -140,6 +140,31 @@ pub fn parse(
                 }
                 TokenType::Class => {
                     let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
+                    todo!("cls implementation coming soon! {:?}", cls)
+                }
+                TokenType::If => {
+                    todo!("'if' implementation coming soon!")
+                }
+                TokenType::Else => {
+                    todo!("'if' implementation coming soon!")
+                }
+                TokenType::Match => {
+                    todo!("'match' implementation coming soon!")
+                }
+                TokenType::For => {
+                    todo!("'for' implementation coming soon!")
+                }
+                TokenType::IncrementOperator => {
+                    todo!("'++' operator implementation coming soon!")
+                }
+                TokenType::DecrementOperator => {
+                    todo!("'--' operator implementation coming soon!")
+                }
+                TokenType::While => {
+                    todo!("'while' operator implementation coming soon!")
+                }
+                TokenType::LogicalOperator => {
+                    todo!("'{}' logical operator implementation coming soon!", token.value)
                 }
                 _ => {
                     ignore_until_statement(&mut tokens_iter)?;

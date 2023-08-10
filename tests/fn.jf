@@ -12,8 +12,6 @@ fn concatenate(s: str, s2: str): str {
 
     return o
 }
-const hello = "str"
-
 fn hello() {
     print("Hello, world!")
 }
