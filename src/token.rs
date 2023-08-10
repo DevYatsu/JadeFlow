@@ -1,6 +1,6 @@
 use self::{errors::SyntaxError, line::get_line};
 
-mod errors;
+pub mod errors;
 mod line;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]

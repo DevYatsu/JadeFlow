@@ -3,9 +3,9 @@ mod select_test;
 mod token;
 
 use crate::{
-    parser::{architecture::ASTNode, parse},
+    parser::{architecture::ASTNode, parse, ParsingError},
     select_test::run_file,
-    token::tokenize,
+    token::{errors::SyntaxError, tokenize, Token},
 };
 use std::{fs, time::Instant};
 
@@ -25,44 +25,66 @@ fn main() {
         }
     };
 
-    let start = Instant::now();
-    let tokens = match tokenize(&content) {
-        Ok(t) => t,
+    let tokenization = time_execution("tokenization", || -> Result<Vec<Token>, SyntaxError> {
+        let tokens = tokenize(&content)?;
+
+        Ok(tokens)
+    });
+
+    match tokenization.data {
+        Ok(_) => (),
         Err(e) => {
-            println!("ERROR: {}", e.to_string());
+            println!("Error: {}", e.to_string());
             return;
         }
-    };
-    let end = Instant::now();
-    let tokens_iter = tokens.iter().peekable();
-
-    for token in &tokens {
-        println!("{:?}", token)
     }
 
-    let first_timer = (end - start).as_secs_f64();
-    println!("tokenization: {}s", first_timer);
+    let parsing = time_execution("parsing", || -> Result<ASTNode, ParsingError> {
+        let program = parse(tokenization.data.unwrap().iter().peekable(), None)?;
 
-    let start = Instant::now();
-    let program = match parse(tokens_iter, None) {
-        Ok(p) => p,
+        match &program {
+            ASTNode::Program(p) => {
+                println!("symbol table: \n {}", p.symbol_table);
+                println!("statements number: {}", p.statements.len());
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(program)
+    });
+
+    match parsing.data {
+        Ok(_) => (),
         Err(e) => {
-            println!("ERROR: {}", e.to_string());
+            println!("Error: {}", e.to_string());
             return;
         }
-    };
-    let end = Instant::now();
-
-    match program {
-        ASTNode::Program(p) => {
-            println!("symbol table: \n {}", p.symbol_table);
-            println!("statements number: {}", p.statements.len());
-        }
-        _ => unreachable!(),
     }
 
-    let second_timer = (end - start).as_secs_f64();
-    println!("parsing: {}s", second_timer);
+    println!("total time: {}s", tokenization.duration + parsing.duration);
+}
 
-    println!("total time: {}s", first_timer + second_timer);
+fn time_execution<F, R>(name: &str, code: F) -> TimerData<R>
+where
+    F: FnOnce() -> R,
+{
+    let start = Instant::now();
+    let returned_val = code();
+    let end = Instant::now();
+    let duration = (end - start).as_secs_f64();
+    println!("{}: {}s", name, duration);
+
+    TimerData::new(returned_val, duration)
+}
+
+#[derive(Clone, Debug)]
+struct TimerData<D> {
+    pub duration: f64,
+    pub data: D,
+}
+
+impl<D> TimerData<D> {
+    pub fn new(data: D, duration: f64) -> TimerData<D> {
+        TimerData { duration, data }
+    }
 }
