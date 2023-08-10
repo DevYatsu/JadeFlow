@@ -196,6 +196,8 @@ pub fn parse(
                 }
                 TokenType::Class => {
                     let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
+
+                    
                 }
                 _ => {
                     ignore_until_statement(&mut tokens_iter)?;
