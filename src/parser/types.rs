@@ -1,10 +1,10 @@
-use std::num::ParseIntError;
+use std::{num::ParseIntError, fmt};
 
 use crate::token::{Token, TokenType};
 
 use super::{
-    architecture::{BinaryOperator, SymbolTable, VariableType},
-    expression::Expression,
+    architecture::{SymbolTable},
+    expression::{Expression, operation::BinaryOperator},
     functions::errors::FunctionParsingError,
     ParsingError,
 };
@@ -25,6 +25,49 @@ custom_error! {pub TypeError
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}"
     ,Custom{data:String} = "{data}"
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VariableType {
+    String,
+    Number,
+    Boolean,
+    Vector,
+    Dictionary,
+}
+impl fmt::Display for VariableType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            VariableType::String => write!(f, "String"),
+            VariableType::Number => write!(f, "Number"),
+            VariableType::Boolean => write!(f, "Boolean"),
+            VariableType::Vector => write!(f, "Vector"),
+            VariableType::Dictionary => write!(f, "Dictionary"),
+        }
+    }
+}
+
+impl VariableType {
+    pub fn as_assignment(&self) -> &str {
+        match self {
+            VariableType::String => "str",
+            VariableType::Number => "num",
+            VariableType::Boolean => "bool",
+            VariableType::Vector => "vec",
+            VariableType::Dictionary => "dict",
+        }
+    }
+    pub fn from_assignment(input: &str) -> Option<VariableType> {
+        match input {
+            "str" => Some(VariableType::String),
+            "num" => Some(VariableType::Number),
+            "bool" => Some(VariableType::Boolean),
+            "vec" => Some(VariableType::Vector),
+            "dict" => Some(VariableType::Dictionary),
+            _ => None,
+        }
+    }
+}
+
 
 pub fn type_from_expression(
     expr: &Expression,

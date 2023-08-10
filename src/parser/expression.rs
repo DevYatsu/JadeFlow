@@ -1,14 +1,17 @@
+pub mod operation;
 use std::{collections::HashMap, fmt};
 
+use self::operation::BinaryOperator;
+
 use super::{
-    architecture::{BinaryOperator, FormattedSegment, SymbolTable, VariableType},
+    architecture::{SymbolTable},
     dictionary::parse_dictionary_expression,
     functions::{parse_fn_call, FunctionCall},
     ignore_whitespace,
     vectors::{parse_array_expression, parse_array_indexing},
-    ParsingError,
+    ParsingError, types::VariableType,
 };
-use crate::token::{Token, TokenType};
+use crate::token::{Token, TokenType, tokenize};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
@@ -83,6 +86,77 @@ impl fmt::Display for Expression {
                 write!(f, ")")
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FormattedSegment {
+    // exemple "hey #{2 + 3} how r u ?"
+    Literal(String),        // (ex: "hey " and " how r u ?")
+    Expression(Expression), // (ex: 2 + 3 -> 5)
+}
+impl FormattedSegment {
+    pub fn from_str(
+        input: &str,
+        symbol_table: &mut SymbolTable,
+    ) -> Result<Vec<FormattedSegment>, ParsingError> {
+        let mut result: Vec<FormattedSegment> = Vec::new();
+        let mut current_part = String::new();
+        let mut inside_expression = false;
+        let mut expression = String::new();
+
+        for (i, c) in input.chars().enumerate() {
+            if inside_expression {
+                if c == '}' {
+                    // Finished parsing the expression, add it to the result
+                    inside_expression = false;
+                    let t: Vec<Token> = match tokenize(expression[1..].as_bytes()) {
+                        Ok(t) => t.into(),
+                        Err(_) => {
+                            return Err(ParsingError::ExpectedValidExpressionInFormattedString)
+                        }
+                    };
+
+                    let expr = FormattedSegment::Expression(parse_expression(
+                        &mut t.iter().peekable(),
+                        symbol_table,
+                    )?);
+                    result.push(expr);
+                    expression.clear();
+                } else {
+                    expression.push(c);
+                }
+            } else {
+                if c == '#' {
+                    // Check if this is the start of an expression
+                    let next_char = input.chars().nth(i + 1);
+
+                    if let Some('{') = next_char {
+                        // This is the start of an expression
+                        inside_expression = true;
+
+                        // Add the current string part to the result
+                        if !current_part.is_empty() {
+                            result.push(FormattedSegment::Literal(current_part.clone()));
+                        }
+                        current_part.clear();
+                    } else {
+                        // Just a regular '#' character, add it to the current part
+                        current_part.push(c);
+                    }
+                } else {
+                    // Add the character to the current part
+                    current_part.push(c);
+                }
+            }
+        }
+
+        // Add the remaining string part to the result
+        if !current_part.is_empty() {
+            result.push(FormattedSegment::Literal(current_part));
+        }
+
+        Ok(result)
     }
 }
 

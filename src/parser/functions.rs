@@ -11,10 +11,10 @@ use crate::{
 use self::errors::FunctionParsingError;
 
 use super::{
-    architecture::{ASTNode, Program, Statement, SymbolTable, VariableType},
+    architecture::{ASTNode, Program, Statement, SymbolTable},
     expression::Expression,
     ignore_whitespace, parse,
-    types::type_from_expression,
+    types::{type_from_expression, VariableType},
     vars::Declaration,
     ParsingError,
 };

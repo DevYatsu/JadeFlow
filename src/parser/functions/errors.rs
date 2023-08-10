@@ -1,6 +1,6 @@
 use custom_error::custom_error;
 
-use crate::parser::architecture::VariableType;
+use crate::parser::types::VariableType;
 
 custom_error! {pub FunctionParsingError
     ExpectedIdentifier = "Expected a function name after the 'fn' keyword",

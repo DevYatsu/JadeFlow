@@ -6,10 +6,10 @@ use crate::{
 };
 
 use super::{
-    architecture::{ASTNode, Statement, SymbolTable, VariableType},
+    architecture::{ASTNode, Statement, SymbolTable},
     expression::{parse_with_operator, Expression},
     ignore_whitespace,
-    types::{parse_type, type_from_expression},
+    types::{parse_type, type_from_expression, VariableType},
     ParsingError,
 };
 
