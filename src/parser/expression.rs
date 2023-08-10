@@ -1,12 +1,90 @@
+use std::{collections::HashMap, fmt};
+
 use super::{
-    architecture::{BinaryOperator, Expression, FormattedSegment, SymbolTable, VariableType},
+    architecture::{BinaryOperator, FormattedSegment, SymbolTable, VariableType},
     dictionary::parse_dictionary_expression,
-    functions::parse_fn_call,
+    functions::{parse_fn_call, FunctionCall},
     ignore_whitespace,
     vectors::{parse_array_expression, parse_array_indexing},
     ParsingError,
 };
 use crate::token::{Token, TokenType};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expression {
+    Variable(String),
+    Number(f64),
+    String(String),
+    Boolean(bool),
+    Null,
+    ArrayExpression(Vec<Expression>),
+    DictionaryExpression(HashMap<String, Expression>),
+    BinaryOperation {
+        left: Box<Expression>,
+        operator: BinaryOperator,
+        right: Box<Expression>,
+    },
+    FormattedString(Vec<FormattedSegment>),
+    FunctionCall(FunctionCall),
+}
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expression::Variable(val) => write!(f, "{}", val),
+            Expression::Number(val) => write!(f, "{}", val),
+            Expression::String(val) => write!(f, "\"{}\"", val),
+            Expression::Boolean(val) => write!(f, "{}", val),
+            Expression::Null => write!(f, "null"),
+            Expression::ArrayExpression(values) => {
+                write!(f, "[")?;
+                for (i, value) in values.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", value)?;
+                }
+                write!(f, "]")
+            }
+            Expression::DictionaryExpression(entries) => {
+                write!(f, "{{")?;
+                for (i, (key, value)) in entries.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "\"{}\": {}", key, value)?;
+                }
+                write!(f, "}}")
+            }
+            Expression::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
+                write!(f, "({} {} {})", left, operator, right)
+            }
+            Expression::FormattedString(segments) => {
+                write!(f, "\"")?;
+                for segment in segments {
+                    match segment {
+                        FormattedSegment::Literal(text) => write!(f, "{}", text)?,
+                        FormattedSegment::Expression(expr) => write!(f, "{}", expr)?,
+                    }
+                }
+                write!(f, "\"")
+            }
+            Expression::FunctionCall(call) => {
+                write!(f, "fn ")?;
+                write!(f, "{} ", call.function_name)?;
+                write!(f, "(")?;
+
+                for argument in &call.arguments {
+                    write!(f, "{}, ", argument)?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
 
 pub fn parse_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,

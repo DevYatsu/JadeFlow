@@ -1,13 +1,11 @@
 use std::num::ParseIntError;
 
-use crate::{
-    parser::Expression,
-    token::{Token, TokenType},
-};
+use crate::token::{Token, TokenType};
 
 use super::{
     architecture::{BinaryOperator, SymbolTable, VariableType},
-    functions::FunctionParsingError,
+    expression::Expression,
+    functions::errors::FunctionParsingError,
     ParsingError,
 };
 use custom_error::custom_error;

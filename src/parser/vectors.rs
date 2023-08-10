@@ -1,7 +1,9 @@
 use super::{
-    architecture::{Declaration, Expression, SymbolTable},
-    expression::parse_expression,
-    ignore_whitespace, ParsingError,
+    architecture::SymbolTable,
+    expression::{parse_expression, Expression},
+    ignore_whitespace,
+    vars::Declaration,
+    ParsingError,
 };
 use crate::token::{Token, TokenType};
 

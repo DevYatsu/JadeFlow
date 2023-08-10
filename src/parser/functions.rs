@@ -1,51 +1,183 @@
+pub mod errors;
+use std::fmt;
+
 use crate::{
     parser::{
-        architecture::MainFunctionData, expression::parse_expression, types::TypeError,
-        vectors::check_and_insert_expression,
+        expression::parse_expression, types::TypeError, vectors::check_and_insert_expression,
     },
     token::{Token, TokenType},
 };
 
+use self::errors::FunctionParsingError;
+
 use super::{
-    architecture::{
-        Declaration, Expression, Function, FunctionCall, Program, SymbolTable, VariableType,
-    },
+    architecture::{ASTNode, Program, Statement, SymbolTable, VariableType},
+    expression::Expression,
     ignore_whitespace, parse,
     types::type_from_expression,
+    vars::Declaration,
     ParsingError,
 };
 
-use custom_error::custom_error;
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub name: String,
+    pub arguments: Vec<Declaration>,
+    pub context: Vec<Statement>,
+    pub return_type: Option<VariableType>,
+}
+impl Function {
+    pub fn with_args(
+        &mut self,
+        args: &Vec<Expression>,
+        symbol_table: &mut SymbolTable,
+    ) -> Result<Expression, ParsingError> {
+        let types_vec = self.args_types();
 
-custom_error! {pub FunctionParsingError
-    ExpectedIdentifier = "Expected a function name after the 'fn' keyword",
-    ExpectedOpenParen{name: String} = "Expected parentheses after '{name}' in the function declaration",
+        for (i, arg) in args.iter().enumerate() {
+            let actual_arg_type = type_from_expression(arg, symbol_table, None)?;
 
-    ExpectedArgName = "Expected a valid function argument name",
-    ExpectedArgColon{arg_name: String} = "Expected a type declaration after '{arg_name}'",
-    ExpectedArgType{arg_name: String} = "Missing type declaration for argument '{arg_name}'",
-    ExpectedCommaBetweenArgs{arg_name: String, arg_type: String, fn_name: String} = "Expected ',' after '{arg_name}: {arg_type}' in the '{fn_name}' function arguments",
-    ExpectedCloseParen{arg_name: String, arg_type: String, fn_name: String} = "Expected ')' after '{arg_name}: {arg_type}' in the '{fn_name}' function arguments",
+            if types_vec[i] != actual_arg_type {
+                return Err(FunctionParsingError::InvalidFnCallArgType {
+                    fn_name: self.name.to_owned(),
+                    arg_name: self.arguments[i].name.to_owned(),
+                    required_t: types_vec[i].clone(),
+                    found_t: actual_arg_type,
+                }
+                .into());
+            }
+        }
 
-    ExpectedReturnType{fn_name: String} = "Expected a return type for the '{fn_name}' function",
-    ExpectedValidReturnType{fn_name: String} = "Expected a valid return type for the '{fn_name}' function",
+        let new_args = self
+            .arguments
+            .iter()
+            .enumerate()
+            .map(|(i, arg)| {
+                let mut new_arg = arg.clone();
+                new_arg.value = args[i].clone();
+                new_arg
+            })
+            .collect::<Vec<Declaration>>();
 
-    ExpectedBrace{fn_name: String} = "Expected the function body after the function arguments in the '{fn_name}' function",
+        self.arguments = new_args;
 
-    NameAlreadyTaken{name: String} = "The function name '{name}' is already in use",
+        let mut tokens = self.args_as_tokens();
 
-    ExpectingExpressionAfterArrow{fn_name: String} = "Expecting expression after '=>' in \"{fn_name}\" declaration",
+        let tokens_iter = tokens.iter().peekable();
 
-    MissingReturnType{fn_name: String} = "Missing a return type in \"{fn_name}\" function declaration",
-    MissingReturnStatement{fn_name: String} = "Missing a return statement in \"{fn_name}\" function declaration",
-    ReturnTypeInvalid{fn_name: String, return_type: String, found: String} = "Return Type '{return_type}' of function \"{fn_name}\" does not correspond to returned type '{found}'",
+        let mut program = match parse(tokens_iter.clone(), Some(symbol_table))? {
+            ASTNode::Program(p) => p,
+            _ => unreachable!(),
+        };
 
-    NotDefinedFunction{fn_name: String} = "\"{fn_name}\" does not correspond to any defined function",
+        // still need to do the rest
 
-    MissingClosingParenInFnCall{fn_name: String} = "Missing a closing parenthesis in \"{fn_name}\" call",
-    InvalidFnCallArg{fn_name: String, err: String} = "Invalid \"{fn_name}\" call arguments: {err}",
-    InvalidFnCallArgType{fn_name: String, arg_name: String, required_t: VariableType, found_t: VariableType} = "In \"{fn_name}\" call, '{arg_name}' must be of type {required_t} whereas a value of type {found_t} was provided!",
-    InvalidFnCallArgNumber{fn_name: String, required_num: usize, found_num: usize} = "\"{fn_name}\" requires {required_num} arguments whereas {found_num} were provided!",
+        Ok(Expression::Null)
+    }
+
+    fn args_as_tokens(&self) -> Vec<Token> {
+        self.arguments
+            .iter()
+            .flat_map(|dec| dec.equivalent_tokens())
+            .collect()
+    }
+
+    fn args_types(&self) -> Vec<VariableType> {
+        self.arguments
+            .iter()
+            .map(|dec| dec.var_type.clone())
+            .collect()
+    }
+
+    pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
+        if let Some(Statement {
+            node: ASTNode::Return(returned),
+        }) = program.statements.last()
+        {
+            type_from_expression(returned, &mut program.symbol_table, None).ok()
+        } else {
+            None
+        }
+    }
+}
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "fn {}({}) => {}",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+            if let Some(output_t) = &self.return_type {
+                output_t.as_assignment()
+            } else {
+                "null"
+            },
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MainFunctionData {
+    pub name: String,
+    pub arguments: Vec<Declaration>,
+    pub return_type: Option<VariableType>,
+}
+impl MainFunctionData {
+    pub fn from_function(f: &Function) -> MainFunctionData {
+        MainFunctionData {
+            name: f.name.clone(),
+            arguments: f.arguments.clone(),
+            return_type: f.return_type.clone(),
+        }
+    }
+
+    pub fn args_as_tokens(&self) -> Vec<Token> {
+        self.arguments
+            .iter()
+            .flat_map(|dec| dec.equivalent_tokens())
+            .collect()
+    }
+}
+impl fmt::Display for MainFunctionData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "fn {}({}) => {}",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+            if let Some(output_t) = &self.return_type {
+                output_t.as_assignment()
+            } else {
+                "null"
+            },
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionCall {
+    pub function_name: String,
+    pub arguments: Vec<Expression>,
+}
+
+pub fn function(f: Function) -> Statement {
+    Statement {
+        node: ASTNode::FunctionDeclaration(f),
+    }
+}
+pub fn function_call(call: FunctionCall) -> Statement {
+    Statement {
+        node: ASTNode::FunctionCall(call),
+    }
 }
 
 pub fn parse_fn_declaration(
@@ -345,7 +477,7 @@ fn parse_fn_block(
     Ok(ctx_tokens)
 }
 
-fn parse_fn_args(
+pub fn parse_fn_args(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
 ) -> Result<Vec<Declaration>, FunctionParsingError> {
     let mut arguments: Vec<Declaration> = Vec::new();

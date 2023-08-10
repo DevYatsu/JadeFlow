@@ -1,4 +1,5 @@
 pub mod architecture;
+mod class;
 mod dictionary;
 mod expression;
 mod functions;
@@ -20,14 +21,15 @@ use crate::{
 };
 
 use self::{
-    architecture::{
-        function, function_call, reassignment, variable, ASTNode, Expression, Statement,
-        SymbolTable, VariableType,
+    architecture::{ASTNode, Statement, SymbolTable, VariableType},
+    class::parse_class_declaration,
+    expression::Expression,
+    functions::{
+        errors::FunctionParsingError, function, function_call, parse_fn_call, parse_fn_declaration,
     },
-    functions::{parse_fn_call, parse_fn_declaration, FunctionParsingError},
     returns::parse_return_statement,
     types::TypeError,
-    vars::{parse_var_declaration, parse_var_reassignment},
+    vars::{parse_var_declaration, parse_var_reassignment, reassignment, variable},
 };
 
 custom_error! {pub ParsingError
@@ -191,6 +193,9 @@ pub fn parse(
                             })
                         }
                     }
+                }
+                TokenType::Class => {
+                    let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
                 }
                 _ => {
                     ignore_until_statement(&mut tokens_iter)?;

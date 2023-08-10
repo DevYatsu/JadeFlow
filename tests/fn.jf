@@ -12,11 +12,11 @@ fn concatenate(s: str, s2: str): str {
 
     return o
 }
+const hello = "str"
 
 fn hello() {
     print("Hello, world!")
 }
-
 fn print(s: str) {
     // print in the console, but dont know how yet
 }

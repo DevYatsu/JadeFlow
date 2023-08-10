@@ -1,15 +1,75 @@
+use std::fmt;
+
 use crate::{
     parser::expression::parse_expression,
-    token::{Token, TokenType},
+    token::{tokenize, Token, TokenType},
 };
 
 use super::{
-    architecture::{Declaration, Expression, Reassignment, SymbolTable},
-    expression::parse_with_operator,
+    architecture::{ASTNode, Statement, SymbolTable, VariableType},
+    expression::{parse_with_operator, Expression},
     ignore_whitespace,
     types::{parse_type, type_from_expression},
     ParsingError,
 };
+
+#[derive(Debug, Clone)]
+pub struct Declaration {
+    pub name: String,
+    pub var_type: VariableType,
+    pub value: Expression,
+    pub is_mutable: bool,
+    pub is_object_prop: bool,
+}
+pub fn variable(declaration: Declaration) -> Statement {
+    Statement {
+        node: ASTNode::VariableDeclaration(declaration),
+    }
+}
+impl fmt::Display for Declaration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let var = self.get_var_keyword();
+        write!(
+            f,
+            "{} {}: {} = {}",
+            var,
+            self.name,
+            self.var_type.as_assignment(),
+            self.value
+        )
+    }
+}
+impl Declaration {
+    pub fn equivalent_tokens(&self) -> Vec<Token> {
+        let keyword = self.get_var_keyword();
+        let source_code = format!(
+            "{} {}: {} = {};",
+            keyword,
+            self.name,
+            self.var_type.as_assignment(),
+            self.value
+        );
+        tokenize(source_code.as_bytes()).unwrap().into()
+    }
+    fn get_var_keyword(&self) -> &str {
+        if self.is_mutable {
+            "mut"
+        } else {
+            "const"
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Reassignment {
+    pub name: String,
+    pub value: Expression,
+}
+pub fn reassignment(reassignement: Reassignment) -> Statement {
+    Statement {
+        node: ASTNode::VariableReassignment(reassignement),
+    }
+}
 
 pub fn parse_var_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,

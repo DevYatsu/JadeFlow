@@ -1,6 +1,6 @@
 use super::{
-    architecture::{Expression, SymbolTable},
-    expression::parse_expression,
+    architecture::SymbolTable,
+    expression::{parse_expression, Expression},
     ParsingError,
 };
 use crate::token::{Token, TokenType};

@@ -1,8 +1,11 @@
 use crate::token::{tokenize, Token};
 
 use super::{
-    expression::parse_expression, functions::FunctionParsingError, parse,
-    types::type_from_expression, ParsingError, TypeError,
+    expression::{parse_expression, Expression},
+    functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
+    types::type_from_expression,
+    vars::{Declaration, Reassignment},
+    ParsingError, TypeError,
 };
 use std::{collections::HashMap, fmt, iter::Peekable};
 
@@ -42,155 +45,6 @@ pub fn program(
 pub struct Statement {
     pub node: ASTNode,
 }
-pub fn variable(declaration: Declaration) -> Statement {
-    Statement {
-        node: ASTNode::VariableDeclaration(declaration),
-    }
-}
-pub fn reassignment(reassignement: Reassignment) -> Statement {
-    Statement {
-        node: ASTNode::VariableReassignment(reassignement),
-    }
-}
-pub fn function(f: Function) -> Statement {
-    Statement {
-        node: ASTNode::FunctionDeclaration(f),
-    }
-}
-pub fn function_call(call: FunctionCall) -> Statement {
-    Statement {
-        node: ASTNode::FunctionCall(call),
-    }
-}
-pub fn return_statement(expr: Expression) -> Statement {
-    Statement {
-        node: ASTNode::Return(expr),
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
-    Variable(String),
-    Number(f64),
-    String(String),
-    Boolean(bool),
-    Null,
-    ArrayExpression(Vec<Expression>),
-    DictionaryExpression(HashMap<String, Expression>),
-    BinaryOperation {
-        left: Box<Expression>,
-        operator: BinaryOperator,
-        right: Box<Expression>,
-    },
-    FormattedString(Vec<FormattedSegment>),
-    FunctionCall(FunctionCall),
-}
-impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Expression::Variable(val) => write!(f, "{}", val),
-            Expression::Number(val) => write!(f, "{}", val),
-            Expression::String(val) => write!(f, "\"{}\"", val),
-            Expression::Boolean(val) => write!(f, "{}", val),
-            Expression::Null => write!(f, "null"),
-            Expression::ArrayExpression(values) => {
-                write!(f, "[")?;
-                for (i, value) in values.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", value)?;
-                }
-                write!(f, "]")
-            }
-            Expression::DictionaryExpression(entries) => {
-                write!(f, "{{")?;
-                for (i, (key, value)) in entries.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "\"{}\": {}", key, value)?;
-                }
-                write!(f, "}}")
-            }
-            Expression::BinaryOperation {
-                left,
-                operator,
-                right,
-            } => {
-                write!(f, "({} {} {})", left, operator, right)
-            }
-            Expression::FormattedString(segments) => {
-                write!(f, "\"")?;
-                for segment in segments {
-                    match segment {
-                        FormattedSegment::Literal(text) => write!(f, "{}", text)?,
-                        FormattedSegment::Expression(expr) => write!(f, "{}", expr)?,
-                    }
-                }
-                write!(f, "\"")
-            }
-            Expression::FunctionCall(call) => {
-                write!(f, "fn ")?;
-                write!(f, "{} ", call.function_name)?;
-                write!(f, "(")?;
-
-                for argument in &call.arguments {
-                    write!(f, "{}, ", argument)?;
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Declaration {
-    pub name: String,
-    pub var_type: VariableType,
-    pub value: Expression,
-    pub is_mutable: bool,
-    pub is_object_prop: bool,
-}
-impl fmt::Display for Declaration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let var = self.get_var_keyword();
-        write!(
-            f,
-            "{} {}: {} = {}",
-            var,
-            self.name,
-            self.var_type.as_assignment(),
-            self.value
-        )
-    }
-}
-impl Declaration {
-    pub fn equivalent_tokens(&self) -> Vec<Token> {
-        let keyword = self.get_var_keyword();
-        let source_code = format!(
-            "{} {}: {} = {};",
-            keyword,
-            self.name,
-            self.var_type.as_assignment(),
-            self.value
-        );
-        tokenize(source_code.as_bytes()).unwrap().into()
-    }
-    fn get_var_keyword(&self) -> &str {
-        if self.is_mutable {
-            "mut"
-        } else {
-            "const"
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Reassignment {
-    pub name: String,
-    pub value: Expression,
-}
 
 #[derive(Debug, Clone)]
 pub struct Class {
@@ -204,6 +58,58 @@ pub struct Class {
 pub struct ClassCtx {
     pub methods: HashMap<String, Function>,
     pub properties: HashMap<String, Expression>,
+}
+#[derive(Debug, Clone)]
+pub struct MainClassCtx {
+    pub methods: HashMap<String, MainFunctionData>,
+    pub properties: HashMap<String, Expression>,
+}
+impl MainClassCtx {
+    pub fn from_class_ctx(ctx: &ClassCtx) -> MainClassCtx {
+        MainClassCtx {
+            methods: ctx
+                .methods
+                .iter()
+                .map(|(name, fn_data)| (name.to_owned(), MainFunctionData::from_function(fn_data)))
+                .collect(),
+            properties: ctx.properties.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MainClassData {
+    pub name: String,
+    pub arguments: Vec<Declaration>,
+    pub global_properties: HashMap<String, Expression>,
+    pub public_ctx: MainClassCtx,
+    pub private_ctx: MainClassCtx,
+}
+impl MainClassData {
+    pub fn from_class(cls: &Class) -> MainClassData {
+        MainClassData {
+            name: cls.name.to_owned(),
+            arguments: cls.arguments.clone(),
+            global_properties: cls.global_properties.clone(),
+            public_ctx: MainClassCtx::from_class_ctx(&cls.public_ctx),
+            private_ctx: MainClassCtx::from_class_ctx(&cls.private_ctx),
+        }
+    }
+}
+impl fmt::Display for MainClassData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "class {} ({}): \n {}",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+            self,
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -311,156 +217,6 @@ impl BinaryOperator {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Function {
-    pub name: String,
-    pub arguments: Vec<Declaration>,
-    pub context: Vec<Statement>,
-    pub return_type: Option<VariableType>,
-}
-impl Function {
-    pub fn with_args(
-        &mut self,
-        args: &Vec<Expression>,
-        symbol_table: &mut SymbolTable,
-    ) -> Result<Expression, ParsingError> {
-        let types_vec = self.args_types();
-
-        for (i, arg) in args.iter().enumerate() {
-            let actual_arg_type = type_from_expression(arg, symbol_table, None)?;
-
-            if types_vec[i] != actual_arg_type {
-                return Err(FunctionParsingError::InvalidFnCallArgType {
-                    fn_name: self.name.to_owned(),
-                    arg_name: self.arguments[i].name.to_owned(),
-                    required_t: types_vec[i].clone(),
-                    found_t: actual_arg_type,
-                }
-                .into());
-            }
-        }
-
-        let new_args = self
-            .arguments
-            .iter()
-            .enumerate()
-            .map(|(i, arg)| {
-                let mut new_arg = arg.clone();
-                new_arg.value = args[i].clone();
-                new_arg
-            })
-            .collect::<Vec<Declaration>>();
-
-        self.arguments = new_args;
-
-        let mut tokens = self.args_as_tokens();
-
-        let tokens_iter = tokens.iter().peekable();
-
-        let mut program = match parse(tokens_iter.clone(), Some(symbol_table))? {
-            ASTNode::Program(p) => p,
-            _ => unreachable!(),
-        };
-
-        // still need to do the rest
-
-        Ok(Expression::Null)
-    }
-
-    fn args_as_tokens(&self) -> Vec<Token> {
-        self.arguments
-            .iter()
-            .flat_map(|dec| dec.equivalent_tokens())
-            .collect()
-    }
-
-    fn args_types(&self) -> Vec<VariableType> {
-        self.arguments
-            .iter()
-            .map(|dec| dec.var_type.clone())
-            .collect()
-    }
-
-    pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
-        if let Some(Statement {
-            node: ASTNode::Return(returned),
-        }) = program.statements.last()
-        {
-            type_from_expression(returned, &mut program.symbol_table, None).ok()
-        } else {
-            None
-        }
-    }
-}
-
-impl fmt::Display for Function {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "fn {}({}) => {}",
-            self.name,
-            self.arguments
-                .iter()
-                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
-                .collect::<Vec<String>>()
-                .join(", "),
-            if let Some(output_t) = &self.return_type {
-                output_t.as_assignment()
-            } else {
-                "null"
-            },
-        )
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MainFunctionData {
-    pub name: String,
-    pub arguments: Vec<Declaration>,
-    pub return_type: Option<VariableType>,
-}
-impl MainFunctionData {
-    pub fn from_function(f: &Function) -> MainFunctionData {
-        MainFunctionData {
-            name: f.name.clone(),
-            arguments: f.arguments.clone(),
-            return_type: f.return_type.clone(),
-        }
-    }
-
-    pub fn args_as_tokens(&self) -> Vec<Token> {
-        self.arguments
-            .iter()
-            .flat_map(|dec| dec.equivalent_tokens())
-            .collect()
-    }
-}
-impl fmt::Display for MainFunctionData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "fn {}({}) => {}",
-            self.name,
-            self.arguments
-                .iter()
-                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
-                .collect::<Vec<String>>()
-                .join(", "),
-            if let Some(output_t) = &self.return_type {
-                output_t.as_assignment()
-            } else {
-                "null"
-            },
-        )
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FunctionCall {
-    pub function_name: String,
-    pub arguments: Vec<Expression>,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     String,
@@ -509,6 +265,8 @@ pub struct SymbolTable {
     variables: HashMap<String, Declaration>,
     functions: HashMap<String, Function>,
     registered_functions: HashMap<String, MainFunctionData>,
+    classes: HashMap<String, Class>,
+    registered_classes: HashMap<String, MainClassData>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
@@ -516,6 +274,8 @@ impl SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
             registered_functions: HashMap::new(),
+            classes: HashMap::new(),
+            registered_classes: HashMap::new(),
         }
     }
 
@@ -709,6 +469,9 @@ impl SymbolTable {
 
     pub fn is_fn_declared(&self, name: &str) -> bool {
         self.functions.get(name).is_some()
+    }
+    pub fn is_cls_declared(&self, name: &str) -> bool {
+        self.classes.get(name).is_some()
     }
 
     pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, ParsingError> {
