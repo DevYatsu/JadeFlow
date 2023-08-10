@@ -14,6 +14,7 @@ use std::{iter::Peekable, slice::Iter};
 use crate::{
     parser::{
         architecture::{program, Program},
+        class::{parse_class_header, ClassError},
         functions::parse_fn_header,
     },
     token::{Token, TokenType},
@@ -164,7 +165,10 @@ pub fn parse(
                     todo!("'while' operator implementation coming soon!")
                 }
                 TokenType::LogicalOperator => {
-                    todo!("'{}' logical operator implementation coming soon!", token.value)
+                    todo!(
+                        "'{}' logical operator implementation coming soon!",
+                        token.value
+                    )
                 }
                 _ => {
                     ignore_until_statement(&mut tokens_iter)?;
@@ -259,12 +263,37 @@ pub fn parse_all_fns_dec(
                 let f = parse_fn_header(&mut tokens_iter, &mut symbol_table)?;
                 symbol_table.register_function(f);
             }
+            crate::token::TokenType::Class => {
+                tokens_iter.next();
+                let cls_header = parse_class_header(&mut tokens_iter, &mut symbol_table)?;
+                let mut open_brace_count = 0;
+
+                if let Some(token) = tokens_iter.peek() {
+                    if token.token_type == TokenType::OpenBrace {
+                        while let Some(token) = tokens_iter.peek() {
+                            if token.token_type == TokenType::OpenBrace {
+                                open_brace_count += 1;
+                            } else if token.token_type == TokenType::CloseBrace {
+                                open_brace_count -= 1;
+                            }
+
+                            if open_brace_count == 0 {
+                                break;
+                            }
+                            tokens_iter.next();
+                        }
+                    } else {
+                        return Err(ClassError::ExpectedBrace { header: cls_header }.into());
+                    }
+                } else {
+                    return Err(ParsingError::UnexpectedEndOfInput);
+                }
+            }
             _ => {
                 tokens_iter.next();
             }
         }
     }
-    println!("sss {}", symbol_table);
 
     Ok(symbol_table)
 }

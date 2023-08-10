@@ -6,9 +6,7 @@ use super::{
     architecture::SymbolTable,
     expression::Expression,
     functions::{errors::FunctionParsingError, parse_fn_args, Function, MainFunctionData},
-    ignore_whitespace,
     vars::Declaration,
-    ParsingError,
 };
 
 custom_error::custom_error! {pub ClassError
@@ -16,7 +14,8 @@ custom_error::custom_error! {pub ClassError
     ExpectedUppercaseInName{name: String} = "Expected a class name starting with an uppercase: {name}",
     ExpectedNameAfterClass = "Expected a class name after 'class'",
     NameAlreadyTaken{name:String} = "The class '{name}' already exists",
-    ExpectedParenAfterName{name: String} = "Expected an open parenthesis after class name in class '{name}' declaration",
+    ExpectedParenAfterName{name: String} = "Expected an '(' after class name in class '{name}' declaration",
+    ExpectedBrace{header: ClassHeader} = "Expected '{{' after \"{header}\"",
 }
 
 #[derive(Debug, Clone)]
@@ -88,25 +87,34 @@ impl fmt::Display for MainClassData {
 pub fn parse_class_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
-) -> Result<Class, ParsingError> {
-    todo!()
-}
-
-pub fn parse_main_class_data(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    symbol_table: &mut SymbolTable,
-) -> Result<MainClassData, ClassError> {
+) -> Result<Class, ClassError> {
     let header = parse_class_header(tokens, symbol_table)?;
+    println!("{:?}", tokens);
 
     todo!()
 }
 
-struct ClassHeader {
+#[derive(Debug, Clone)]
+pub struct ClassHeader {
     pub name: String,
     pub arguments: Vec<Declaration>,
 }
+impl fmt::Display for ClassHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "class {} ({})",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+        )
+    }
+}
 
-fn parse_class_header(
+pub fn parse_class_header(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
 ) -> Result<ClassHeader, ClassError> {
@@ -124,7 +132,7 @@ fn parse_class_header(
             });
         }
 
-        if symbol_table.is_cls_declared(name) {
+        if symbol_table.is_class_declared(name) {
             return Err(ClassError::NameAlreadyTaken {
                 name: name.to_owned(),
             });
@@ -137,8 +145,6 @@ fn parse_class_header(
         }) = tokens.next()
         {
             let arguments = parse_fn_args(tokens)?;
-
-            ignore_whitespace(tokens);
 
             let cls_header = ClassHeader {
                 name: name.to_owned(),

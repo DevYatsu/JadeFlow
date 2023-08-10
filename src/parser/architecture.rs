@@ -1,7 +1,7 @@
 use crate::token::Token;
 
 use super::{
-    class::{Class, MainClassData},
+    class::Class,
     expression::Expression,
     functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
     types::type_from_expression,
@@ -54,7 +54,6 @@ pub struct SymbolTable {
     functions: HashMap<String, Function>,
     registered_functions: HashMap<String, MainFunctionData>,
     classes: HashMap<String, Class>,
-    registered_classes: HashMap<String, MainClassData>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
@@ -63,7 +62,6 @@ impl SymbolTable {
             functions: HashMap::new(),
             registered_functions: HashMap::new(),
             classes: HashMap::new(),
-            registered_classes: HashMap::new(),
         }
     }
 
@@ -258,7 +256,7 @@ impl SymbolTable {
     pub fn is_fn_declared(&self, name: &str) -> bool {
         self.functions.get(name).is_some()
     }
-    pub fn is_cls_declared(&self, name: &str) -> bool {
+    pub fn is_class_declared(&self, name: &str) -> bool {
         self.classes.get(name).is_some()
     }
 

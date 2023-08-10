@@ -1,6 +1,7 @@
 use std::{io::Error, num::ParseIntError};
 
 use super::{
+    class::ClassError,
     expression::Expression,
     functions::errors::FunctionParsingError,
     types::{TypeError, VariableType},
@@ -11,6 +12,7 @@ custom_error::custom_error! {pub ParsingError
     ParsingTypyError{source: TypeError} = "{source}",
     ParseInt{source: ParseIntError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
+    ClassError{source: ClassError} = "{source}",
     Custom{data: String} = "{data}",
 
     Default = "Failed to parse tokens",
