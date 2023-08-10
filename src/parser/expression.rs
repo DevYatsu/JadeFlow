@@ -4,14 +4,15 @@ use std::{collections::HashMap, fmt};
 use self::operation::BinaryOperator;
 
 use super::{
-    architecture::{SymbolTable},
+    architecture::SymbolTable,
     dictionary::parse_dictionary_expression,
     functions::{parse_fn_call, FunctionCall},
     ignore_whitespace,
+    types::VariableType,
     vectors::{parse_array_expression, parse_array_indexing},
-    ParsingError, types::VariableType,
+    ParsingError,
 };
-use crate::token::{Token, TokenType, tokenize};
+use crate::token::{tokenize, Token, TokenType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {

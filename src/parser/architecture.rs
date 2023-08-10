@@ -1,11 +1,12 @@
-use crate::token::{Token};
+use crate::token::Token;
 
 use super::{
-    expression::{Expression},
+    class::{Class, MainClassData},
+    expression::Expression,
     functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
     types::type_from_expression,
     vars::{Declaration, Reassignment},
-    ParsingError, TypeError, class::{Class, MainClassData},
+    ParsingError, TypeError,
 };
 use std::{collections::HashMap, fmt, iter::Peekable};
 

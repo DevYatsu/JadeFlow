@@ -1,10 +1,10 @@
-use std::{num::ParseIntError, fmt};
+use std::{fmt, num::ParseIntError};
 
 use crate::token::{Token, TokenType};
 
 use super::{
-    architecture::{SymbolTable},
-    expression::{Expression, operation::BinaryOperator},
+    architecture::SymbolTable,
+    expression::{operation::BinaryOperator, Expression},
     functions::errors::FunctionParsingError,
     ParsingError,
 };
@@ -67,7 +67,6 @@ impl VariableType {
         }
     }
 }
-
 
 pub fn type_from_expression(
     expr: &Expression,

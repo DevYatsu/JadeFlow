@@ -3,11 +3,12 @@ use std::{collections::HashMap, fmt};
 use crate::token::{Token, TokenType};
 
 use super::{
-    architecture::{SymbolTable},
+    architecture::SymbolTable,
+    expression::Expression,
     functions::{errors::FunctionParsingError, parse_fn_args, Function, MainFunctionData},
     ignore_whitespace,
     vars::Declaration,
-    ParsingError, expression::Expression,
+    ParsingError,
 };
 
 custom_error::custom_error! {pub ClassError
@@ -83,7 +84,6 @@ impl fmt::Display for MainClassData {
         )
     }
 }
-
 
 pub fn parse_class_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
