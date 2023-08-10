@@ -31,12 +31,9 @@ fn main() {
         Ok(tokens)
     });
 
-    match tokenization.data {
-        Ok(_) => (),
-        Err(e) => {
-            println!("Error: {}", e.to_string());
-            return;
-        }
+    if tokenization.data.is_err() {
+        println!("{}", tokenization.data.unwrap_err().to_string());
+        return;
     }
 
     let parsing = time_execution("parsing", || -> Result<ASTNode, ParsingError> {
@@ -53,12 +50,9 @@ fn main() {
         Ok(program)
     });
 
-    match parsing.data {
-        Ok(_) => (),
-        Err(e) => {
-            println!("Error: {}", e.to_string());
-            return;
-        }
+    if parsing.data.is_err() {
+        println!("{}", parsing.data.unwrap_err().to_string());
+        return;
     }
 
     println!("total time: {}s", tokenization.duration + parsing.duration);
