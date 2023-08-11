@@ -1,7 +1,7 @@
 pub mod architecture;
+pub mod errors;
 mod class;
 mod dictionary;
-pub mod errors;
 mod expression;
 mod functions;
 mod returns;

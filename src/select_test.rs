@@ -5,10 +5,11 @@ use dialoguer::{theme::ColorfulTheme, Select};
 pub fn run_file() -> Result<PathBuf, Error> {
     let mut directory_path = String::from("tests/");
 
-    let files = match get_files_in(&directory_path) {
+    let mut files = match get_files_in(&directory_path) {
         Ok(f) => f,
         Err(e) => return Err(e),
     };
+    files.sort();
 
     let index = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("Select a file for testing")
