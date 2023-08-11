@@ -1,7 +1,7 @@
 pub mod architecture;
-pub mod errors;
 mod class;
 mod dictionary;
+pub mod errors;
 mod expression;
 mod functions;
 mod returns;
@@ -22,7 +22,7 @@ use crate::{
 
 use self::{
     architecture::{ASTNode, Statement, SymbolTable},
-    class::parse_class_declaration,
+    class::{parse_class_declaration, Class},
     errors::ParsingError,
     functions::{function, function_call, parse_fn_call, parse_fn_declaration},
     returns::parse_return_statement,
@@ -183,72 +183,99 @@ pub fn parse(
     }))
 }
 
-pub fn ignore_whitespace(tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
-    while let Some(Token {
-        token_type: TokenType::Separator,
-        value,
-    }) = tokens.peek()
-    {
-        if value == "\n" {
-            tokens.next();
-        } else {
-            break;
+#[macro_export]
+macro_rules! ignore_tokens {
+    ( $( $token_type:pat ),* $(,)? in $tokens:expr ) => {
+        while let Some(Token {
+            token_type: token_type,
+            ..
+        }) = $tokens.peek()
+        {
+            if matches!(token_type, $( $token_type )|*) {
+                $tokens.next();
+            } else {
+                break;
+            }
         }
-    }
+    };
+    ( $token_type:pat in $tokens:expr, $callback:expr ) => {
+        while let Some(Token {
+            token_type: token_type,
+            value,
+        }) = $tokens.peek()
+        {
+            if matches!(token_type, $token_type) && $callback(value) {
+                $tokens.next();
+            } else {
+                break;
+            }
+        }
+    };
 }
 
-pub fn ignore_until_statement(
-    tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-) -> Result<(), ParsingError> {
-    let mut last_val: Option<&str> = None;
+#[macro_export]
+macro_rules! ignore_tokens_until {
+    ( $( $token_type:pat ),* $(,)? in $tokens:expr ) => {
+        let mut last_val: Option<String> = None; // Utilisez String au lieu de &str
 
-    while let Some(Token { token_type, value }) = tokens.peek() {
-        match token_type {
-            TokenType::Separator => {
-                tokens.next();
-                if let Some(Token {
-                    token_type,
-                    value: next_val,
-                }) = tokens.peek()
-                {
-                    match token_type {
-                        TokenType::Var
-                        | TokenType::For
-                        | TokenType::Function
-                        | TokenType::If
-                        | TokenType::Return
-                        | TokenType::While
-                        | TokenType::Class
-                        | TokenType::Match => break,
-                        _ => {
-                            last_val = Some(next_val);
+        while let Some(Token {
+            token_type,
+            value,
+        }) = $tokens.peek()
+        {
+            match token_type {
+                TokenType::Separator => {
+                    $tokens.next();
+
+                    if let Some(Token {
+                        token_type,
+                        value: next_val,
+                    }) = $tokens.peek()
+                    {
+                        if matches!(token_type, $( $token_type )|*) {
+                            break;
+                        } else {
+                            last_val = Some(next_val.to_owned());
 
                             continue;
                         }
                     }
                 }
-            }
-            TokenType::Var
-            | TokenType::For
-            | TokenType::Function
-            | TokenType::If
-            | TokenType::Return
-            | TokenType::While
-            | TokenType::Class
-            | TokenType::Match => {
-                return Err(ParsingError::ExpectedSeparator {
-                    value: last_val.unwrap_or(value).to_owned(),
-                })
-            }
-            _ => {
-                tokens.next();
-                last_val = Some(value);
-                continue;
+                $( $token_type )|* => {
+                    return Err(ParsingError::ExpectedSeparator {
+                        value: last_val.unwrap_or_else(|| value.to_owned()),
+                    });
+                }
+                _ => {
+                    $tokens.next();
+                    last_val = Some(value.to_owned());
+                    continue;
+                }
             }
         }
-    }
 
-    Ok(())
+        return Ok(())
+    };
+}
+
+pub fn ignore_whitespace(tokens: &mut Peekable<std::slice::Iter<'_, Token>>) {
+    ignore_tokens!(TokenType::Separator in tokens, |value| -> bool {
+        if value == "\n" {
+            true
+        }else {
+            false
+        }
+    })
+}
+
+pub fn ignore_until_statement(
+    tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
+) -> Result<(), ParsingError> {
+    ignore_tokens_until!(
+        TokenType::Var, TokenType::For, TokenType::Function, TokenType::If, 
+        TokenType::Return,TokenType::While, TokenType::Class, TokenType::Match 
+        in tokens
+    );
 }
 
 pub fn parse_all_fns_dec(
@@ -265,7 +292,7 @@ pub fn parse_all_fns_dec(
             }
             crate::token::TokenType::Class => {
                 tokens_iter.next();
-                let cls_header = parse_class_header(&mut tokens_iter, &mut symbol_table)?;
+                parse_class_header(&mut tokens_iter, &mut symbol_table, &mut Class::new())?;
                 let mut open_brace_count = 0;
 
                 if let Some(token) = tokens_iter.peek() {
@@ -283,7 +310,10 @@ pub fn parse_all_fns_dec(
                             tokens_iter.next();
                         }
                     } else {
-                        return Err(ClassError::ExpectedBrace { header: cls_header }.into());
+                        return Err(ClassError::ExpectedBrace {
+                            cls_name: token.value.to_owned(),
+                        }
+                        .into());
                     }
                 } else {
                     return Err(ParsingError::UnexpectedEndOfInput);

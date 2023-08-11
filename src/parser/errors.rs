@@ -56,5 +56,7 @@ custom_error::custom_error! {pub ParsingError
 
     UnwantedColon = "Type annotation only allowed on variable initialization",
 
-    CannotReassignNotDefinedDictProp{operator: String, prop: String} = "Cannot reassign with {operator} operator {prop} property"
+    CannotReassignNotDefinedDictProp{operator: String, prop: String} = "Cannot reassign with {operator} operator {prop} property",
+
+    InvalidDict{name: String} = "'{name}' is not a valid object"
 }

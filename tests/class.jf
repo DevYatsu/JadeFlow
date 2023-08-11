@@ -4,6 +4,7 @@ class Human (name: str, age: num, gender: str) {
     ctx.gender = gender
     // can be accessed anywhere in the class and outside of it
 
+/*
     pub {
         ctx.counter = 0
         // can be accessed in this block and outside
@@ -20,9 +21,9 @@ class Human (name: str, age: num, gender: str) {
     priv {
         ctx.hey = `hey #{ctx.name}`
         // can only be accessed here
-    }
+    }*/
 }
 
-const human = Human('Bob', 23, 'male')
+/*const human = Human('Bob', 23, 'male')
 human.presentation()
-human.increase_age()
+human.increase_age()*/

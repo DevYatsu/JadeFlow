@@ -113,8 +113,8 @@ impl SymbolTable {
                     });
                 }
                 _ => {
-                    return Err(ParsingError::Custom {
-                        data: format!("'{}' is not a valid object", parent_name[1]),
+                    return Err(ParsingError::InvalidDict {
+                        name: parent_name[1].to_owned(),
                     })
                 }
             }
