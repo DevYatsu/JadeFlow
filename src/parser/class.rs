@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt};
 
 use crate::{
-    parser::vars::parse_var_reassignment,
+    parser::{architecture::SymbolTableError, vars::parse_var_reassignment},
     print_warning,
     token::{Token, TokenType},
 };
@@ -211,9 +211,10 @@ fn parse_class_content(
                                 );
                             }
                             _ => {
-                                return Err(ParsingError::InvalidDict {
+                                return Err(SymbolTableError::InvalidDict {
                                     name: prop_name.to_owned(),
-                                })
+                                }
+                                .into())
                             }
                         }
                     } else {

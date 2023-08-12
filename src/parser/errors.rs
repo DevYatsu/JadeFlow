@@ -1,6 +1,9 @@
 use std::{io::Error, num::ParseIntError};
 
+use crate::evaluation::EvaluationError;
+
 use super::{
+    architecture::SymbolTableError,
     class::ClassError,
     expression::Expression,
     functions::errors::FunctionParsingError,
@@ -39,8 +42,10 @@ custom_error::custom_error! {pub ParsingError
     ParsingTypyError{source: TypeError} = "{source}",
     ParseInt{source: ParseIntError} = "{source}",
     FunctionParsingError{source: FunctionParsingError} = "{source}",
+    SymbolTableError{source: SymbolTableError} = "{source}",
     ClassError{source: ClassError} = "{source}",
     Custom{data: String} = "{data}",
+    EvaluationError{source: EvaluationError} = "{source}",
 
     Default = "Failed to parse tokens",
     SpecialStringOnlyAtFileStart = "Special strings ('') can only appear at the start of the file",
@@ -81,11 +86,9 @@ custom_error::custom_error! {pub ParsingError
     ExpectedValidVectorIndex{found: String} = "Expected valid vector index, found {found}",
     VariableAsVectorIndexInvalid{var_name: String} = "Expected valid vector index, found variable {var_name} which type is not 'num'",
     ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
-    CannotIndexNotVector{var_name: String, actual_value: Expression} = "Cannot index {var_name} as it is not a vector, value: {actual_value}",
 
     UnwantedColon = "Type annotation only allowed on variable initialization",
 
     CannotReassignNotDefinedDictProp{operator: String, prop: String} = "Cannot reassign with {operator} operator {prop} property",
 
-    InvalidDict{name: String} = "'{name}' is not a valid object"
 }

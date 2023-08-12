@@ -1,9 +1,7 @@
 use super::{
     architecture::SymbolTable,
     expression::{parse_expression, Expression},
-    ignore_whitespace,
-    vars::Declaration,
-    ParsingError,
+    ignore_whitespace, ParsingError,
 };
 use crate::{
     parser::types::VariableType,
@@ -46,7 +44,7 @@ pub fn check_and_insert_expression(
 ) -> Result<(), ParsingError> {
     match &expression {
         Expression::Variable(name) => {
-            symbol_table.get_variable(name, None)?; // error if var not defined
+            symbol_table.get_variable(name)?; // error if var not defined
         }
         _ => (),
     }
@@ -75,7 +73,7 @@ pub fn parse_array_indexing(
         value: name,
     }) = next
     {
-        let var = symbol_table.get_variable(&name, Some(tokens))?;
+        let var = symbol_table.get_variable(&name)?;
 
         if var.var_type != VariableType::Number {
             return Err(ParsingError::VariableAsVectorIndexInvalid {

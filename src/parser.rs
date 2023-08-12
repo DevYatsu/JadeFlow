@@ -2,8 +2,8 @@ pub mod architecture;
 mod class;
 mod dictionary;
 pub mod errors;
-mod expression;
-mod functions;
+pub mod expression;
+pub mod functions;
 mod returns;
 mod types;
 mod vars;
@@ -27,7 +27,6 @@ use self::{
     errors::ParsingError,
     functions::{function, function_call, parse_fn_call, parse_fn_declaration},
     returns::parse_return_statement,
-    types::TypeError,
     vars::{parse_var_declaration, parse_var_reassignment, reassignment, variable},
 };
 
@@ -69,7 +68,7 @@ pub fn parse(
                                 &token.value,
                             )?
                         } else {
-                            let var = symbol_table.get_variable(&token.value, None)?;
+                            let var = symbol_table.get_variable(&token.value)?;
                             if !var.is_mutable {
                                 return Err(ParsingError::CannotReassignConst {
                                     var_name: token.value.clone(),
@@ -84,7 +83,7 @@ pub fn parse(
                             )?
                         };
 
-                        symbol_table.reassign_variable(assignment.clone(), &mut tokens_iter)?;
+                        symbol_table.reassign_variable(assignment.clone())?;
                         statements.push(reassignment(assignment));
                     } else if let Some(Token {
                         token_type: TokenType::OpenParen,

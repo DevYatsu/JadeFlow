@@ -21,7 +21,7 @@ pub fn parse_dictionary_expression(
             TokenType::Comma | TokenType::CloseBrace => {
                 if temp_key.is_some() {
                     symbol_table
-                        .get_variable(&temp_key.clone().unwrap(), None)
+                        .get_variable(&temp_key.clone().unwrap())
                         .and_then(|dec| {
                             Ok(expressions.insert(
                                 dec.name.clone(),
@@ -43,7 +43,7 @@ pub fn parse_dictionary_expression(
                     let value = parse_expression(tokens, symbol_table)?;
                     match &value {
                         Expression::Variable(name) => {
-                            symbol_table.get_variable(name, None)?;
+                            symbol_table.get_variable(name)?;
                         }
                         _ => (),
                     }

@@ -452,7 +452,6 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     "vec" => TokenType::TypeVec,
                     "dict" => TokenType::TypeDict,
                     "and" | "or" => TokenType::LogicalOperator,
-                    "let" => return Err(SyntaxError::ExpectedMutNotLet),
                     "opt" => TokenType::OptionArgFunction,
                     "pub" => TokenType::ClassPublic,
                     "priv" => TokenType::ClassPrivate,

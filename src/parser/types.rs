@@ -3,7 +3,7 @@ use std::{fmt, num::ParseIntError};
 use crate::token::{Token, TokenType};
 
 use super::{
-    architecture::SymbolTable,
+    architecture::{SymbolTable, SymbolTableError},
     expression::{operation::BinaryOperator, Expression},
     functions::errors::FunctionParsingError,
     ParsingError,
@@ -17,13 +17,10 @@ custom_error! {pub TypeError
     CannotOperation{type1: VariableType, type2: VariableType, action: String} = "Cannot {action} '' with ''",
     CannotOperationTypeWithType{operator: String, expr: String, first_type: VariableType, second_type: VariableType} = "Failed to {operator} \"{first_type}\" with \"{second_type}\" at: {expr}",
 
-    CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
-    CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
     // FailedToDetermineObjPropType{obj_name: String, prop: String} = "Failed to determine type of '{prop}' property on \"{obj_name}\""
 
     ParseInt{source: ParseIntError} = "{source}",
-    IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}"
-    ,Custom{data:String} = "{data}"
+    Custom{data:String} = "{data}"
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,8 +68,7 @@ impl VariableType {
 pub fn type_from_expression(
     expr: &Expression,
     symbol_table: &mut SymbolTable,
-    tokens: Option<&mut std::iter::Peekable<std::slice::Iter<'_, Token>>>,
-) -> Result<VariableType, ParsingError> {
+) -> Result<VariableType, SymbolTableError> {
     match expr {
         Expression::Number(_) => Ok(VariableType::Number),
         Expression::String(_) => Ok(VariableType::String),
@@ -81,17 +77,16 @@ pub fn type_from_expression(
         Expression::Boolean(_) => Ok(VariableType::Boolean),
         Expression::Null => Err(TypeError::ExpressionNull.into()),
         Expression::DictionaryExpression(_) => Ok(VariableType::Dictionary),
-        Expression::Variable(var_name) => symbol_table
-            .get_variable(var_name, None)
-            .map(|var| var.var_type),
+        Expression::Variable(var_name) => {
+            symbol_table.get_variable(var_name).map(|var| var.var_type)
+        }
         Expression::BinaryOperation {
             left,
             operator,
             right,
         } => {
-            let mut t = tokens.cloned();
-            let left_type = type_from_expression(left, symbol_table, t.as_mut())?;
-            let right_type = type_from_expression(right, symbol_table, t.as_mut())?;
+            let left_type = type_from_expression(left, symbol_table)?;
+            let right_type = type_from_expression(right, symbol_table)?;
 
             match operator {
                 BinaryOperator::Plus => {
@@ -152,42 +147,39 @@ pub fn type_from_expression(
     }
 }
 
-pub fn parse_type(
-    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Result<VariableType, ParsingError> {
-    let next = tokens.next();
+pub fn parse_type(token: Option<&Token>) -> Result<VariableType, ParsingError> {
     // fn to use after encountering ':'
     if let Some(Token {
         token_type: TokenType::TypeBool,
         ..
-    }) = next
+    }) = token
     {
         Ok(VariableType::Boolean)
     } else if let Some(Token {
         token_type: TokenType::TypeDict,
         ..
-    }) = next
+    }) = token
     {
         Ok(VariableType::Dictionary)
     } else if let Some(Token {
         token_type: TokenType::TypeNumber,
         ..
-    }) = next
+    }) = token
     {
         Ok(VariableType::Number)
     } else if let Some(Token {
         token_type: TokenType::TypeString,
         ..
-    }) = next
+    }) = token
     {
         Ok(VariableType::String)
     } else if let Some(Token {
         token_type: TokenType::TypeVec,
         ..
-    }) = next
+    }) = token
     {
         Ok(VariableType::Vector)
-    } else if let Some(Token { value, .. }) = next {
+    } else if let Some(Token { value, .. }) = token {
         return Err(TypeError::ExpectedType {
             value: value.to_owned(),
         }

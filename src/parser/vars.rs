@@ -99,7 +99,7 @@ pub fn parse_var_declaration(
         ..
     }) = next
     {
-        let var_type = parse_type(tokens)?;
+        let var_type = parse_type(tokens.next())?;
         ignore_whitespace(tokens);
 
         if let Some(Token {
@@ -128,8 +128,7 @@ pub fn parse_var_declaration(
                 });
             }
 
-            let var_type_from_expression =
-                type_from_expression(&expression, symbol_table, Some(tokens))?;
+            let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
             if var_type != var_type_from_expression {
                 return Err(ParsingError::AssignedTypeNotFound {
                     assigned_t: var_type,
@@ -169,7 +168,7 @@ pub fn parse_var_declaration(
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
             _ => {
-                let var_type = type_from_expression(&expression, symbol_table, Some(tokens))?;
+                let var_type = type_from_expression(&expression, symbol_table)?;
 
                 return Ok(Declaration {
                     name,
@@ -231,7 +230,7 @@ pub fn parse_var_reassignment(
         );
 
         if let Some(initial_var) = initial_var {
-            let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
+            let t = type_from_expression(&expression, symbol_table)?;
 
             if initial_var.var_type != t {
                 return Err(ParsingError::CannotChangeAssignedType {

@@ -2,16 +2,15 @@ pub mod errors;
 use std::fmt;
 
 use crate::{
-    parser::{
-        expression::parse_expression, types::TypeError, vectors::check_and_insert_expression,
-    },
+    evaluation::EvaluationError,
+    parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{Token, TokenType},
 };
 
 use self::errors::FunctionParsingError;
 
 use super::{
-    architecture::{ASTNode, Program, Statement, SymbolTable},
+    architecture::{ASTNode, Program, Statement, SymbolTable, SymbolTableError},
     expression::Expression,
     ignore_whitespace, parse,
     types::{type_from_expression, VariableType},
@@ -31,11 +30,11 @@ impl Function {
         &mut self,
         args: &Vec<Expression>,
         symbol_table: &mut SymbolTable,
-    ) -> Result<Expression, ParsingError> {
+    ) -> Result<Expression, EvaluationError> {
         let types_vec = self.args_types();
 
         for (i, arg) in args.iter().enumerate() {
-            let actual_arg_type = type_from_expression(arg, symbol_table, None)?;
+            let actual_arg_type = type_from_expression(arg, symbol_table)?;
 
             if types_vec[i] != actual_arg_type {
                 return Err(FunctionParsingError::InvalidFnCallArgType {
@@ -65,7 +64,15 @@ impl Function {
 
         let tokens_iter = tokens.iter().peekable();
 
-        let mut program = match parse(tokens_iter.clone(), Some(symbol_table))? {
+        let fn_parsing = match parse(tokens_iter.clone(), Some(symbol_table)) {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(EvaluationError::Custom {
+                    message: e.to_string(),
+                })
+            }
+        };
+        let mut program = match fn_parsing {
             ASTNode::Program(p) => p,
             _ => unreachable!(),
         };
@@ -94,7 +101,7 @@ impl Function {
             node: ASTNode::Return(returned),
         }) = program.statements.last()
         {
-            type_from_expression(returned, &mut program.symbol_table, None).ok()
+            type_from_expression(returned, &mut program.symbol_table).ok()
         } else {
             None
         }
@@ -356,8 +363,8 @@ pub fn parse_fn_call(
     let call_args: Vec<Expression> = parse_call_args(tokens, function_name, symbol_table)?;
     let args_types = call_args
         .iter()
-        .map(|expr| type_from_expression(expr, symbol_table, Some(tokens)))
-        .collect::<Vec<Result<VariableType, ParsingError>>>();
+        .map(|expr| type_from_expression(expr, symbol_table))
+        .collect::<Vec<Result<VariableType, SymbolTableError>>>();
 
     let required_num = arguments.len();
     let found_num = call_args.len();

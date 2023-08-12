@@ -1,14 +1,11 @@
-use crate::token::Token;
-
 use super::{
     class::Class,
     expression::Expression,
     functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
-    types::type_from_expression,
+    types::{type_from_expression, TypeError},
     vars::{Declaration, Reassignment},
-    ParsingError, TypeError,
 };
-use std::{collections::HashMap, fmt, iter::Peekable};
+use std::{collections::HashMap, fmt, num::ParseIntError};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
@@ -55,6 +52,17 @@ pub struct SymbolTable {
     registered_functions: HashMap<String, MainFunctionData>,
     classes: HashMap<String, Class>,
 }
+
+custom_error::custom_error! {pub SymbolTableError
+    TypeError{source: TypeError} = "{source}",
+    ParseIntError{source: ParseIntError} = "{source}",
+    InvalidDict{name: String} = "'{name}' is not a valid object",
+    CannotIndexNotVector{var_name: String, actual_value: Expression} = "Cannot index {var_name} as it is not a vector, value: {actual_value}",
+    IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}",
+    CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
+    CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
+}
+
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
@@ -89,11 +97,10 @@ impl SymbolTable {
     pub fn reassign_variable(
         &mut self,
         reassignement: Reassignment,
-        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-    ) -> Result<(), ParsingError> {
+    ) -> Result<(), SymbolTableError> {
         if self.is_object_prop(&reassignement.name) {
             let parent_name = reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>();
-            let initial_var = self.get_variable(&parent_name[1], Some(tokens))?;
+            let initial_var = self.get_variable(&parent_name[1])?;
 
             match initial_var.value {
                 Expression::DictionaryExpression(mut hash) => {
@@ -103,7 +110,7 @@ impl SymbolTable {
                         value: Expression::DictionaryExpression(hash),
                         ..initial_var
                     });
-                    let var_type = type_from_expression(&reassignement.value, self, Some(tokens))?;
+                    let var_type = type_from_expression(&reassignement.value, self)?;
                     self.insert_variable(Declaration {
                         value: reassignement.value,
                         name: reassignement.name,
@@ -113,7 +120,7 @@ impl SymbolTable {
                     });
                 }
                 _ => {
-                    return Err(ParsingError::InvalidDict {
+                    return Err(SymbolTableError::InvalidDict {
                         name: parent_name[1].to_owned(),
                     })
                 }
@@ -128,7 +135,7 @@ impl SymbolTable {
             // };
             // self.variables.insert(reassignement.name, dec);
         } else {
-            let initial_var = self.get_variable(&reassignement.name, Some(tokens))?;
+            let initial_var = self.get_variable(&reassignement.name)?;
             if reassignement.value != initial_var.value {
                 self.variables.insert(
                     reassignement.name.clone(),
@@ -145,11 +152,7 @@ impl SymbolTable {
         Ok(())
     }
 
-    pub fn get_variable(
-        &mut self,
-        name: &str,
-        tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>,
-    ) -> Result<Declaration, ParsingError> {
+    pub fn get_variable(&mut self, name: &str) -> Result<Declaration, SymbolTableError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
@@ -161,7 +164,7 @@ impl SymbolTable {
                     .get(name)
                     .map(|declaration| declaration.clone())
                     .ok_or_else(|| {
-                        TypeError::CannotDetermineVarType {
+                        SymbolTableError::CannotDetermineVarType {
                             name: name.to_owned(),
                         }
                         .into()
@@ -172,17 +175,17 @@ impl SymbolTable {
                 .variables
                 .get(name_vec[0])
                 .map(|declaration| declaration.value.clone())
-                .ok_or_else(|| TypeError::CannotDetermineVarType {
+                .ok_or_else(|| SymbolTableError::CannotDetermineVarType {
                     name: name.to_owned(),
                 })?;
 
-            for (i, element) in name_vec.iter().skip(1).enumerate() {            
+            for (i, element) in name_vec.iter().skip(1).enumerate() {
                 println!("{:?}", var);
                 match var {
                     Expression::ArrayExpression(vec) => {
                         let index = element.parse::<usize>()?;
                         if index > vec.len() - 1 {
-                            return Err(TypeError::IndexOutOfRange {
+                            return Err(SymbolTableError::IndexOutOfRange {
                                 vec_name: name_vec[0].to_owned(),
                                 index,
                                 length: vec.len(),
@@ -193,8 +196,8 @@ impl SymbolTable {
                         var = vec[index].to_owned();
                     }
                     expr => {
-                        return Err(ParsingError::CannotIndexNotVector {
-                            var_name: name_vec[0..i+1]
+                        return Err(SymbolTableError::CannotIndexNotVector {
+                            var_name: name_vec[0..i + 1]
                                 .iter()
                                 .enumerate()
                                 .map(|(i, val)| {
@@ -206,7 +209,7 @@ impl SymbolTable {
                                 })
                                 .collect::<Vec<String>>()
                                 .join("["),
-                                actual_value: expr
+                            actual_value: expr,
                         })
                     }
                 }
@@ -214,7 +217,7 @@ impl SymbolTable {
 
             return Ok(Declaration {
                 name: name.to_owned(),
-                var_type: type_from_expression(&var, self, tokens)?,
+                var_type: type_from_expression(&var, self)?,
                 value: var,
                 is_mutable: true,
                 is_object_prop: false,
@@ -225,7 +228,7 @@ impl SymbolTable {
             .variables
             .get(name_vec[0])
             .map(|declaration| declaration.value.clone())
-            .ok_or_else(|| TypeError::CannotDetermineVarType {
+            .ok_or_else(|| SymbolTableError::CannotDetermineVarType {
                 name: name.to_owned(),
             })?
             .clone();
@@ -236,7 +239,7 @@ impl SymbolTable {
                     if let Some(e) = expr.get(*prop) {
                         match e {
                             Expression::Variable(name) => {
-                                var = self.get_variable(&name, None)?.value;
+                                var = self.get_variable(&name)?.value;
                                 continue;
                             }
                             _ => {
@@ -245,7 +248,7 @@ impl SymbolTable {
                             }
                         }
                     } else {
-                        return Err(TypeError::CannotDetermineObjPropTypeNotDefined {
+                        return Err(SymbolTableError::CannotDetermineObjPropTypeNotDefined {
                             obj_name: name_vec[0..=i].join("."),
                             prop: name_vec[0..=i + 1].join("."),
                         }
@@ -259,7 +262,7 @@ impl SymbolTable {
             }
         }
 
-        let var_type = type_from_expression(&var, self, tokens)?;
+        let var_type = type_from_expression(&var, self)?;
 
         Ok(Declaration {
             name: name.to_owned(),
@@ -287,14 +290,29 @@ impl SymbolTable {
         self.classes.get(name).is_some()
     }
 
-    pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, ParsingError> {
+    pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
         let func = self.registered_functions.get(name);
 
         if func.is_none() {
             return Err(FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_owned(),
-            }
-            .into());
+            });
+        }
+
+        Ok(func
+            .cloned()
+            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_owned(),
+            })?)
+    }
+
+    pub fn get_full_function(&mut self, name: &str) -> Result<Function, FunctionParsingError> {
+        let func = self.functions.get(name);
+
+        if func.is_none() {
+            return Err(FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_owned(),
+            });
         }
 
         Ok(func
