@@ -57,7 +57,7 @@ custom_error::custom_error! {pub SymbolTableError
     TypeError{source: TypeError} = "{source}",
     ParseIntError{source: ParseIntError} = "{source}",
     InvalidDict{name: String} = "'{name}' is not a valid object",
-    CannotIndexNotVector{var_name: String, actual_value: Expression} = "Cannot index {var_name} as it is not a vector, value: {actual_value}",
+    CannotIndexNotVector{var_name: String, actual_value: Expression} = "Cannot index '{var_name}' as it is not a vector, value: {actual_value}",
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}",
     CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
     CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",

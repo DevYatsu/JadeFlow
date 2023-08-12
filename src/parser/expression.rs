@@ -8,7 +8,6 @@ use super::{
     dictionary::parse_dictionary_expression,
     functions::{parse_fn_call, FunctionCall},
     ignore_whitespace,
-    types::VariableType,
     vectors::{parse_array_expression, parse_array_indexing},
     ParsingError,
 };
@@ -283,9 +282,6 @@ fn parse_primary_expression(
                 }
 
                 let var = symbol_table.get_variable(&token.value)?;
-                if var.var_type != VariableType::Vector {
-                    Ok(Expression::Variable(token.value.clone()))
-                } else {
                     if let Some(Token {
                         token_type: TokenType::OpenBracket,
                         ..
@@ -296,7 +292,6 @@ fn parse_primary_expression(
                     } else {
                         Ok(Expression::Variable(token.value.clone()))
                     }
-                }
             }
             TokenType::Number => {
                 let number = token

@@ -56,8 +56,10 @@ pub fn parse_array_indexing(
     var_name: &str,
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    let expr = evaluate_expression(parse_expression(tokens, symbol_table)?, symbol_table)?;
+    let expr = parse_expression(tokens, symbol_table)?;
     println!("expre: {expr}");
+    let expr = evaluate_expression(expr, symbol_table)?;
+    println!("expreee: {expr}");
 
     let index = match expr {
         Expression::Number(n) => n,
@@ -67,6 +69,7 @@ pub fn parse_array_indexing(
             });
         }
     };
+    ignore_whitespace(tokens);
 
     if let Some(token) = tokens.next() {
         if token.token_type == TokenType::CloseBracket {
