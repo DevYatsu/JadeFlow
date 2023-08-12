@@ -1,4 +1,4 @@
-class Human (name: str, age: num, gender: str) {
+class human (name: str, age: num, gender: str) {
     ctx.name = name
     ctx.age = age
     ctx.gender = gender

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use crate::{
     parser::vars::parse_var_reassignment,
-    token::{Token, TokenType},
+    token::{Token, TokenType}, print_warning,
 };
 
 use super::{
@@ -18,7 +18,7 @@ use super::{
 custom_error::custom_error! {pub ClassError
     FunctionError{source: FunctionParsingError} = "{source}",
     TypeError{source: TypeError} = "{source}",
-    ExpectedUppercaseInName{name: String} = "Expected a class name starting with an uppercase: {name}",
+    ExpectedUppercaseInName{name: String} = "Expected a name starting with an uppercase for '{name}' class",
     ExpectedNameAfterClass = "Expected a class name after 'class'",
     NameAlreadyTaken{name:String} = "The class '{name}' already exists",
     ExpectedParenAfterName{name: String} = "Expected an '(' after class name in class '{name}' declaration",
@@ -26,7 +26,7 @@ custom_error::custom_error! {pub ClassError
 
     NoVarInClassContext{var_name: String} = "Cannot instanciate variables in the class context: at '{var_name}'",
     CannotReassignExternalVar{var_name: String} = "Cannot reassign global variable in the class context: at '{var_name}'",
-    NoMethodInGlobalCtx{var_name: String} = "Cannot create methods in the class global context: at '{var_name}'",
+    NoMethodInGlobalCtx{var_name: String, class_name: String} = "Cannot create methods in the class global context: at '{var_name}' in '{class_name}' declaration",
 
     UnknownClassProp{prop: String} = "Use of an unknown class property '{prop}'"
 }
@@ -130,10 +130,8 @@ pub fn parse_class_header(
     {
         let name = value;
 
-        if name[0..0] != name[0..0].to_uppercase() {
-            return Err(ClassError::ExpectedUppercaseInName {
-                name: name.to_string(),
-            });
+        if !name.chars().next().unwrap().is_uppercase() {
+            print_warning!(ClassError::ExpectedUppercaseInName { name: name.to_owned() }.to_string());
         }
 
         if symbol_table.is_class_declared(name) {
@@ -170,7 +168,7 @@ fn parse_class_content(
     symbol_table: &mut SymbolTable,
     cls: &mut Class,
 ) -> Result<(), ParsingError> {
-    while let Some(token) = tokens.next() {
+    while let Some(token) = tokens.next() {println!("{:?}", token.value);
         match token.token_type {
             TokenType::ClassPublic => {
                 // parse public content
@@ -189,7 +187,7 @@ fn parse_class_content(
                     if identifier_parts.len() == 2 {
                         cls.global_properties
                             .insert(assignement.name, assignement.value.clone());
-
+                        println!("{:?}", cls.global_properties);
                         return Ok(());
                     }
 
@@ -255,6 +253,7 @@ fn parse_class_content(
                 }
                 return Err(ClassError::NoMethodInGlobalCtx {
                     var_name: err_content,
+                    class_name: cls.name.to_owned()
                 }
                 .into());
             }

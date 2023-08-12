@@ -6,6 +6,33 @@ use super::{
     functions::errors::FunctionParsingError,
     types::{TypeError, VariableType},
 };
+#[macro_export]
+macro_rules! print_error {
+    ( $msg:expr ) => {
+        println!("\x1b[31mError:\x1b[0m {}", $msg);
+    };
+    ( $( $arg:expr ),* ) => {
+        println!("\x1b[31mError:\x1b[0m {}", format!($( $arg ),*));
+    };
+}
+#[macro_export]
+macro_rules! print_warning {
+    ( $msg:expr ) => {
+        println!("\x1b[33mWarning:\x1b[0m {}", $msg);
+    };
+    ( $( $arg:expr ),* ) => {
+        println!("\x1b[33mWarning:\x1b[0m {}", format!($( $arg ),*));
+    };
+}
+#[macro_export]
+macro_rules! print_info {
+    ( $msg:expr ) => {
+        println!("\x1b[35mInfo:\x1b[0m {}", $msg);
+    };    
+    ( $( $arg:expr ),* ) => {
+        println!("\x1b[35mInfo:\x1b[0m {}", format!($( $arg ),*))
+    };
+}
 
 custom_error::custom_error! {pub ParsingError
     Io{source: Error} = "{source}",
