@@ -292,7 +292,7 @@ fn parse_primary_expression(
                     }) = next
                     {
                         tokens.next();
-                        Ok(parse_array_indexing(tokens, var)?)
+                        Ok(parse_array_indexing(tokens, &var.name, symbol_table)?)
                     } else {
                         Ok(Expression::Variable(token.value.clone()))
                     }

@@ -17,7 +17,8 @@ use crate::{
         class::{parse_class_header, ClassError},
         functions::parse_fn_header,
     },
-    token::{Token, TokenType}, print_info,
+    print_info,
+    token::{Token, TokenType},
 };
 
 use self::{
@@ -141,34 +142,43 @@ pub fn parse(
                 }
                 TokenType::Class => {
                     let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
-                    print_info!("cls implementation coming soon! {:?}", cls)
+                    print_info!("cls implementation coming soon!");
+                    todo!()
                 }
                 TokenType::If => {
                     print_info!("'if' implementation coming soon!");
+                    todo!()
                 }
                 TokenType::Else => {
                     print_info!("'if' implementation coming soon!");
+                    todo!()
                 }
                 TokenType::Match => {
                     print_info!("'match' implementation coming soon!");
+                    todo!()
                 }
                 TokenType::For => {
                     print_info!("'for' implementation coming soon!");
+                    todo!()
                 }
                 TokenType::IncrementOperator => {
                     print_info!("'++' operator implementation coming soon!");
+                    todo!()
                 }
                 TokenType::DecrementOperator => {
                     print_info!("'--' operator implementation coming soon!");
+                    todo!()
                 }
                 TokenType::While => {
                     print_info!("'while' operator implementation coming soon!");
+                    todo!()
                 }
                 TokenType::LogicalOperator => {
                     print_info!(
                         "'{}' logical operator implementation coming soon!",
                         token.value
                     );
+                    todo!()
                 }
                 _ => {
                     ignore_until_statement(&mut tokens_iter)?;
@@ -272,8 +282,8 @@ pub fn ignore_until_statement(
     tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
 ) -> Result<(), ParsingError> {
     ignore_tokens_until!(
-        TokenType::Var, TokenType::For, TokenType::Function, TokenType::If, 
-        TokenType::Return,TokenType::While, TokenType::Class, TokenType::Match 
+        TokenType::Var, TokenType::For, TokenType::Function, TokenType::If,
+        TokenType::Return,TokenType::While, TokenType::Class, TokenType::Match, TokenType::Identifier
         in tokens
     );
 }

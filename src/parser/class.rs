@@ -2,7 +2,8 @@ use std::{collections::HashMap, fmt};
 
 use crate::{
     parser::vars::parse_var_reassignment,
-    token::{Token, TokenType}, print_warning,
+    print_warning,
+    token::{Token, TokenType},
 };
 
 use super::{
@@ -90,11 +91,12 @@ pub fn parse_class_declaration(
     let mut cls = Class::new();
 
     parse_class_header(tokens, symbol_table, &mut cls)?;
+
     parse_class_content(tokens, symbol_table, &mut cls)?;
 
     println!("{:?}", cls);
 
-    todo!()
+    Ok(cls)
 }
 
 #[derive(Debug, Clone)]
@@ -131,7 +133,10 @@ pub fn parse_class_header(
         let name = value;
 
         if !name.chars().next().unwrap().is_uppercase() {
-            print_warning!(ClassError::ExpectedUppercaseInName { name: name.to_owned() }.to_string());
+            print_warning!(ClassError::ExpectedUppercaseInName {
+                name: name.to_owned()
+            }
+            .to_string());
         }
 
         if symbol_table.is_class_declared(name) {
@@ -168,7 +173,8 @@ fn parse_class_content(
     symbol_table: &mut SymbolTable,
     cls: &mut Class,
 ) -> Result<(), ParsingError> {
-    while let Some(token) = tokens.next() {println!("{:?}", token.value);
+    while let Some(token) = tokens.next() {
+        println!("{:?}", token.value);
         match token.token_type {
             TokenType::ClassPublic => {
                 // parse public content
@@ -253,7 +259,7 @@ fn parse_class_content(
                 }
                 return Err(ClassError::NoMethodInGlobalCtx {
                     var_name: err_content,
-                    class_name: cls.name.to_owned()
+                    class_name: cls.name.to_owned(),
                 }
                 .into());
             }

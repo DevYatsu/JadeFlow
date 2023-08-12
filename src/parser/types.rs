@@ -72,14 +72,14 @@ pub fn type_from_expression(
     expr: &Expression,
     symbol_table: &mut SymbolTable,
     tokens: Option<&mut std::iter::Peekable<std::slice::Iter<'_, Token>>>,
-) -> Result<VariableType, TypeError> {
+) -> Result<VariableType, ParsingError> {
     match expr {
         Expression::Number(_) => Ok(VariableType::Number),
         Expression::String(_) => Ok(VariableType::String),
         Expression::ArrayExpression(_) => Ok(VariableType::Vector),
         Expression::FormattedString(_) => Ok(VariableType::String),
         Expression::Boolean(_) => Ok(VariableType::Boolean),
-        Expression::Null => Err(TypeError::ExpressionNull),
+        Expression::Null => Err(TypeError::ExpressionNull.into()),
         Expression::DictionaryExpression(_) => Ok(VariableType::Dictionary),
         Expression::Variable(var_name) => symbol_table
             .get_variable(var_name, None)
@@ -112,7 +112,8 @@ pub fn type_from_expression(
                             expr: expr.to_string(),
                             first_type: left_type,
                             second_type: right_type,
-                        }), // Invalid binary operation, return None for other cases.
+                        }
+                        .into()), // Invalid binary operation, return None for other cases.
                     }
                 }
                 operator => {
@@ -123,7 +124,8 @@ pub fn type_from_expression(
                             expr: expr.to_string(),
                             first_type: left_type,
                             second_type: right_type,
-                        }),
+                        }
+                        .into()),
                         // return None for every other operation cause we can only use these operations on numbers
                     }
                 }
@@ -138,12 +140,13 @@ pub fn type_from_expression(
                     if r.is_some() {
                         Ok(r.unwrap())
                     } else {
-                        Err(TypeError::ExpressionNull)
+                        Err(TypeError::ExpressionNull.into())
                     }
                 }
                 Err(e) => Err(TypeError::Custom {
                     data: e.to_string(),
-                }),
+                }
+                .into()),
             }
         }
     }

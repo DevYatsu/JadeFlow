@@ -28,7 +28,7 @@ macro_rules! print_warning {
 macro_rules! print_info {
     ( $msg:expr ) => {
         println!("\x1b[35mInfo:\x1b[0m {}", $msg);
-    };    
+    };
     ( $( $arg:expr ),* ) => {
         println!("\x1b[35mInfo:\x1b[0m {}", format!($( $arg ),*))
     };
@@ -79,7 +79,9 @@ custom_error::custom_error! {pub ParsingError
     TypeInvalidExpressionElement{expr: Expression} = "Cannot use a type as an expression value: {expr}",
 
     ExpectedValidVectorIndex{found: String} = "Expected valid vector index, found {found}",
+    VariableAsVectorIndexInvalid{var_name: String} = "Expected valid vector index, found variable {var_name} which type is not 'num'",
     ExpectedBracketAfterVectorIndex{found: String} = "Expected ']' after vector index, found {found}",
+    CannotIndexNotVector{var_name: String, actual_value: Expression} = "Cannot index {var_name} as it is not a vector, value: {actual_value}",
 
     UnwantedColon = "Type annotation only allowed on variable initialization",
 

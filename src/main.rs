@@ -13,14 +13,14 @@ fn main() {
     let file_name = match run_file() {
         Ok(f) => f,
         Err(e) => {
-            println!("ERROR: {}", e.to_string());
+            print_error!(e.to_string());
             return;
         }
     };
     let content = match fs::read(file_name) {
         Ok(c) => c,
         Err(e) => {
-            println!("ERROR: {}", e.to_string());
+            print_error!(e.to_string());
             return;
         }
     };
@@ -32,7 +32,7 @@ fn main() {
     });
 
     if tokenization.data.is_err() {
-        println!("{}", tokenization.data.unwrap_err().to_string());
+        print_error!(tokenization.data.unwrap_err().to_string());
         return;
     }
 
@@ -41,7 +41,7 @@ fn main() {
 
         match &program {
             ASTNode::Program(p) => {
-                println!("symbol table: \n {}", p.symbol_table);
+                //println!("symbol table: \n {}", p.symbol_table);
                 println!("statements number: {}", p.statements.len());
             }
             _ => unreachable!(),
@@ -51,11 +51,11 @@ fn main() {
     });
 
     if parsing.data.is_err() {
-        println!("Error: {}", parsing.data.unwrap_err().to_string());
+        print_error!(parsing.data.unwrap_err().to_string());
         return;
     }
 
-    println!("total time: {}s", tokenization.duration + parsing.duration);
+    print_info!("total time: {}s", tokenization.duration + parsing.duration);
 }
 
 fn time_execution<F, R>(name: &str, code: F) -> TimerData<R>

@@ -149,7 +149,7 @@ impl SymbolTable {
         &mut self,
         name: &str,
         tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>,
-    ) -> Result<Declaration, TypeError> {
+    ) -> Result<Declaration, ParsingError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
@@ -160,12 +160,15 @@ impl SymbolTable {
                     .variables
                     .get(name)
                     .map(|declaration| declaration.clone())
-                    .ok_or_else(|| TypeError::CannotDetermineVarType {
-                        name: name.to_owned(),
+                    .ok_or_else(|| {
+                        TypeError::CannotDetermineVarType {
+                            name: name.to_owned(),
+                        }
+                        .into()
                     });
             }
 
-            let var = self
+            let mut var = self
                 .variables
                 .get(name_vec[0])
                 .map(|declaration| declaration.value.clone())
@@ -173,26 +176,49 @@ impl SymbolTable {
                     name: name.to_owned(),
                 })?;
 
-            match var {
-                Expression::ArrayExpression(vec) => {
-                    let index = name_vec[1].parse::<usize>()?;
-                    if index > vec.len() - 1 {
-                        return Err(TypeError::IndexOutOfRange {
-                            vec_name: name_vec[0].to_owned(),
-                            index,
-                            length: vec.len(),
-                        });
+            for (i, element) in name_vec.iter().skip(1).enumerate() {            
+                println!("{:?}", var);
+                match var {
+                    Expression::ArrayExpression(vec) => {
+                        let index = element.parse::<usize>()?;
+                        if index > vec.len() - 1 {
+                            return Err(TypeError::IndexOutOfRange {
+                                vec_name: name_vec[0].to_owned(),
+                                index,
+                                length: vec.len(),
+                            }
+                            .into());
+                        }
+
+                        var = vec[index].to_owned();
                     }
-                    return Ok(Declaration {
-                        name: name_vec[0].to_owned(),
-                        var_type: type_from_expression(&vec[index], self, tokens)?,
-                        value: vec[index].clone(),
-                        is_mutable: true,
-                        is_object_prop: false,
-                    });
+                    expr => {
+                        return Err(ParsingError::CannotIndexNotVector {
+                            var_name: name_vec[0..i+1]
+                                .iter()
+                                .enumerate()
+                                .map(|(i, val)| {
+                                    if i != 0 {
+                                        String::from(val.to_owned()) + "]"
+                                    } else {
+                                        val.to_owned().to_owned()
+                                    }
+                                })
+                                .collect::<Vec<String>>()
+                                .join("["),
+                                actual_value: expr
+                        })
+                    }
                 }
-                _ => unreachable!(),
             }
+
+            return Ok(Declaration {
+                name: name.to_owned(),
+                var_type: type_from_expression(&var, self, tokens)?,
+                value: var,
+                is_mutable: true,
+                is_object_prop: false,
+            });
         }
 
         let mut var = self
@@ -222,7 +248,8 @@ impl SymbolTable {
                         return Err(TypeError::CannotDetermineObjPropTypeNotDefined {
                             obj_name: name_vec[0..=i].join("."),
                             prop: name_vec[0..=i + 1].join("."),
-                        });
+                        }
+                        .into());
                     }
                 }
                 expr => {
@@ -235,7 +262,7 @@ impl SymbolTable {
         let var_type = type_from_expression(&var, self, tokens)?;
 
         Ok(Declaration {
-            name: name_vec.last().unwrap().to_string(),
+            name: name.to_owned(),
             var_type,
             value: var,
             is_mutable: true,

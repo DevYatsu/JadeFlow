@@ -357,7 +357,7 @@ pub fn parse_fn_call(
     let args_types = call_args
         .iter()
         .map(|expr| type_from_expression(expr, symbol_table, Some(tokens)))
-        .collect::<Vec<Result<VariableType, TypeError>>>();
+        .collect::<Vec<Result<VariableType, ParsingError>>>();
 
     let required_num = arguments.len();
     let found_num = call_args.len();
