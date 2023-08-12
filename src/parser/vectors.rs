@@ -4,8 +4,7 @@ use super::{
     ignore_whitespace, ParsingError,
 };
 use crate::{
-    parser::types::VariableType,
-    print_info,
+    evaluation::evaluate_expression,
     token::{Token, TokenType},
 };
 
@@ -57,51 +56,16 @@ pub fn parse_array_indexing(
     var_name: &str,
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    let next = tokens.next();
-    println!("next {:?}", next);
+    let expr = evaluate_expression(parse_expression(tokens, symbol_table)?, symbol_table)?;
+    println!("expre: {expr}");
 
-    let index = if let Some(Token {
-        token_type: TokenType::Number,
-        value,
-    }) = next
-    {
-        let index: i128 = value.parse()?;
-        let index_as_f64: f64 = index as f64;
-        index_as_f64
-    } else if let Some(Token {
-        token_type: TokenType::Identifier,
-        value: name,
-    }) = next
-    {
-        let var = symbol_table.get_variable(&name)?;
-
-        if var.var_type != VariableType::Number {
-            return Err(ParsingError::VariableAsVectorIndexInvalid {
-                var_name: var.name.to_owned(),
+    let index = match expr {
+        Expression::Number(n) => n,
+        _ => {
+            return Err(ParsingError::ExpectedValidVectorIndex {
+                found: expr.to_string(),
             });
         }
-
-        match &var.value {
-            Expression::Variable(_) => {
-                print_info!("Variables pointing to another variable as array index not yet supported! at {}", var.value);
-                todo!()
-            }
-            Expression::Number(n) => n.clone(),
-            Expression::BinaryOperation { .. } => {
-                print_info!(
-                    "Operations as array index not yet supported! at {}",
-                    var.value
-                );
-                todo!()
-            }
-            _ => unreachable!(),
-        }
-    } else if let Some(Token { value, .. }) = next {
-        return Err(ParsingError::ExpectedValidVectorIndex {
-            found: value.to_owned(),
-        });
-    } else {
-        return Err(ParsingError::UnexpectedEndOfInput);
     };
 
     if let Some(token) = tokens.next() {
