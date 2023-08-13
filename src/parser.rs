@@ -30,6 +30,8 @@ use self::{
     vars::{parse_var_declaration, parse_var_reassignment, reassignment, variable},
 };
 
+// need to support functions call evaluation when func is defined after its call
+
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
     optional_symbol_table: Option<&SymbolTable>,
