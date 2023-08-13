@@ -269,12 +269,11 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
             '/' => {
                 // for comments
                 let mut slash_lexeme = character.to_string();
-                position += 1;
 
-                if source_code.get(position) == Some(&(b'*' as u8))
+                if source_code.get(position + 1) == Some(&(b'*' as u8))
                 // if "/*" then block comment
                 {
-                    position += 1;
+                    position += 2;
                     slash_lexeme.push_str("*");
                     //jumping next chars and adding the / cause we know the next char is /
 
@@ -290,9 +289,9 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     }
 
                     tokens.push(token(slash_lexeme, TokenType::Separator));
-                } else if source_code.get(position) == Some(&(b'/' as u8)) {
+                } else if source_code.get(position + 1) == Some(&(b'/' as u8)) {
                     slash_lexeme.push_str("/");
-                    position += 1;
+                    position += 2;
 
                     while position < source_code.len() {
                         slash_lexeme.push(source_code[position] as char);
@@ -305,7 +304,8 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     // no need to push as there is nothing to analyse
                     tokens.push(token(slash_lexeme, TokenType::Separator));
                 } else {
-                    if source_code.get(position) == Some(&(b'=' as u8)) {
+                    if source_code.get(position + 1) == Some(&(b'=' as u8)) {
+                        position += 1;
                         slash_lexeme.push('=');
                         tokens.push(token(slash_lexeme, TokenType::AssignmentOperator));
                     } else {

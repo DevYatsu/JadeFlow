@@ -165,7 +165,7 @@ pub fn parse_expression(
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let expression = parse_expression_with_precedence(tokens, symbol_table)?;
-    Ok(expression)
+;    Ok(expression)
 }
 
 pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {

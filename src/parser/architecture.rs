@@ -156,7 +156,7 @@ impl SymbolTable {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
-            let name_vec: Vec<&str> = name.split('[').collect();
+            let name_vec: Vec<&str> = name.split('[').map(|s| s.trim_matches(']')).collect();
 
             if name_vec.len() == 1 {
                 return self
@@ -180,13 +180,23 @@ impl SymbolTable {
                 })?;
 
             for (i, element) in name_vec.iter().skip(1).enumerate() {
-                println!("{:?}", var);
                 match var {
                     Expression::ArrayExpression(vec) => {
                         let index = element.parse::<usize>()?;
                         if index > vec.len() - 1 {
                             return Err(SymbolTableError::IndexOutOfRange {
-                                vec_name: name_vec[0].to_owned(),
+                                vec_name: name_vec[0..i + 1]
+                                .iter()
+                                .enumerate()
+                                .map(|(i, val)| {
+                                    if i != 0 {
+                                        String::from(val.to_owned()) + "]"
+                                    } else {
+                                        val.to_owned().to_owned()
+                                    }
+                                })
+                                .collect::<Vec<String>>()
+                                .join("["),
                                 index,
                                 length: vec.len(),
                             }

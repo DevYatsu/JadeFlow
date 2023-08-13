@@ -57,9 +57,7 @@ pub fn parse_array_indexing(
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let expr = parse_expression(tokens, symbol_table)?;
-    println!("expre: {expr}");
     let expr = evaluate_expression(expr, symbol_table)?;
-    println!("expreee: {expr}");
 
     let index = match expr {
         Expression::Number(n) => n,
@@ -79,14 +77,14 @@ pub fn parse_array_indexing(
                         tokens.next();
                         return Ok(parse_array_indexing(
                             tokens,
-                            &format!("{}[{}", var_name, index),
+                            &format!("{}[{}]", var_name, index),
                             symbol_table,
                         )?);
                     }
                     _ => break,
                 }
             }
-            return Ok(Expression::Variable(format!("{}[{}", var_name, index)));
+            return Ok(Expression::Variable(format!("{}[{}]", var_name, index)));
         } else {
             return Err(ParsingError::ExpectedBracketAfterVectorIndex {
                 found: token.value.to_owned(),
