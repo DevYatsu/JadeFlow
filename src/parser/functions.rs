@@ -2,7 +2,7 @@ pub mod errors;
 use std::fmt;
 
 use crate::{
-    evaluation::EvaluationError,
+    evaluation::{evaluate_expression, EvaluationError},
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{Token, TokenType},
 };
@@ -60,7 +60,7 @@ impl Function {
 
         self.arguments = new_args;
 
-        let mut tokens = self.args_as_tokens();
+        let tokens = self.args_as_tokens();
 
         let tokens_iter = tokens.iter().peekable();
 
@@ -77,9 +77,25 @@ impl Function {
             _ => unreachable!(),
         };
 
-        // still need to do the rest
+        if self.return_type.is_none() {
+            return Ok(Expression::Null);
+        }
 
-        Ok(Expression::Null)
+        Ok(evaluate_expression(
+            self.get_returned_expr(),
+            &mut program.symbol_table,
+        )?)
+    }
+
+    fn get_returned_expr(&self) -> Expression {
+        for statement in self.context.iter() {
+            match &statement.node {
+                ASTNode::Return(val) => return val.to_owned(),
+                _ => (),
+            }
+        }
+
+        Expression::Null
     }
 
     fn args_as_tokens(&self) -> Vec<Token> {

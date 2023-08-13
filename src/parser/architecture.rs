@@ -73,17 +73,6 @@ impl SymbolTable {
         }
     }
 
-    pub fn merge(first_table: &SymbolTable, second_table: SymbolTable) -> SymbolTable {
-        let mut table = SymbolTable::new();
-
-        table.variables.extend(first_table.variables.clone());
-        table.functions.extend(first_table.functions.clone());
-        table.variables.extend(second_table.variables);
-        table.functions.extend(second_table.functions);
-
-        table
-    }
-
     pub fn insert_variable(&mut self, declaration: Declaration) {
         self.variables.insert(declaration.name.clone(), declaration);
     }
@@ -186,17 +175,17 @@ impl SymbolTable {
                         if index > vec.len() - 1 {
                             return Err(SymbolTableError::IndexOutOfRange {
                                 vec_name: name_vec[0..i + 1]
-                                .iter()
-                                .enumerate()
-                                .map(|(i, val)| {
-                                    if i != 0 {
-                                        String::from(val.to_owned()) + "]"
-                                    } else {
-                                        val.to_owned().to_owned()
-                                    }
-                                })
-                                .collect::<Vec<String>>()
-                                .join("["),
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, val)| {
+                                        if i != 0 {
+                                            String::from(val.to_owned()) + "]"
+                                        } else {
+                                            val.to_owned().to_owned()
+                                        }
+                                    })
+                                    .collect::<Vec<String>>()
+                                    .join("["),
                                 index,
                                 length: vec.len(),
                             }
@@ -359,11 +348,22 @@ impl fmt::Display for SymbolTable {
         write!(f, "-- Registered FUNCTIONS -- \n",)?;
 
         if self.registered_functions.len() == 0 {
+            {
+                write!(f, "None\n")?;
+            }
+        } else {
+            for var in &self.registered_functions {
+                write!(f, "- {}\n", var.1.to_string())?;
+            }
+        }
+        write!(f, "-- CLASSES -- \n",)?;
+
+        if self.classes.len() == 0 {
             Ok({
                 write!(f, "None\n")?;
             })
         } else {
-            Ok(for var in &self.registered_functions {
+            Ok(for var in &self.classes {
                 write!(f, "- {}\n", var.1.to_string())?;
             })
         }

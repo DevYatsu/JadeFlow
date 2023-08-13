@@ -27,9 +27,18 @@ pub fn evaluate_expression(
             let var = symbol_table.get_variable(&var_name)?;
             Ok(evaluate_expression(var.value, symbol_table)?)
         }
-        Expression::BinaryOperation { right, operator, left } => {
-            Ok(evaluate_binary_operation(Expression::BinaryOperation {right, operator, left }, symbol_table)?)
-        }
+        Expression::BinaryOperation {
+            right,
+            operator,
+            left,
+        } => Ok(evaluate_binary_operation(
+            Expression::BinaryOperation {
+                right,
+                operator,
+                left,
+            },
+            symbol_table,
+        )?),
         Expression::FormattedString(formatted) => {
             let mut final_str = String::new();
 
@@ -39,7 +48,7 @@ pub fn evaluate_expression(
                         final_str.push_str(&l);
                     }
                     FormattedSegment::Expression(expr) => {
-                        final_str.push_str(&evaluate_expression(expr, symbol_table)?.to_string());
+                        final_str.push_str(&evaluate_expression(expr, symbol_table)?.str_for_formatted());
                     }
                 }
             }

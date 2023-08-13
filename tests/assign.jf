@@ -27,7 +27,7 @@ const
 
 const test = "string for test" 
 const formatted = `hey dude #{test}` + "str"
-const calc3 = `3 = #{1 + 2}`
+const calc3 = `3 == #{1 + 2}`
 
 const a = {o: [2]}
 const arr = ["test", 1, 3, a, [2]]

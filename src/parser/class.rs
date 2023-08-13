@@ -51,6 +51,20 @@ impl Class {
         }
     }
 }
+impl fmt::Display for Class {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "class {}({})",
+            self.name,
+            self.arguments
+                .iter()
+                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                .collect::<Vec<String>>()
+                .join(", "),
+        )
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ClassCtx {

@@ -42,7 +42,7 @@ fn main() {
 
         match &program {
             ASTNode::Program(p) => {
-                //println!("symbol table: \n {}", p.symbol_table);
+                println!("symbol table: \n {}", p.symbol_table);
                 println!("statements number: {}", p.statements.len());
             }
             _ => unreachable!(),

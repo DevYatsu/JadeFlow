@@ -1,6 +1,7 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use crate::{
+    evaluation::evaluate_expression,
     parser::expression::parse_expression,
     token::{tokenize, Token, TokenType},
 };
@@ -42,12 +43,22 @@ impl fmt::Display for Declaration {
 impl Declaration {
     pub fn equivalent_tokens(&self) -> Vec<Token> {
         let keyword = self.get_var_keyword();
+        let value = match &self.value {
+            Expression::Null => match self.var_type {
+                VariableType::String => Expression::String("".to_owned()),
+                VariableType::Number => Expression::Number(0.0),
+                VariableType::Boolean => Expression::Boolean(false),
+                VariableType::Vector => Expression::ArrayExpression(Vec::new()),
+                VariableType::Dictionary => Expression::DictionaryExpression(HashMap::new()),
+            },
+            _ => self.value.to_owned(),
+        };
         let source_code = format!(
             "{} {}: {} = {};",
             keyword,
             self.name,
             self.var_type.as_assignment(),
-            self.value
+            value
         );
         tokenize(source_code.as_bytes()).unwrap().into()
     }
@@ -115,20 +126,24 @@ pub fn parse_var_declaration(
             }
             ignore_whitespace(tokens);
 
-            let expression = parse_expression(tokens, symbol_table)?;
-            println!("{var_keyword} {name}: {var_type} = {expression}");
+            let mut expression = parse_expression(tokens, symbol_table)?;
 
-            if let Expression::Null = &expression {
-                return Ok(Declaration {
-                    name,
-                    var_type,
-                    value: expression,
-                    is_mutable,
-                    is_object_prop: false,
-                });
+            match expression {
+                Expression::Null => {
+                    return Ok(Declaration {
+                        name,
+                        var_type,
+                        value: expression,
+                        is_mutable,
+                        is_object_prop: false,
+                    })
+                }
+                Expression::FunctionCall(_) => (),
+                _ => expression = evaluate_expression(expression, symbol_table)?,
             }
 
             let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
+
             if var_type != var_type_from_expression {
                 return Err(ParsingError::AssignedTypeNotFound {
                     assigned_t: var_type,
@@ -163,22 +178,23 @@ pub fn parse_var_declaration(
         }
         ignore_whitespace(tokens);
 
-        let expression = parse_expression(tokens, symbol_table)?;
+        let mut expression = parse_expression(tokens, symbol_table)?;
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
-            _ => {
-                let var_type = type_from_expression(&expression, symbol_table)?;
-
-                return Ok(Declaration {
-                    name,
-                    var_type,
-                    value: expression,
-                    is_mutable,
-                    is_object_prop: false,
-                });
-            }
+            Expression::FunctionCall(_) => (),
+            _ => expression = evaluate_expression(expression, symbol_table)?,
         }
+
+        let var_type = type_from_expression(&expression, symbol_table)?;
+
+        return Ok(Declaration {
+            name,
+            var_type,
+            value: expression,
+            is_mutable,
+            is_object_prop: false,
+        });
     } else {
         // If there's no colon or assignment operator, it's an error.
         return Err(ParsingError::MissingInitializer {

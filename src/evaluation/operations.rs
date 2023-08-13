@@ -52,6 +52,22 @@ pub fn evaluate_binary_operation(
                         arr.push(expr);
                         return Ok(Expression::ArrayExpression(arr));
                     }
+                    Expression::Variable(_) => {
+                        let left = Box::new(Expression::Number(x));
+                        let right = Box::new(evaluate_expression(*right, symbol_table)?);
+
+                        return Ok(evaluate_binary_operation(
+                            Expression::BinaryOperation {
+                                left,
+                                operator,
+                                right,
+                            },
+                            symbol_table,
+                        )?);
+                    }
+                    Expression::FunctionCall(_) => {
+                        todo!()
+                    }
                     _ => unreachable!(),
                 },
                 Expression::String(mut s) => {

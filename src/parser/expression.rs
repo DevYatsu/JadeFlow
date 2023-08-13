@@ -30,6 +30,14 @@ pub enum Expression {
     FormattedString(Vec<FormattedSegment>),
     FunctionCall(FunctionCall),
 }
+impl Expression {
+    pub fn str_for_formatted(&self) -> String {
+        match &self {
+            Expression::String(val) => val.to_string(),
+            _ => self.to_string()
+        }
+    }
+}
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -63,7 +71,7 @@ impl fmt::Display for Expression {
                 operator,
                 right,
             } => {
-                write!(f, "({} {} {})", left, operator, right)
+                write!(f, "{} {} {}", left, operator, right)
             }
             Expression::FormattedString(segments) => {
                 write!(f, "\"")?;
@@ -76,12 +84,14 @@ impl fmt::Display for Expression {
                 write!(f, "\"")
             }
             Expression::FunctionCall(call) => {
-                write!(f, "fn ")?;
-                write!(f, "{} ", call.function_name)?;
+                write!(f, "{}", call.function_name)?;
                 write!(f, "(")?;
-
-                for argument in &call.arguments {
-                    write!(f, "{}, ", argument)?;
+                for (i, argument) in call.arguments.iter().enumerate() {
+                    if i == call.arguments.len() - 1 {
+                        write!(f, "{}", argument)?;
+                    }else {
+                        write!(f, "{}, ", argument)?;
+                    }
                 }
                 write!(f, ")")
             }
@@ -165,7 +175,7 @@ pub fn parse_expression(
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     let expression = parse_expression_with_precedence(tokens, symbol_table)?;
-;    Ok(expression)
+    Ok(expression)
 }
 
 pub fn parse_with_operator(operator: &str, expr: Expression, initial_var_name: &str) -> Expression {
@@ -282,16 +292,16 @@ fn parse_primary_expression(
                 }
 
                 let var = symbol_table.get_variable(&token.value)?;
-                    if let Some(Token {
-                        token_type: TokenType::OpenBracket,
-                        ..
-                    }) = next
-                    {
-                        tokens.next();
-                        Ok(parse_array_indexing(tokens, &var.name, symbol_table)?)
-                    } else {
-                        Ok(Expression::Variable(token.value.clone()))
-                    }
+                if let Some(Token {
+                    token_type: TokenType::OpenBracket,
+                    ..
+                }) = next
+                {
+                    tokens.next();
+                    Ok(parse_array_indexing(tokens, &var.name, symbol_table)?)
+                } else {
+                    Ok(Expression::Variable(token.value.clone()))
+                }
             }
             TokenType::Number => {
                 let number = token
