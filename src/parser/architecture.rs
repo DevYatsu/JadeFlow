@@ -65,7 +65,7 @@ custom_error::custom_error! {pub SymbolTableError
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}",
     CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
     CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
-    InvalidTypeIndex{found_type: VariableType, full_expr: Expression} = "Index must be of type 'num' while found type is '{found_type}' at '{full_expr}'"
+    InvalidTypeIndex{found_type: VariableType, full_expr: Expression} = "Index must be of type 'Number' while found type is '{found_type}' at '{full_expr}'"
 }
 
 impl SymbolTable {
