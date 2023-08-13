@@ -1,5 +1,8 @@
 pub mod operation;
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap,
+    fmt::{self},
+};
 
 use self::operation::BinaryOperator;
 
@@ -16,6 +19,7 @@ use crate::token::{tokenize, Token, TokenType};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Variable(String),
+    ArrayIndexing(Vec<Expression>),
     Number(f64),
     String(String),
     Boolean(bool),
@@ -34,7 +38,7 @@ impl Expression {
     pub fn str_for_formatted(&self) -> String {
         match &self {
             Expression::String(val) => val.to_string(),
-            _ => self.to_string()
+            _ => self.to_string(),
         }
     }
 }
@@ -89,11 +93,23 @@ impl fmt::Display for Expression {
                 for (i, argument) in call.arguments.iter().enumerate() {
                     if i == call.arguments.len() - 1 {
                         write!(f, "{}", argument)?;
-                    }else {
+                    } else {
                         write!(f, "{}, ", argument)?;
                     }
                 }
                 write!(f, ")")
+            }
+            Expression::ArrayIndexing(expressions) => {
+                let var_name = &expressions[0];
+                let mut indexes = String::new();
+
+                for element in &expressions[1..] {
+                    indexes.push('[');
+                    indexes.push_str(&element.to_string());
+                    indexes.push(']');
+                }
+
+                write!(f, "{}{}", var_name, indexes)
             }
         }
     }
@@ -207,7 +223,7 @@ fn parse_expression_with_precedence(
     let mut operand_stack: Vec<Expression> = Vec::new();
     let mut operator_stack: Vec<BinaryOperator> = Vec::new();
 
-    let mut expression = parse_primary_expression(tokens, symbol_table)?;
+    let mut expression: Expression = parse_primary_expression(tokens, symbol_table)?;
     operand_stack.push(expression.clone());
 
     while let Some(token) = tokens.peek() {
@@ -298,7 +314,11 @@ fn parse_primary_expression(
                 }) = next
                 {
                     tokens.next();
-                    Ok(parse_array_indexing(tokens, &var.name, symbol_table)?)
+                    Ok(parse_array_indexing(
+                        tokens,
+                        vec![Expression::Variable(var.name)],
+                        symbol_table,
+                    )?)
                 } else {
                     Ok(Expression::Variable(token.value.clone()))
                 }

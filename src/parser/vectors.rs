@@ -3,10 +3,7 @@ use super::{
     expression::{parse_expression, Expression},
     ignore_whitespace, ParsingError,
 };
-use crate::{
-    evaluation::evaluate_expression,
-    token::{Token, TokenType},
-};
+use crate::token::{Token, TokenType};
 
 pub fn parse_array_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
@@ -19,7 +16,21 @@ pub fn parse_array_expression(
         match token.token_type {
             TokenType::CloseBracket => {
                 tokens.next();
-                break;
+
+                if let Some(Token {
+                    token_type: TokenType::OpenBracket,
+                    ..
+                }) = tokens.peek()
+                {
+                    tokens.next();
+                    return Ok(parse_array_indexing(
+                        tokens,
+                        vec![Expression::ArrayExpression(vec_expressions)],
+                        symbol_table,
+                    )?);
+                } else {
+                    break;
+                }
             }
             TokenType::Comma | TokenType::Separator => {
                 tokens.next();
@@ -53,20 +64,11 @@ pub fn check_and_insert_expression(
 
 pub fn parse_array_indexing(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-    var_name: &str,
+    indexed_expr: Vec<Expression>,
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
-    let expr = parse_expression(tokens, symbol_table)?;
-    let expr = evaluate_expression(expr, symbol_table)?;
-
-    let index = match expr {
-        Expression::Number(n) => n,
-        _ => {
-            return Err(ParsingError::ExpectedValidVectorIndex {
-                found: expr.to_string(),
-            });
-        }
-    };
+    let mut expressions_vec = Vec::from(indexed_expr);
+    expressions_vec.push(parse_expression(tokens, symbol_table)?);
     ignore_whitespace(tokens);
 
     if let Some(token) = tokens.next() {
@@ -75,16 +77,13 @@ pub fn parse_array_indexing(
                 match t.token_type {
                     TokenType::OpenBracket => {
                         tokens.next();
-                        return Ok(parse_array_indexing(
-                            tokens,
-                            &format!("{}[{}]", var_name, index),
-                            symbol_table,
-                        )?);
+                        return Ok(parse_array_indexing(tokens, expressions_vec, symbol_table)?);
                     }
                     _ => break,
                 }
             }
-            return Ok(Expression::Variable(format!("{}[{}]", var_name, index)));
+            println!("parse {:?}", expressions_vec);
+            return Ok(Expression::ArrayIndexing(expressions_vec));
         } else {
             return Err(ParsingError::ExpectedBracketAfterVectorIndex {
                 found: token.value.to_owned(),

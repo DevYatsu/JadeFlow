@@ -24,6 +24,7 @@ pub struct Function {
     pub arguments: Vec<Declaration>,
     pub context: Vec<Statement>,
     pub return_type: Option<VariableType>,
+    pub table: SymbolTable,
 }
 impl Function {
     pub fn with_args(
@@ -34,7 +35,14 @@ impl Function {
         let types_vec = self.args_types();
 
         for (i, arg) in args.iter().enumerate() {
-            let actual_arg_type = type_from_expression(arg, symbol_table)?;
+            let actual_arg_type = match type_from_expression(arg, symbol_table) {
+                Ok(r) => r,
+                Err(e) => {
+                    return Err(EvaluationError::Custom {
+                        message: e.to_string(),
+                    })
+                }
+            };
 
             if types_vec[i] != actual_arg_type {
                 return Err(FunctionParsingError::InvalidFnCallArgType {
@@ -273,6 +281,7 @@ pub fn parse_fn_declaration(
         arguments: fn_data.arguments,
         context: function_context,
         return_type: fn_data.return_type,
+        table: symbol_table.clone(),
     };
 
     return Ok(f);

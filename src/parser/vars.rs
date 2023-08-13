@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt};
 
 use crate::{
-    evaluation::evaluate_expression,
     parser::expression::parse_expression,
     token::{tokenize, Token, TokenType},
 };
@@ -126,7 +125,7 @@ pub fn parse_var_declaration(
             }
             ignore_whitespace(tokens);
 
-            let mut expression = parse_expression(tokens, symbol_table)?;
+            let expression = parse_expression(tokens, symbol_table)?;
 
             match expression {
                 Expression::Null => {
@@ -138,8 +137,7 @@ pub fn parse_var_declaration(
                         is_object_prop: false,
                     })
                 }
-                Expression::FunctionCall(_) => (),
-                _ => expression = evaluate_expression(expression, symbol_table)?,
+                _ => (),
             }
 
             let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
@@ -178,12 +176,11 @@ pub fn parse_var_declaration(
         }
         ignore_whitespace(tokens);
 
-        let mut expression = parse_expression(tokens, symbol_table)?;
+        let expression = parse_expression(tokens, symbol_table)?;
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
-            Expression::FunctionCall(_) => (),
-            _ => expression = evaluate_expression(expression, symbol_table)?,
+            _ => (),
         }
 
         let var_type = type_from_expression(&expression, symbol_table)?;

@@ -1,9 +1,9 @@
 pub mod architecture;
+mod class;
+mod dictionary;
 pub mod errors;
 pub mod expression;
 pub mod functions;
-mod class;
-mod dictionary;
 mod returns;
 mod types;
 mod vars;

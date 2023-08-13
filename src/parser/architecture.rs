@@ -1,8 +1,10 @@
+use crate::evaluation::EvaluationError;
+
 use super::{
     class::Class,
     expression::Expression,
     functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
-    types::{type_from_expression, TypeError},
+    types::{type_from_expression, TypeError, VariableType},
     vars::{Declaration, Reassignment},
 };
 use std::{collections::HashMap, fmt, num::ParseIntError};
@@ -56,11 +58,14 @@ pub struct SymbolTable {
 custom_error::custom_error! {pub SymbolTableError
     TypeError{source: TypeError} = "{source}",
     ParseIntError{source: ParseIntError} = "{source}",
+    EvaluationError{source: EvaluationError} = "{source}",
+
     InvalidDict{name: String} = "'{name}' is not a valid object",
-    CannotIndexNotVector{var_name: String, actual_value: Expression} = "Cannot index '{var_name}' as it is not a vector, value: {actual_value}",
+    CannotIndexNotVector{indexed_expr: Expression, actual_type: VariableType} = "Cannot index '{indexed_expr}' as it is not a vector, it's of type '{actual_type}'",
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}",
     CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
     CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
+    InvalidTypeIndex{found_type: VariableType, full_expr: Expression} = "Index must be of type 'num' while found type is '{found_type}' at '{full_expr}'"
 }
 
 impl SymbolTable {
@@ -160,67 +165,67 @@ impl SymbolTable {
                     });
             }
 
-            let mut var = self
-                .variables
-                .get(name_vec[0])
-                .map(|declaration| declaration.value.clone())
-                .ok_or_else(|| SymbolTableError::CannotDetermineVarType {
-                    name: name.to_owned(),
-                })?;
+            // let mut var = self
+            //     .variables
+            //     .get(name_vec[0])
+            //     .map(|declaration| declaration.value.clone())
+            //     .ok_or_else(|| SymbolTableError::CannotDetermineVarType {
+            //         name: name.to_owned(),
+            //     })?;
 
-            for (i, element) in name_vec.iter().skip(1).enumerate() {
-                match var {
-                    Expression::ArrayExpression(vec) => {
-                        let index = element.parse::<usize>()?;
-                        if index > vec.len() - 1 {
-                            return Err(SymbolTableError::IndexOutOfRange {
-                                vec_name: name_vec[0..i + 1]
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(i, val)| {
-                                        if i != 0 {
-                                            String::from(val.to_owned()) + "]"
-                                        } else {
-                                            val.to_owned().to_owned()
-                                        }
-                                    })
-                                    .collect::<Vec<String>>()
-                                    .join("["),
-                                index,
-                                length: vec.len(),
-                            }
-                            .into());
-                        }
+            // for (i, element) in name_vec.iter().skip(1).enumerate() {
+            //     match var {
+            //         Expression::ArrayExpression(vec) => {
+            //             let index = element.parse::<usize>()?;
+            //             if index > vec.len() - 1 {
+            //                 return Err(SymbolTableError::IndexOutOfRange {
+            //                     vec_name: name_vec[0..i + 1]
+            //                         .iter()
+            //                         .enumerate()
+            //                         .map(|(i, val)| {
+            //                             if i != 0 {
+            //                                 String::from(val.to_owned()) + "]"
+            //                             } else {
+            //                                 val.to_owned().to_owned()
+            //                             }
+            //                         })
+            //                         .collect::<Vec<String>>()
+            //                         .join("["),
+            //                     index,
+            //                     length: vec.len(),
+            //                 }
+            //                 .into());
+            //             }
 
-                        var = vec[index].to_owned();
-                    }
-                    expr => {
-                        return Err(SymbolTableError::CannotIndexNotVector {
-                            var_name: name_vec[0..i + 1]
-                                .iter()
-                                .enumerate()
-                                .map(|(i, val)| {
-                                    if i != 0 {
-                                        String::from(val.to_owned()) + "]"
-                                    } else {
-                                        val.to_owned().to_owned()
-                                    }
-                                })
-                                .collect::<Vec<String>>()
-                                .join("["),
-                            actual_value: expr,
-                        })
-                    }
-                }
-            }
+            //             var = vec[index].to_owned();
+            //         }
+            //         expr => {
+            //             return Err(SymbolTableError::CannotIndexNotVector {
+            //                 var_name: name_vec[0..i + 1]
+            //                     .iter()
+            //                     .enumerate()
+            //                     .map(|(i, val)| {
+            //                         if i != 0 {
+            //                             String::from(val.to_owned()) + "]"
+            //                         } else {
+            //                             val.to_owned().to_owned()
+            //                         }
+            //                     })
+            //                     .collect::<Vec<String>>()
+            //                     .join("["),
+            //                 actual_value: expr,
+            //             })
+            //         }
+            //     }
+            // }
 
-            return Ok(Declaration {
-                name: name.to_owned(),
-                var_type: type_from_expression(&var, self)?,
-                value: var,
-                is_mutable: true,
-                is_object_prop: false,
-            });
+            // return Ok(Declaration {
+            //     name: name.to_owned(),
+            //     var_type: type_from_expression(&var, self)?,
+            //     value: var,
+            //     is_mutable: true,
+            //     is_object_prop: false,
+            // });
         }
 
         let mut var = self

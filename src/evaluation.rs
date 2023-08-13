@@ -1,5 +1,5 @@
 use crate::parser::{
-    architecture::{SymbolTable, SymbolTableError},
+    architecture::{Program, SymbolTable},
     expression::{Expression, FormattedSegment},
     functions::{errors::FunctionParsingError, Function},
 };
@@ -11,7 +11,6 @@ pub mod operations;
 // evaluate expressions
 
 custom_error::custom_error! {pub EvaluationError
-    SymbolTable{source: SymbolTableError} = "{source}",
     FunctionEr{source: FunctionParsingError} = "{source}",
     InvalidExpression{expression: Expression} = "Invalid expression `{expression}`",
 
@@ -24,7 +23,14 @@ pub fn evaluate_expression(
 ) -> Result<Expression, EvaluationError> {
     match expr {
         Expression::Variable(var_name) => {
-            let var = symbol_table.get_variable(&var_name)?;
+            let var = match symbol_table.get_variable(&var_name) {
+                Ok(result) => result,
+                Err(e) => {
+                    return Err(EvaluationError::Custom {
+                        message: e.to_string(),
+                    })
+                }
+            };
             Ok(evaluate_expression(var.value, symbol_table)?)
         }
         Expression::BinaryOperation {
@@ -48,7 +54,9 @@ pub fn evaluate_expression(
                         final_str.push_str(&l);
                     }
                     FormattedSegment::Expression(expr) => {
-                        final_str.push_str(&evaluate_expression(expr, symbol_table)?.str_for_formatted());
+                        final_str.push_str(
+                            &evaluate_expression(expr, symbol_table)?.str_for_formatted(),
+                        );
                     }
                 }
             }
@@ -64,4 +72,16 @@ pub fn evaluate_expression(
         }
         _ => Ok(expr),
     }
+}
+
+pub fn evalute_programm(program: Program) {
+    let statements = program.statements;
+
+    let functions = statements
+        .iter()
+        .filter_map(|s| match &s.node {
+            crate::parser::architecture::ASTNode::FunctionDeclaration(dec) => Some(dec),
+            _ => None,
+        })
+        .collect::<Vec<&Function>>();
 }
