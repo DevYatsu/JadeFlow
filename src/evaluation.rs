@@ -27,8 +27,8 @@ pub fn evaluate_expression(
             let var = symbol_table.get_variable(&var_name)?;
             Ok(evaluate_expression(var.value, symbol_table)?)
         }
-        Expression::BinaryOperation { .. } => {
-            Ok(evaluate_binary_operation(expr.clone(), symbol_table)?)
+        Expression::BinaryOperation { right, operator, left } => {
+            Ok(evaluate_binary_operation(Expression::BinaryOperation {right, operator, left }, symbol_table)?)
         }
         Expression::FormattedString(formatted) => {
             let mut final_str = String::new();
@@ -53,6 +53,6 @@ pub fn evaluate_expression(
 
             Ok(e)
         }
-        _ => Ok(expr.clone()),
+        _ => Ok(expr),
     }
 }

@@ -25,10 +25,10 @@ pub fn evaluate_binary_operation(
                 right = Box::new(evaluate_expression(*right, symbol_table)?);
             }
 
-            let expr = *left.clone();
+            let expr = *left;
             match expr {
                 Expression::Variable(_) => {
-                    let left = Box::new(evaluate_expression(*left, symbol_table)?);
+                    let left = Box::new(evaluate_expression(expr, symbol_table)?);
                     let right = Box::new(evaluate_expression(*right, symbol_table)?);
                     return Ok(evaluate_binary_operation(
                         Expression::BinaryOperation {
@@ -49,7 +49,7 @@ pub fn evaluate_binary_operation(
                         BinaryOperator::Exponential => return Ok(Expression::Number(x.powf(y))),
                     },
                     Expression::ArrayExpression(mut arr) => {
-                        arr.push(*left);
+                        arr.push(expr);
                         return Ok(Expression::ArrayExpression(arr));
                     }
                     _ => unreachable!(),
