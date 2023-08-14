@@ -4,5 +4,5 @@ const y = 1
 const x = 7
 const xxx = []
 
-const test_a = a[y + 3][1][1]
+const test_a = a[y + 3][1][0]
 const test_2 = a[y - 1]
