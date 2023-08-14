@@ -18,7 +18,7 @@ custom_error! {pub FunctionParsingError
     ExpectedBrace{fn_name: String} = "Expected the function body after the function arguments in the '{fn_name}' function",
 
     NameAlreadyTaken{name: String} = "The function name '{name}' is already in use",
-NameAlreadyTakenByStd{name: String} = "The function name '{name}' is already in use by a standard library function", 
+NameAlreadyTakenByStd{name: String} = "The function name '{name}' is already in use by a standard library function",
     ExpectingExpressionAfterArrow{fn_name: String} = "Expecting expression after '=>' in \"{fn_name}\" declaration",
 
     MissingReturnType{fn_name: String} = "Missing a return type in \"{fn_name}\" function declaration",

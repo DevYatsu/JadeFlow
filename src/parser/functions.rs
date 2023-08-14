@@ -13,7 +13,7 @@ use super::{
     architecture::{ASTNode, Program, Statement, SymbolTable, SymbolTableError},
     expression::Expression,
     ignore_whitespace, parse,
-    types::{type_from_expression, VariableType},
+    types::{err_on_fn_call_args_invalid, type_from_expression, VariableType},
     vars::Declaration,
     ParsingError,
 };
@@ -51,28 +51,7 @@ impl Function {
         args: &Vec<Expression>,
         symbol_table: &mut SymbolTable,
     ) -> Result<Expression, EvaluationError> {
-        let types_vec = self.args_types();
-
-        for (i, arg) in args.iter().enumerate() {
-            let actual_arg_type = match type_from_expression(arg, symbol_table) {
-                Ok(r) => r,
-                Err(e) => {
-                    return Err(EvaluationError::Custom {
-                        message: e.to_string(),
-                    })
-                }
-            };
-
-            if types_vec[i] != actual_arg_type {
-                return Err(FunctionParsingError::InvalidFnCallArgType {
-                    fn_name: self.name.to_owned(),
-                    arg_name: self.arguments[i].name.to_owned(),
-                    required_t: types_vec[i].clone(),
-                    found_t: actual_arg_type,
-                }
-                .into());
-            }
-        }
+        err_on_fn_call_args_invalid(&self.name, &self.arguments, args, symbol_table)?;
 
         let new_args = self
             .arguments
@@ -129,13 +108,6 @@ impl Function {
         self.arguments
             .iter()
             .flat_map(|dec| dec.equivalent_tokens())
-            .collect()
-    }
-
-    fn args_types(&self) -> Vec<VariableType> {
-        self.arguments
-            .iter()
-            .map(|dec| dec.var_type.clone())
             .collect()
     }
 
@@ -323,7 +295,7 @@ pub fn parse_fn_header(
                 name: name.to_owned(),
             }
             .into());
-        }else if symbol_table.is_fn_std(name) {
+        } else if symbol_table.is_fn_std(name) {
             return Err(FunctionParsingError::NameAlreadyTakenByStd {
                 name: name.to_owned(),
             }
@@ -418,7 +390,7 @@ pub fn parse_fn_call(
     let required_num = arguments.len();
     let found_num = call_args.len();
 
-    if required_num != required_num {
+    if required_num != found_num {
         return Err(FunctionParsingError::InvalidFnCallArgNumber {
             fn_name: function_name.to_string(),
             required_num,

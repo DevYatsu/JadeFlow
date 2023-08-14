@@ -1,7 +1,7 @@
 use std::{fmt, num::ParseIntError};
 
 use crate::{
-    evaluation::evaluate_expression,
+    evaluation::{evaluate_expression, EvaluationError},
     token::{Token, TokenType},
 };
 
@@ -9,6 +9,7 @@ use super::{
     architecture::{SymbolTable, SymbolTableError},
     expression::{operation::BinaryOperator, Expression},
     functions::errors::FunctionParsingError,
+    vars::Declaration,
     ParsingError,
 };
 use custom_error::custom_error;
@@ -298,4 +299,39 @@ pub fn parse_type(token: Option<&Token>) -> Result<VariableType, ParsingError> {
     } else {
         return Err(ParsingError::UnexpectedEndOfInput);
     }
+}
+
+pub fn err_on_fn_call_args_invalid(
+    fn_name: &str,
+    fn_arguments: &Vec<Declaration>,
+    call_args: &Vec<Expression>,
+    symbol_table: &mut SymbolTable,
+) -> Result<(), EvaluationError> {
+    let fn_types_vec = fn_arguments
+        .iter()
+        .map(|dec| dec.var_type.clone())
+        .collect::<Vec<VariableType>>();
+
+    for (i, arg) in call_args.iter().enumerate() {
+        let actual_arg_type = match type_from_expression(arg, symbol_table) {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(EvaluationError::Custom {
+                    message: e.to_string(),
+                })
+            }
+        };
+
+        if fn_types_vec[i] != actual_arg_type {
+            return Err(FunctionParsingError::InvalidFnCallArgType {
+                fn_name: fn_name.to_owned(),
+                arg_name: fn_arguments[i].name.to_owned(),
+                required_t: fn_types_vec[i].clone(),
+                found_t: actual_arg_type,
+            }
+            .into());
+        }
+    }
+
+    Ok(())
 }
