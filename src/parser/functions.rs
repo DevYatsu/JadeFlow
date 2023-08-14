@@ -27,6 +27,25 @@ pub struct Function {
     pub table: SymbolTable,
 }
 impl Function {
+    pub fn new(
+        name: &str,
+        arguments: Vec<Declaration>,
+        context: Vec<Statement>,
+        return_type: Option<VariableType>,
+        table: SymbolTable,
+    ) -> Function {
+        Function {
+            name: name.to_string(),
+            arguments,
+            context,
+            return_type,
+            table,
+        }
+    }
+    pub fn argument(name: &str, var_type: VariableType) -> Declaration {
+        Declaration::new(name, var_type, Expression::Null, true, false)
+    }
+
     pub fn with_args(
         &mut self,
         args: &Vec<Expression>,
@@ -72,7 +91,7 @@ impl Function {
 
         let tokens_iter = tokens.iter().peekable();
 
-        let fn_parsing = match parse(tokens_iter.clone(), Some(symbol_table)) {
+        let fn_parsing = match parse(tokens_iter.clone(), Some(symbol_table.clone())) {
             Ok(r) => r,
             Err(e) => {
                 return Err(EvaluationError::Custom {
@@ -225,7 +244,7 @@ pub fn parse_fn_declaration(
             let mut ctx_tokens = Vec::new();
             ctx_tokens.extend(fn_data.args_as_tokens());
             ctx_tokens.extend(parse_fn_block(tokens, &fn_data.name)?);
-            parse(ctx_tokens.iter().peekable(), Some(symbol_table))
+            parse(ctx_tokens.iter().peekable(), Some(symbol_table.clone()))
         }
         Some(Token {
             token_type: TokenType::FunctionArrow,
@@ -257,7 +276,7 @@ pub fn parse_fn_declaration(
                 .into());
             }
 
-            parse(ctx_tokens.iter().peekable(), Some(symbol_table))?
+            parse(ctx_tokens.iter().peekable(), Some(symbol_table.clone()))?
         }),
         _ => {
             return Err(FunctionParsingError::ExpectedBrace {
@@ -301,6 +320,11 @@ pub fn parse_fn_header(
 
         if symbol_table.is_fn_declared(name) {
             return Err(FunctionParsingError::NameAlreadyTaken {
+                name: name.to_owned(),
+            }
+            .into());
+        }else if symbol_table.is_fn_std(name) {
+            return Err(FunctionParsingError::NameAlreadyTakenByStd {
                 name: name.to_owned(),
             }
             .into());

@@ -1,4 +1,7 @@
-use crate::evaluation::EvaluationError;
+use crate::{
+    evaluation::EvaluationError,
+    jadeflow_std::{load_std, StandardFunction},
+};
 
 use super::{
     class::Class,
@@ -49,10 +52,33 @@ pub struct Statement {
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
-    variables: HashMap<String, Declaration>,
-    functions: HashMap<String, Function>,
-    registered_functions: HashMap<String, MainFunctionData>,
-    classes: HashMap<String, Class>,
+    pub variables: HashMap<String, Declaration>,
+    pub functions: HashMap<String, Function>,
+    pub registered_functions: HashMap<String, MainFunctionData>,
+    pub classes: HashMap<String, Class>,
+    std_functions: HashMap<String, StandardFunction>,
+}
+#[macro_export]
+macro_rules! merge_symbol_tables {
+    ( $($hashmap:expr),* $(,)? ) => {
+        {
+            let mut symbol_table = SymbolTable {
+                variables: hashmap!{},
+                functions: hashmap!{},
+                registered_functions: hashmap!{},
+                classes: hashmap!{},
+            };
+
+            $(
+                symbol_table.variables.extend($hashmap.variables);
+                symbol_table.functions.extend($hashmap.functions);
+                symbol_table.registered_functions.extend($hashmap.registered_functions);
+                symbol_table.classes.extend($hashmap.classes);
+            )*
+
+            symbol_table
+        }
+    };
 }
 
 custom_error::custom_error! {pub SymbolTableError
@@ -76,6 +102,16 @@ impl SymbolTable {
             functions: HashMap::new(),
             registered_functions: HashMap::new(),
             classes: HashMap::new(),
+            std_functions: HashMap::new(),
+        }
+    }
+    pub fn table_init() -> Self {
+        SymbolTable {
+            variables: HashMap::new(),
+            functions: HashMap::new(),
+            registered_functions: HashMap::new(),
+            classes: HashMap::new(),
+            std_functions: load_std(),
         }
     }
 
@@ -291,6 +327,9 @@ impl SymbolTable {
     pub fn is_fn_declared(&self, name: &str) -> bool {
         self.functions.get(name).is_some()
     }
+    pub fn is_fn_std(&self, name: &str) -> bool {
+        self.std_functions.get(name).is_some()
+    }
     pub fn is_class_declared(&self, name: &str) -> bool {
         self.classes.get(name).is_some()
     }
@@ -330,8 +369,8 @@ impl SymbolTable {
 
 impl fmt::Display for SymbolTable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "-- VARIABLES -- \n",)?;
-        if self.variables.len() == 0 {
+        write!(f, "-- VARIABLES -- \n")?;
+        if self.variables.is_empty() {
             write!(f, "None\n")?;
         } else {
             for var in &self.variables {
@@ -339,39 +378,42 @@ impl fmt::Display for SymbolTable {
             }
         }
 
-        write!(f, "-- FUNCTIONS -- \n",)?;
-
-        if self.functions.len() == 0 {
-            {
-                write!(f, "None\n")?;
-            }
+        write!(f, "-- FUNCTIONS -- \n")?;
+        if self.functions.is_empty() {
+            write!(f, "None\n")?;
         } else {
             for var in &self.functions {
                 write!(f, "- {}\n", var.1.to_string())?;
             }
         }
 
-        write!(f, "-- Registered FUNCTIONS -- \n",)?;
-
-        if self.registered_functions.len() == 0 {
-            {
-                write!(f, "None\n")?;
-            }
+        write!(f, "-- Registered FUNCTIONS -- \n")?;
+        if self.registered_functions.is_empty() {
+            write!(f, "None\n")?;
         } else {
             for var in &self.registered_functions {
                 write!(f, "- {}\n", var.1.to_string())?;
             }
         }
-        write!(f, "-- CLASSES -- \n",)?;
 
-        if self.classes.len() == 0 {
-            Ok({
-                write!(f, "None\n")?;
-            })
+        write!(f, "-- CLASSES -- \n")?;
+        if self.classes.is_empty() {
+            write!(f, "None\n")?;
         } else {
-            Ok(for var in &self.classes {
+            for var in &self.classes {
                 write!(f, "- {}\n", var.1.to_string())?;
-            })
+            }
         }
+
+        write!(f, "-- STD FNs -- \n")?;
+        if self.std_functions.is_empty() {
+            write!(f, "None\n")?;
+        } else {
+            for var in &self.std_functions {
+                write!(f, "- {}\n", var.1.to_string())?;
+            }
+        }
+
+        Ok(())
     }
 }

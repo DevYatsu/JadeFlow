@@ -5,8 +5,8 @@ pub mod errors;
 pub mod expression;
 pub mod functions;
 mod returns;
-mod types;
-mod vars;
+pub mod types;
+pub mod vars;
 mod vectors;
 
 use std::{iter::Peekable, slice::Iter};
@@ -34,11 +34,11 @@ use self::{
 
 pub fn parse(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
-    optional_symbol_table: Option<&SymbolTable>,
+    optional_symbol_table: Option<SymbolTable>,
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let mut symbol_table = if let Some(table) = optional_symbol_table {
-        table.clone()
+        table
     } else {
         parse_all_fns_dec(tokens_iter.clone())?
     };
@@ -292,7 +292,7 @@ pub fn ignore_until_statement(
 pub fn parse_all_fns_dec(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
 ) -> Result<SymbolTable, ParsingError> {
-    let mut symbol_table = SymbolTable::new();
+    let mut symbol_table = SymbolTable::table_init();
 
     while let Some(token) = tokens_iter.peek() {
         match token.token_type {
@@ -335,6 +335,7 @@ pub fn parse_all_fns_dec(
             }
         }
     }
+    print_info!("initial table: {symbol_table}");
 
     Ok(symbol_table)
 }

@@ -40,6 +40,22 @@ impl fmt::Display for Declaration {
     }
 }
 impl Declaration {
+    pub fn new(
+        name: &str,
+        var_type: VariableType,
+        value: Expression,
+        is_mutable: bool,
+        is_object_prop: bool,
+    ) -> Declaration {
+        Declaration {
+            name: name.to_string(),
+            var_type,
+            value,
+            is_mutable,
+            is_object_prop,
+        }
+    }
+
     pub fn equivalent_tokens(&self) -> Vec<Token> {
         let keyword = self.get_var_keyword();
         let value = match &self.value {
