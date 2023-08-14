@@ -74,7 +74,7 @@ pub fn evaluate_expression(
     }
 }
 
-pub fn evalute_programm(program: Program) {
+pub fn evaluate_program(program: Program) {
     let statements = program.statements;
 
     let functions = statements

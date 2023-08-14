@@ -431,9 +431,9 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                             }
                         }
                         _ => {
-                        position = initial_position;
-                        break 'global_loop;
-                        },
+                            position = initial_position;
+                            break 'global_loop;
+                        }
                     }
                 }
 
