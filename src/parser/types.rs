@@ -175,109 +175,67 @@ pub fn type_from_expression(
 
             for (i, val) in indexing.iter().enumerate() {
                 let t = type_from_expression(&val, symbol_table)?;
-                println!("{t}, {val}");
+
+                let index = match evaluate_expression(val.clone(), symbol_table)? {
+                    Expression::Number(n) => n,
+                    _ => {
+                        return Err(SymbolTableError::InvalidTypeIndex {
+                            found_type: type_from_expression(val, symbol_table)?,
+                            full_expr: Expression::ArrayIndexing(
+                                vec![initial_expr]
+                                    .into_iter()
+                                    .chain(indexing.iter().take(i + 1).cloned())
+                                    .collect(),
+                            ),
+                        })
+                    }
+                } as isize;
+
+                if index < 0 {
+                    let vec_name = vec![initial_expr]
+                        .into_iter()
+                        .chain(indexing.iter().take(i + 1).cloned())
+                        .collect();
+
+                    return Err(SymbolTableError::CannotIndexNegatively {
+                        vec_name: Expression::ArrayIndexing(vec_name).to_string(),
+                        index,
+                    });
+                }
+
+                let index = index as usize;
+
+                if index > &vec.len() - 1 {
+                    let vec_name = vec![initial_expr]
+                        .into_iter()
+                        .chain(indexing.iter().take(i + 1).cloned())
+                        .collect();
+
+                    return Err(SymbolTableError::IndexOutOfRange {
+                        vec_name: Expression::ArrayIndexing(vec_name).to_string(),
+                        index,
+                        length: vec.len(),
+                    });
+                }
                 match t {
                     VariableType::Number => {
                         if i == indexing.len() - 1 {
-                            let index = match evaluate_expression(val.clone(), symbol_table)? {
-                                Expression::Number(n) => n,
+                            return Ok(type_from_expression(&vec[index], symbol_table)?);
+                        } else {
+                            vec = match &vec[index] {
+                                Expression::ArrayExpression(arr) => arr.to_owned(),
                                 _ => {
-                                    return Err(SymbolTableError::InvalidTypeIndex {
-                                        found_type: type_from_expression(val, symbol_table)?,
-                                        full_expr: Expression::ArrayIndexing(
+                                    return Err(SymbolTableError::CannotIndexNotVector {
+                                        indexed_expr: Expression::ArrayIndexing(
                                             vec![initial_expr]
                                                 .into_iter()
                                                 .chain(indexing.iter().take(i + 1).cloned())
                                                 .collect(),
                                         ),
-                                    })
-                                }
-                            } as usize;
-
-                            if index > &vec.len() - 1 {
-                                let vec_name = vec![initial_expr]
-                                    .into_iter()
-                                    .chain(indexing.iter().take(i + 1).cloned())
-                                    .collect();
-
-                                return Err(SymbolTableError::IndexOutOfRange {
-                                    vec_name: Expression::ArrayIndexing(vec_name).to_string(),
-                                    index,
-                                    length: vec.len(),
-                                });
-                            }
-
-                            return Ok(type_from_expression(&vec[index], symbol_table)?);
-                        } else {
-                            match val {
-                                Expression::Variable(name) => {
-                                    let val = symbol_table.get_variable(&name)?.value;
-                                    let index =
-                                        match evaluate_expression(val.to_owned(), symbol_table)? {
-                                            Expression::Number(n) => n,
-                                            _ => {
-                                                return Err(SymbolTableError::InvalidTypeIndex {
-                                                    found_type: type_from_expression(
-                                                        &val,
-                                                        symbol_table,
-                                                    )?,
-                                                    full_expr: Expression::ArrayIndexing(
-                                                        vec![initial_expr]
-                                                            .into_iter()
-                                                            .chain(
-                                                                indexing
-                                                                    .iter()
-                                                                    .take(i + 1)
-                                                                    .cloned(),
-                                                            )
-                                                            .collect(),
-                                                    ),
-                                                })
-                                            }
-                                        };
-
-                                    vec = match &vec[index as usize] {
-                                        Expression::ArrayExpression(arr) => arr.to_owned(),
-                                        _ => {
-                                            return Err(SymbolTableError::CannotIndexNotVector {
-                                                indexed_expr: Expression::ArrayIndexing(
-                                                    vec![initial_expr]
-                                                        .into_iter()
-                                                        .chain(indexing.iter().take(i + 1).cloned())
-                                                        .collect(),
-                                                ),
-                                                actual_type: t,
-                                            })
-                                        }
-                                    };
-                                }
-                                Expression::Number(n) => {
-                                    let n = n.to_owned();
-                                    vec = match &vec[n as usize] {
-                                        Expression::ArrayExpression(arr) => arr.to_owned(),
-                                        _ => {
-                                            return Err(SymbolTableError::CannotIndexNotVector {
-                                                indexed_expr: Expression::ArrayIndexing(
-                                                    vec![initial_expr]
-                                                        .into_iter()
-                                                        .chain(indexing.iter().take(i + 1).cloned())
-                                                        .collect(),
-                                                ),
-                                                actual_type: t,
-                                            })
-                                        }
-                                    };
-                                }
-                                _ => {
-                                    return Err(SymbolTableError::CannotIndexNotVector {
-                                        indexed_expr: Expression::ArrayIndexing(vec![
-                                            initial_expr,
-                                            indexing[0].to_owned(),
-                                        ]),
                                         actual_type: t,
                                     })
                                 }
-                            }
+                            };
                         }
                     }
                     _ => {

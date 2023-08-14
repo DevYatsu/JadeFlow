@@ -37,7 +37,7 @@ fn index_4(): num => 04
 const y = index_4()
 const x = y
 const b = arr[x][0]
-const arr = arr + arr[x-2] * 2 /b
+const arr = arr + arr[1- 2] * 2 /b
 
 const hey = concat("str", " test")
 

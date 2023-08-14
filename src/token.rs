@@ -144,7 +144,6 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     tokens.push(token(operator_lexeme, TokenType::BinaryOperator));
                 }
             }
-            ':' => tokens.push(token(":".to_string(), TokenType::Colon)),
             '-' => {
                 // for equality and value assignment
                 match character {
@@ -157,10 +156,25 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                         tokens.push(token("-=".to_string(), TokenType::AssignmentOperator));
                     }
                     _ => {
-                        tokens.push(token(character.to_string(), TokenType::BinaryOperator));
+                        let mut lexeme = character.to_string();
+                        while let Some(number) = source_code.get(position + 1) {
+                            if !number.is_ascii_digit() {
+                                break;
+                            }
+                            lexeme.push(*number as char);
+
+                            position += 1;
+                        }
+                        if lexeme.len() == 1 {
+                            tokens.push(token(lexeme, TokenType::BinaryOperator));
+                        } else {
+                            tokens.push(token(lexeme, TokenType::Number));
+                        }
                     }
                 };
             }
+
+            ':' => tokens.push(token(":".to_string(), TokenType::Colon)),
             '<' => {
                 // for binary and assignment operators
                 let mut operator_lexeme = character.to_string();
@@ -239,7 +253,9 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                 // for numbers
                 let mut number_lexeme = character.to_string();
 
-                while let Some(&next_char) = source_code.get(position + 1) {
+                let mut is_minus_operation = false;
+
+                'global_loop: while let Some(&next_char) = source_code.get(position + 1) {
                     let next_char: char = next_char as char;
 
                     match next_char {
@@ -247,8 +263,29 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                             position += 1;
                             number_lexeme.push(next_char);
                         }
-                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | ')' | ':' | '?' | ',' | '}' | ']' => break,
+                        ';' | '+' | '*' | '/' | '%' | '=' | '"' | '#' | '`' | ')' | ':' | '?'
+                        | ',' | '}' | ']' => break,
+                        ' ' | '\n' | '-' => {
+                            let initial_pos = position;
+                            position += 1;
+                            while let Some(&next_char) = source_code.get(position) {
+                                let next_char = next_char as char;
+                                match next_char {
+                                    '-' => {
+                                        is_minus_operation = true;
+                                        break 'global_loop;
+                                    }
+                                    ' ' | '\n' => {
+                                        position += 1;
+                                        continue;
+                                    }
+                                    _ => {
+                                        position = initial_pos;
+                                        break 'global_loop;
+                                    }
+                                }
+                            }
+                        }
                         _ => {
                             return Err(SyntaxError::InvalidNumber {
                                 line: get_line(position, source_code),
@@ -265,6 +302,10 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     });
                 }
                 tokens.push(token(number_lexeme, TokenType::Number));
+
+                if is_minus_operation {
+                    tokens.push(token("-".to_string(), TokenType::BinaryOperator))
+                }
             }
             '/' => {
                 // for comments
@@ -362,7 +403,45 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                 tokens.push(token(string_lexeme, TokenType::FormatedString));
             }
             '(' => tokens.push(token(character.to_string(), TokenType::OpenParen)),
-            ')' => tokens.push(token(character.to_string(), TokenType::CloseParen)),
+            ')' => {
+                let mut is_minus_operation = false;
+                let initial_position = position;
+                'global_loop: while let Some(next_char) = source_code.get(position + 1) {
+                    let next_char = *next_char as char;
+                    match next_char {
+                        ' ' | '\n' | '-' => {
+                            let initial_pos = position;
+                            position += 1;
+                            while let Some(&next_char) = source_code.get(position) {
+                                let next_char = next_char as char;
+                                match next_char {
+                                    '-' => {
+                                        is_minus_operation = true;
+                                        break 'global_loop;
+                                    }
+                                    ' ' | '\n' => {
+                                        position += 1;
+                                        continue;
+                                    }
+                                    _ => {
+                                        position = initial_pos;
+                                        break 'global_loop;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                        position = initial_position;
+                        break 'global_loop;
+                        },
+                    }
+                }
+
+                tokens.push(token(character.to_string(), TokenType::CloseParen));
+                if is_minus_operation {
+                    tokens.push(token("-".to_string(), TokenType::BinaryOperator))
+                }
+            }
             '{' => tokens.push(token(character.to_string(), TokenType::OpenBrace)),
             '}' => tokens.push(token(character.to_string(), TokenType::CloseBrace)),
             '[' => {
@@ -414,17 +493,38 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
             character if character.is_alphabetic() => {
                 // for booleans and null values
                 let mut value_lexeme: String = character.to_string();
+                let mut is_minus_operation = false;
 
                 position += 1;
 
-                while position < source_code.len() {
+                'global_loop: while position < source_code.len() {
                     let c = source_code[position] as char;
-
                     match c {
-                        ' ' | '\n' | ';' | '+' | '-' | '*' | '/' | '%' | '=' | '"' | '#' | '`'
-                        | '(' | ')' | '[' | ']' | ':' | '?' | ',' | '{' | '}' => {
+                        ';' | '+' | '*' | '/' | '%' | '=' | '"' | '#' | '`' | '(' | ')' | '['
+                        | ']' | ':' | '?' | ',' | '{' | '}' => {
                             position -= 1;
                             break;
+                        }
+                        ' ' | '\n' | '-' => {
+                            let initial_pos = position - 1;
+                            position += 1;
+                            while let Some(&next_char) = source_code.get(position) {
+                                let next_char = next_char as char;
+                                match next_char {
+                                    '-' => {
+                                        is_minus_operation = true;
+                                        break 'global_loop;
+                                    }
+                                    ' ' | '\n' => {
+                                        position += 1;
+                                        continue;
+                                    }
+                                    _ => {
+                                        position = initial_pos;
+                                        break 'global_loop;
+                                    }
+                                }
+                            }
                         }
                         _ => value_lexeme.push(c),
                     }
@@ -464,6 +564,10 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                 };
 
                 tokens.push(token(value_lexeme, token_type));
+
+                if is_minus_operation {
+                    tokens.push(token("-".to_string(), TokenType::BinaryOperator));
+                }
             }
             _ => {
                 return Err(SyntaxError::NonAlphabeticCharacter);
