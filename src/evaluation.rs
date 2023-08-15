@@ -1,7 +1,10 @@
-use crate::parser::{
-    architecture::{Program, SymbolTable},
-    expression::{Expression, FormattedSegment},
-    functions::{errors::FunctionParsingError, Function},
+use crate::{
+    jadeflow_std::StandardFunction,
+    parser::{
+        architecture::{Program, SymbolTable},
+        expression::{Expression, FormattedSegment},
+        functions::{errors::FunctionParsingError, Function},
+    },
 };
 
 use self::operations::evaluate_binary_operation;
@@ -63,13 +66,20 @@ pub fn evaluate_expression(
 
             Ok(Expression::String(final_str))
         }
-        Expression::FunctionCall(fn_call) => {
-            let mut f = symbol_table.get_full_function(&fn_call.function_name)?;
+        Expression::FunctionCall(fn_call) => match symbol_table.is_fn_std(&fn_call.function_name) {
+            true => {
+                let mut f = symbol_table.get_std_function(&fn_call.function_name)?;
+                let ex = StandardFunction::run_with_args(&mut f, &fn_call.arguments, symbol_table)?;
 
-            let e = Function::with_args(&mut f, &fn_call.arguments, symbol_table)?;
+                Ok(ex)
+            }
+            false => {
+                let mut f = symbol_table.get_full_function(&fn_call.function_name)?;
+                let ex = Function::run_with_args(&mut f, &fn_call.arguments, symbol_table)?;
 
-            Ok(e)
-        }
+                Ok(ex)
+            }
+        },
         _ => Ok(expr),
     }
 }

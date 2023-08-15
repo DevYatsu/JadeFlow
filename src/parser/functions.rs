@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::{
     evaluation::{evaluate_expression, EvaluationError},
+    jadeflow_std::StandardFunction,
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{Token, TokenType},
 };
@@ -46,7 +47,7 @@ impl Function {
         Declaration::new(name, var_type, Expression::Null, true, false)
     }
 
-    pub fn with_args(
+    pub fn run_with_args(
         &mut self,
         args: &Vec<Expression>,
         symbol_table: &mut SymbolTable,
@@ -150,19 +151,29 @@ pub struct MainFunctionData {
     pub return_type: Option<VariableType>,
 }
 impl MainFunctionData {
-    pub fn from_function(f: &Function) -> MainFunctionData {
-        MainFunctionData {
-            name: f.name.clone(),
-            arguments: f.arguments.clone(),
-            return_type: f.return_type.clone(),
-        }
-    }
-
     pub fn args_as_tokens(&self) -> Vec<Token> {
         self.arguments
             .iter()
             .flat_map(|dec| dec.equivalent_tokens())
             .collect()
+    }
+}
+impl From<Function> for MainFunctionData {
+    fn from(f: Function) -> Self {
+        MainFunctionData {
+            name: f.name,
+            arguments: f.arguments,
+            return_type: f.return_type,
+        }
+    }
+}
+impl From<StandardFunction> for MainFunctionData {
+    fn from(f: StandardFunction) -> Self {
+        MainFunctionData {
+            name: f.name,
+            arguments: f.arguments,
+            return_type: f.return_type,
+        }
     }
 }
 impl fmt::Display for MainFunctionData {

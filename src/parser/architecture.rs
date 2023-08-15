@@ -335,19 +335,20 @@ impl SymbolTable {
     }
 
     pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
-        let func = self.registered_functions.get(name);
+        let func = match self.registered_functions.get(name) {
+            Some(v) => v.clone(),
+            None => {
+                let func = self.std_functions.get(name);
+                if func.is_none() {
+                    return Err(FunctionParsingError::NotDefinedFunction {
+                        fn_name: name.to_owned(),
+                    });
+                }
+                MainFunctionData::from(func.unwrap().clone())
+            }
+        };
 
-        if func.is_none() {
-            return Err(FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            });
-        }
-
-        Ok(func
-            .cloned()
-            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            })?)
+        Ok(func)
     }
 
     pub fn get_full_function(&mut self, name: &str) -> Result<Function, FunctionParsingError> {
@@ -364,6 +365,20 @@ impl SymbolTable {
             .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_owned(),
             })?)
+    }
+    pub fn get_std_function(
+        &mut self,
+        name: &str,
+    ) -> Result<StandardFunction, FunctionParsingError> {
+        let func = self.std_functions.get(name);
+
+        if func.is_none() {
+            return Err(FunctionParsingError::NotDefinedFunctionInStd {
+                fn_name: name.to_owned(),
+            });
+        }
+
+        Ok(func.unwrap().clone())
     }
 }
 

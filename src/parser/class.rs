@@ -91,7 +91,7 @@ impl MainClassCtx {
             methods: ctx
                 .methods
                 .iter()
-                .map(|(name, fn_data)| (name.to_owned(), MainFunctionData::from_function(fn_data)))
+                .map(|(name, fn_data)| (name.to_owned(), MainFunctionData::from(fn_data.clone())))
                 .collect(),
             properties: ctx.properties.clone(),
         }
