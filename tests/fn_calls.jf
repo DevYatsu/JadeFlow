@@ -1,0 +1,11 @@
+const test = "str"
+const s = string(test)
+const num_5 = 5.0
+fn string(s: str): str => s
+
+const hello = "hello"
+const hello_james = say_hello("jammy")
+
+fn say_hello(name: str): str {
+    >> hello + " " + name
+} 

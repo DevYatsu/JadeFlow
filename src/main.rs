@@ -5,7 +5,9 @@ mod select_test;
 mod token;
 
 use crate::{
-    parser::{architecture::ASTNode, errors::ParsingError, parse},
+    parser::{
+        architecture::ASTNode, errors::ParsingError, parse,
+    },
     select_test::run_file,
     token::{errors::SyntaxError, tokenize, Token},
 };
