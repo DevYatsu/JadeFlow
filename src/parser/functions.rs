@@ -48,7 +48,7 @@ impl Function {
     }
 
     pub fn run_with_args(
-        &mut self,
+        &self,
         args: &Vec<Expression>,
         symbol_table: &mut SymbolTable,
     ) -> Result<Expression, EvaluationError> {
@@ -65,9 +65,10 @@ impl Function {
             })
             .collect::<Vec<Declaration>>();
 
-        self.arguments = new_args;
-
-        let tokens = self.args_as_tokens();
+        let tokens = new_args
+            .iter()
+            .flat_map(|dec| dec.equivalent_tokens())
+            .collect::<Vec<Token>>();
 
         let tokens_iter = tokens.iter().peekable();
 
@@ -103,13 +104,6 @@ impl Function {
         }
 
         Expression::Null
-    }
-
-    fn args_as_tokens(&self) -> Vec<Token> {
-        self.arguments
-            .iter()
-            .flat_map(|dec| dec.equivalent_tokens())
-            .collect()
     }
 
     pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
