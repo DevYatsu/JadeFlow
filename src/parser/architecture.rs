@@ -367,12 +367,20 @@ impl SymbolTable {
         Ok(func)
     }
 
-    pub fn get_full_function(&self, name: &str) -> Result<impl RunnableFunction, FunctionParsingError> {
-        let mut func = self.functions.get(name).ok_or_else(|| self.std_functions.get(name).ok_or(FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            }))?;
+    pub fn get_full_function(&self, name: &str) -> Result<Function, FunctionParsingError> {
+        let func = self.functions.get(name);
 
-        Ok(func)
+        if func.is_none() {
+            return Err(FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_owned(),
+            });
+        }
+
+        Ok(func
+            .cloned()
+            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
+                fn_name: name.to_owned(),
+            })?)
     }
     pub fn get_std_function(&self, name: &str) -> Result<&StandardFunction, FunctionParsingError> {
         let func = self.std_functions.get(name);
