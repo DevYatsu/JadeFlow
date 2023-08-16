@@ -138,8 +138,8 @@ pub fn parse(
                     }
                 }
                 TokenType::Class => {
-                    let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
                     print_info!("cls implementation coming soon!");
+                    let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
                     todo!()
                 }
                 TokenType::If => {
