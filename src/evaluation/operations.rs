@@ -1,9 +1,6 @@
-use crate::{
-    parser::{
-        architecture::SymbolTable,
-        expression::{operation::BinaryOperator, Expression},
-    },
-    print_info,
+use crate::parser::{
+    architecture::SymbolTable,
+    expression::{operation::BinaryOperator, Expression},
 };
 
 use super::{evaluate_expression, EvaluationError};

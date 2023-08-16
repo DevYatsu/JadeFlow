@@ -10,4 +10,4 @@ fn say_hello(name: str): str {
     >> hello + " " + name
 } 
 
-print (hello_james)
+print ( hello_james )

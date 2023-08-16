@@ -84,7 +84,6 @@ impl StandardFunction {
         symbol_table: &SymbolTable,
     ) -> Result<Expression, EvaluationError> {
         err_on_fn_call_args_invalid(&self.name, &self.arguments, args, symbol_table)?;
-        println!("here");
         let returned_expr = self.code_to_run.get().expect("Code not initialized");
 
         if self.return_type.is_none() {
@@ -266,7 +265,7 @@ fn load_std_console() -> HashMap<String, StandardFunction> {
         None,
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::String(msg) = &args[0] {
-                println!("{}", msg);
+                println!("{msg}");
                 Expression::Null
             } else {
                 unreachable!()
@@ -300,7 +299,7 @@ fn load_std_console() -> HashMap<String, StandardFunction> {
         None,
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::String(msg) = &args[0] {
-                eprintln!("{}", msg);
+                eprintln!("{msg}");
                 Expression::Null
             } else {
                 unreachable!()

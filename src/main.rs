@@ -6,7 +6,11 @@ mod token;
 
 use crate::{
     evaluation::{evaluate_program, EvaluationError},
-    parser::{architecture::ASTNode, errors::ParsingError, parse},
+    parser::{
+        architecture::{ASTNode, SymbolTable},
+        errors::ParsingError,
+        parse,
+    },
     select_test::run_file,
     token::{errors::SyntaxError, tokenize, Token},
 };
@@ -55,12 +59,10 @@ fn main() {
         _ => unreachable!(),
     };
 
-    let evaluation = time_execution("evaluation", || -> Result<(), EvaluationError> {
+    let evaluation = time_execution("evaluation", || -> Result<SymbolTable, EvaluationError> {
         let final_table = evaluate_program(program)?;
 
-        println!("{}", final_table);
-
-        Ok(())
+        Ok(final_table)
     });
 
     if evaluation.data.is_err() {
