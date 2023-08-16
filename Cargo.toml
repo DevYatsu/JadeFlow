@@ -1,5 +1,5 @@
 [package]
-name = "jade_flow"
+name = "jadeflow"
 version = "0.1.0"
 edition = "2021"
 
