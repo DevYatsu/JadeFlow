@@ -9,6 +9,7 @@ use crate::{
     parser::{
         architecture::SymbolTable,
         expression::Expression,
+        functions::{Function, RunnableFunction},
         types::{err_on_fn_call_args_invalid, VariableType},
         vars::Declaration,
     },
@@ -79,8 +80,9 @@ impl StandardFunction {
             code_to_run,
         }
     }
-
-    pub fn run_with_args(
+}
+impl RunnableFunction for StandardFunction {
+    fn run_with_args(
         &self,
         args: &Vec<Expression>,
         symbol_table: &SymbolTable,

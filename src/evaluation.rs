@@ -1,7 +1,7 @@
 use crate::parser::{
     architecture::{ASTNode, Program, Statement, SymbolTable},
     expression::{Expression, FormattedSegment},
-    functions::{errors::FunctionParsingError, function_call},
+    functions::{errors::FunctionParsingError, function_call, RunnableFunction},
     returns::return_statement,
     types::type_from_expression,
     vars::{reassignment, variable},
@@ -157,7 +157,14 @@ pub fn evaluate_program(program: Program) -> Result<SymbolTable, EvaluationError
                 }
                 ASTNode::FunctionCall(call) => {
                     let call_clone = call.clone();
-                    evaluate_expression(Expression::FunctionCall(call), &mut rerun_table)?;
+                    match rerun_table.run_fn(&call.function_name, &call.arguments) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            return Err(EvaluationError::Custom {
+                                message: e.to_string(),
+                            })
+                        }
+                    };
                     Ok(function_call(call_clone))
                 }
                 _ => unreachable!(),

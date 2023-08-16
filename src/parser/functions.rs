@@ -10,6 +10,14 @@ use crate::{
 
 use self::errors::FunctionParsingError;
 
+pub trait RunnableFunction {
+    fn run_with_args(
+        &self,
+        args: &Vec<Expression>,
+        symbol_table: &SymbolTable,
+    ) -> Result<Expression, EvaluationError>;
+}
+
 use super::{
     architecture::{ASTNode, Program, Statement, SymbolTable, SymbolTableError},
     expression::Expression,
@@ -47,7 +55,31 @@ impl Function {
         Declaration::new(name, var_type, Expression::Null, true, false)
     }
 
-    pub fn run_with_args(
+    fn get_returned_expr(&self) -> Expression {
+        for statement in self.context.iter() {
+            match &statement.node {
+                ASTNode::Return(val) => return val.to_owned(),
+                _ => (),
+            }
+        }
+
+        Expression::Null
+    }
+
+    pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
+        if let Some(Statement {
+            node: ASTNode::Return(returned),
+        }) = program.statements.last()
+        {
+            type_from_expression(returned, &mut program.symbol_table).ok()
+        } else {
+            None
+        }
+    }
+}
+
+impl RunnableFunction for Function {
+    fn run_with_args(
         &self,
         args: &Vec<Expression>,
         symbol_table: &SymbolTable,
@@ -94,30 +126,7 @@ impl Function {
             &mut program.symbol_table,
         )?)
     }
-
-    fn get_returned_expr(&self) -> Expression {
-        for statement in self.context.iter() {
-            match &statement.node {
-                ASTNode::Return(val) => return val.to_owned(),
-                _ => (),
-            }
-        }
-
-        Expression::Null
-    }
-
-    pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
-        if let Some(Statement {
-            node: ASTNode::Return(returned),
-        }) = program.statements.last()
-        {
-            type_from_expression(returned, &mut program.symbol_table).ok()
-        } else {
-            None
-        }
-    }
 }
-
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -143,6 +152,7 @@ pub struct MainFunctionData {
     pub name: String,
     pub arguments: Vec<Declaration>,
     pub return_type: Option<VariableType>,
+    pub is_std: bool,
 }
 impl MainFunctionData {
     pub fn args_as_tokens(&self) -> Vec<Token> {
@@ -158,6 +168,7 @@ impl From<Function> for MainFunctionData {
             name: f.name,
             arguments: f.arguments,
             return_type: f.return_type,
+            is_std: false,
         }
     }
 }
@@ -167,6 +178,7 @@ impl From<StandardFunction> for MainFunctionData {
             name: f.name,
             arguments: f.arguments,
             return_type: f.return_type,
+            is_std: true,
         }
     }
 }
@@ -337,6 +349,7 @@ pub fn parse_fn_header(
                 name: name.to_owned(),
                 arguments,
                 return_type,
+                is_std: false,
             };
 
             return Ok(fn_data);

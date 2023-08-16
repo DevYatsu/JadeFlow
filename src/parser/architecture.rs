@@ -6,7 +6,9 @@ use crate::{
 use super::{
     class::Class,
     expression::Expression,
-    functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
+    functions::{
+        errors::FunctionParsingError, Function, FunctionCall, MainFunctionData, RunnableFunction,
+    },
     types::{type_from_expression, TypeError, VariableType},
     vars::{Declaration, Reassignment},
 };
@@ -85,6 +87,7 @@ custom_error::custom_error! {pub SymbolTableError
     TypeError{source: TypeError} = "{source}",
     ParseIntError{source: ParseIntError} = "{source}",
     EvaluationError{source: EvaluationError} = "{source}",
+    FunctionParsingError{source: FunctionParsingError} = "{source}",
 
     InvalidDict{name: String} = "'{name}' is not a valid object",
     CannotIndexNotVector{indexed_expr: Expression, actual_type: VariableType} = "Cannot index '{indexed_expr}' as it is not a vector, it's of type '{actual_type}'",
@@ -116,6 +119,17 @@ impl SymbolTable {
         }
     }
 
+    pub fn run_fn(
+        &self,
+        name: &str,
+        args: &Vec<Expression>,
+    ) -> Result<Expression, SymbolTableError> {
+        if self.get_function(&name)?.is_std {
+            Ok(self.get_std_function(&name)?.run_with_args(&args, &self)?)
+        } else {
+            Ok(self.get_full_function(&name)?.run_with_args(&args, &self)?)
+        }
+    }
     pub fn insert_variable(&mut self, declaration: Declaration) {
         self.variables.insert(declaration.name.clone(), declaration);
     }
