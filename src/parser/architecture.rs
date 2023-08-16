@@ -93,6 +93,7 @@ custom_error::custom_error! {pub SymbolTableError
     CannotIndexNotVector{indexed_expr: Expression, actual_type: VariableType} = "Cannot index '{indexed_expr}' as it is not a vector, it's of type '{actual_type}'",
     IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}",
     CannotIndexNegatively{vec_name: String, index: isize} = "Index out of range! Cannot index \"{vec_name}\" at index {index}",
+    CannotIndexEmptyVec{vec_name: String} = "Cannot index empty vector \"{vec_name}\"",
     CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
     CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
     InvalidTypeIndex{found_type: VariableType, full_expr: Expression} = "Index must be of type 'Number' while found type is '{found_type}' at '{full_expr}'"
@@ -366,20 +367,12 @@ impl SymbolTable {
         Ok(func)
     }
 
-    pub fn get_full_function(&self, name: &str) -> Result<Function, FunctionParsingError> {
-        let func = self.functions.get(name);
-
-        if func.is_none() {
-            return Err(FunctionParsingError::NotDefinedFunction {
+    pub fn get_full_function(&self, name: &str) -> Result<impl RunnableFunction, FunctionParsingError> {
+        let mut func = self.functions.get(name).ok_or_else(|| self.std_functions.get(name).ok_or(FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_owned(),
-            });
-        }
+            }))?;
 
-        Ok(func
-            .cloned()
-            .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            })?)
+        Ok(func)
     }
     pub fn get_std_function(&self, name: &str) -> Result<&StandardFunction, FunctionParsingError> {
         let func = self.std_functions.get(name);

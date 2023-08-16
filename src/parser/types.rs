@@ -190,7 +190,18 @@ pub fn type_from_expression(
                             ),
                         })
                     }
-                } as isize;
+                } as isize;     
+
+                if vec.len() == 0 {
+                    let vec_name = vec![initial_expr]
+                        .into_iter()
+                        .chain(indexing.iter().take(i + 1).cloned())
+                        .collect();
+
+                    return Err(SymbolTableError::CannotIndexEmptyVec {
+                        vec_name: Expression::ArrayIndexing(vec_name).to_string(),
+                    });
+                }            
 
                 if index < 0 {
                     let vec_name = vec![initial_expr]
@@ -203,7 +214,6 @@ pub fn type_from_expression(
                         index,
                     });
                 }
-
                 let index = index as usize;
 
                 if index > &vec.len() - 1 {
@@ -220,9 +230,10 @@ pub fn type_from_expression(
                 }
                 match t {
                     VariableType::Number => {
-                        if i == indexing.len() - 1 {
+                        if i == indexing.len() - 1 {                            
                             return Ok(type_from_expression(&vec[index], symbol_table)?);
                         } else {
+                            println!("vec {:?}", vec);
                             vec = match &vec[index] {
                                 Expression::ArrayExpression(arr) => arr.to_owned(),
                                 _ => {
@@ -237,6 +248,7 @@ pub fn type_from_expression(
                                     })
                                 }
                             };
+                            
                         }
                     }
                     _ => {
