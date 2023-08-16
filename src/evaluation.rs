@@ -1,10 +1,8 @@
 use crate::parser::{
-    architecture::{ASTNode, Program, Statement, SymbolTable},
+    architecture::{ASTNode, Program, SymbolTable},
     expression::{Expression, FormattedSegment},
-    functions::{errors::FunctionParsingError, function_call, RunnableFunction},
-    returns::return_statement,
+    functions::{errors::FunctionParsingError, RunnableFunction},
     types::type_from_expression,
-    vars::{reassignment, variable},
 };
 
 use self::operations::evaluate_binary_operation;
