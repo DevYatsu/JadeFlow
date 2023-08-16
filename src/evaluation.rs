@@ -119,58 +119,42 @@ pub fn evaluate_expression(
     }
 }
 
-pub fn evaluate_program(program: Program) -> Result<SymbolTable, EvaluationError> {
-    let statements = program.statements;
-    let program_final_table = program.symbol_table;
+pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationError> {
     let mut rerun_table = SymbolTable::table_init();
     rerun_table
         .registered_functions
-        .extend(program_final_table.registered_functions);
-    rerun_table.functions.extend(program_final_table.functions);
-    rerun_table.classes.extend(program_final_table.classes);
+        .extend(program.symbol_table.registered_functions.drain());
+    rerun_table
+        .functions
+        .extend(program.symbol_table.functions.drain());
+    rerun_table
+        .classes
+        .extend(program.symbol_table.classes.drain());
 
-    statements
-        .into_iter()
-        .map(|statement| -> Result<Statement, EvaluationError> {
-            match statement.node {
-                ASTNode::VariableDeclaration(mut dec) => {
-                    dec.value = evaluate_expression(dec.value, &mut rerun_table)?;
-                    rerun_table.insert_variable(dec.clone());
-                    Ok(variable(dec))
-                }
-                ASTNode::VariableReassignment(mut assignment) => {
-                    assignment.value = evaluate_expression(assignment.value, &mut rerun_table)?;
-                    match rerun_table.reassign_variable(assignment.clone()) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            return Err(EvaluationError::Custom {
-                                message: e.to_string(),
-                            })
-                        }
-                    };
-                    Ok(reassignment(assignment))
-                }
-                ASTNode::FunctionDeclaration(_) | ASTNode::ClassDeclaration(_) => Ok(statement),
-                ASTNode::Return(mut r) => {
-                    r = evaluate_expression(r, &mut rerun_table)?;
-                    Ok(return_statement(r))
-                }
-                ASTNode::FunctionCall(call) => {
-                    let call_clone = call.clone();
-                    match rerun_table.run_fn(&call.function_name, &call.arguments) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            return Err(EvaluationError::Custom {
-                                message: e.to_string(),
-                            })
-                        }
-                    };
-                    Ok(function_call(call_clone))
-                }
-                _ => unreachable!(),
+    for statement in program.statements.iter_mut() {
+        match &mut statement.node {
+            ASTNode::VariableDeclaration(dec) => {
+                dec.value = evaluate_expression(dec.value.clone(), &mut rerun_table)?;
+                rerun_table.insert_variable(dec.clone());
             }
-        })
-        .collect::<Result<Vec<Statement>, EvaluationError>>()?;
+            ASTNode::VariableReassignment(assignment) => {
+                assignment.value = evaluate_expression(assignment.value.clone(), &mut rerun_table)?;
+                rerun_table
+                    .reassign_variable(assignment.clone())
+                    .map_err(|e| EvaluationError::Custom {
+                        message: e.to_string(),
+                    })?;
+            }
+            ASTNode::Return(r) => {
+                *r = evaluate_expression(r.clone(), &mut rerun_table)?;
+            }
+            ASTNode::FunctionCall(call) => {
+                rerun_table.run_fn(&call.function_name, &call.arguments)?;
+            }
+            ASTNode::FunctionDeclaration(_) | ASTNode::ClassDeclaration(_) => {}
+            _ => unreachable!(),
+        }
+    }
 
     Ok(rerun_table)
 }

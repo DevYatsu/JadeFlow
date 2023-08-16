@@ -9,7 +9,7 @@ use crate::{
     parser::{
         architecture::SymbolTable,
         expression::Expression,
-        functions::{Function, RunnableFunction},
+        functions::RunnableFunction,
         types::{err_on_fn_call_args_invalid, VariableType},
         vars::Declaration,
     },

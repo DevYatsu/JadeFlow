@@ -124,7 +124,7 @@ impl SymbolTable {
         &self,
         name: &str,
         args: &Vec<Expression>,
-    ) -> Result<Expression, SymbolTableError> {
+    ) -> Result<Expression, EvaluationError> {
         if self.get_function(&name)?.is_std {
             Ok(self.get_std_function(&name)?.run_with_args(&args, &self)?)
         } else {
