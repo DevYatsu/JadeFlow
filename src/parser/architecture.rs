@@ -56,7 +56,7 @@ pub struct SymbolTable {
     pub functions: HashMap<String, Function>,
     pub registered_functions: HashMap<String, MainFunctionData>,
     pub classes: HashMap<String, Class>,
-    std_functions: HashMap<String, StandardFunction>,
+    pub std_functions: HashMap<String, StandardFunction>,
 }
 #[macro_export]
 macro_rules! merge_symbol_tables {
@@ -96,7 +96,7 @@ custom_error::custom_error! {pub SymbolTableError
 }
 
 impl SymbolTable {
-    pub fn new() -> Self {
+    pub fn new() -> SymbolTable {
         SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
@@ -105,13 +105,14 @@ impl SymbolTable {
             std_functions: HashMap::new(),
         }
     }
-    pub fn table_init() -> Self {
+    pub fn table_init() -> SymbolTable {
+        let std_functions = load_std();
         SymbolTable {
             variables: HashMap::new(),
             functions: HashMap::new(),
             registered_functions: HashMap::new(),
             classes: HashMap::new(),
-            std_functions: load_std(),
+            std_functions,
         }
     }
 
@@ -183,7 +184,7 @@ impl SymbolTable {
         Ok(())
     }
 
-    pub fn get_variable(&mut self, name: &str) -> Result<Declaration, SymbolTableError> {
+    pub fn get_variable(&self, name: &str) -> Result<Declaration, SymbolTableError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
@@ -314,7 +315,7 @@ impl SymbolTable {
         })
     }
 
-    pub fn is_object_prop(&mut self, name: &str) -> bool {
+    pub fn is_object_prop(&self, name: &str) -> bool {
         let name_vec = name.split('.').collect::<Vec<&str>>();
 
         if name_vec.len() == 1 {
@@ -334,7 +335,7 @@ impl SymbolTable {
         self.classes.get(name).is_some()
     }
 
-    pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
+    pub fn get_function(&self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
         let func = match self.registered_functions.get(name) {
             Some(v) => v.clone(),
             None => {
@@ -351,7 +352,7 @@ impl SymbolTable {
         Ok(func)
     }
 
-    pub fn get_full_function(&mut self, name: &str) -> Result<Function, FunctionParsingError> {
+    pub fn get_full_function(&self, name: &str) -> Result<Function, FunctionParsingError> {
         let func = self.functions.get(name);
 
         if func.is_none() {
@@ -366,10 +367,7 @@ impl SymbolTable {
                 fn_name: name.to_owned(),
             })?)
     }
-    pub fn get_std_function(
-        &mut self,
-        name: &str,
-    ) -> Result<StandardFunction, FunctionParsingError> {
+    pub fn get_std_function(&self, name: &str) -> Result<&StandardFunction, FunctionParsingError> {
         let func = self.std_functions.get(name);
 
         if func.is_none() {
@@ -378,7 +376,7 @@ impl SymbolTable {
             });
         }
 
-        Ok(func.unwrap().clone())
+        Ok(func.unwrap())
     }
 }
 

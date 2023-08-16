@@ -71,7 +71,7 @@ impl VariableType {
 
 pub fn type_from_expression(
     expr: &Expression,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
 ) -> Result<VariableType, SymbolTableError> {
     match expr.clone() {
         Expression::Number(_) => Ok(VariableType::Number),
@@ -305,7 +305,7 @@ pub fn err_on_fn_call_args_invalid(
     fn_name: &str,
     fn_arguments: &Vec<Declaration>,
     call_args: &Vec<Expression>,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
 ) -> Result<(), EvaluationError> {
     let fn_types_vec = fn_arguments
         .iter()

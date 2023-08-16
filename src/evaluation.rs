@@ -1,10 +1,10 @@
-use crate::{
-    jadeflow_std::StandardFunction,
-    parser::{
-        architecture::{Program, SymbolTable},
-        expression::{Expression, FormattedSegment},
-        functions::{errors::FunctionParsingError, Function},
-    },
+use crate::parser::{
+    architecture::{ASTNode, Program, Statement, SymbolTable},
+    expression::{Expression, FormattedSegment},
+    functions::{errors::FunctionParsingError, function_call},
+    returns::return_statement,
+    types::type_from_expression,
+    vars::{reassignment, variable},
 };
 
 use self::operations::evaluate_binary_operation;
@@ -22,7 +22,7 @@ custom_error::custom_error! {pub EvaluationError
 
 pub fn evaluate_expression(
     expr: Expression,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
 ) -> Result<Expression, EvaluationError> {
     match expr {
         Expression::Variable(var_name) => {
@@ -36,18 +36,7 @@ pub fn evaluate_expression(
             };
             Ok(evaluate_expression(var.value, symbol_table)?)
         }
-        Expression::BinaryOperation {
-            right,
-            operator,
-            left,
-        } => Ok(evaluate_binary_operation(
-            Expression::BinaryOperation {
-                right,
-                operator,
-                left,
-            },
-            symbol_table,
-        )?),
+        Expression::BinaryOperation { .. } => Ok(evaluate_binary_operation(expr, symbol_table)?),
         Expression::FormattedString(formatted) => {
             let mut final_str = String::new();
 
@@ -66,32 +55,115 @@ pub fn evaluate_expression(
 
             Ok(Expression::String(final_str))
         }
-        Expression::FunctionCall(fn_call) => match symbol_table.is_fn_std(&fn_call.function_name) {
-            true => {
-                let mut f = symbol_table.get_std_function(&fn_call.function_name)?;
-                let ex = StandardFunction::run_with_args(&mut f, &fn_call.arguments, symbol_table)?;
+        Expression::FunctionCall(fn_call) => {
+            if symbol_table.is_fn_std(&fn_call.function_name) {
+                let f = symbol_table.get_std_function(&fn_call.function_name)?;
+                let ex = f.run_with_args(&fn_call.arguments, symbol_table)?;
+                // borrowing issue here
+                Ok(ex)
+            } else {
+                let f = symbol_table.get_full_function(&fn_call.function_name)?;
+                let ex = f.run_with_args(&fn_call.arguments, symbol_table)?;
 
                 Ok(ex)
             }
-            false => {
-                let mut f = symbol_table.get_full_function(&fn_call.function_name)?;
-                let ex = Function::run_with_args(&mut f, &fn_call.arguments, symbol_table)?;
+        }
+        Expression::ArrayIndexing(mut index_vec) => {
+            // throw an error if there is a type issue in the array indexing,
+            // for example if we try to index sth other than a vector
+            match type_from_expression(&Expression::ArrayIndexing(index_vec.clone()), symbol_table)
+            {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(EvaluationError::Custom {
+                        message: e.to_string(),
+                    })
+                }
+            };
+            let initial_value = index_vec.remove(0);
 
-                Ok(ex)
+            let mut actual_arr = match evaluate_expression(initial_value, symbol_table)? {
+                Expression::ArrayExpression(arr) => arr,
+                _ => unreachable!(), // as we used the type_from_expression fn in the start we can rest assured that the rest is unreachable
+            };
+
+            while index_vec.len() > 1 {
+                let value = index_vec.remove(0);
+                match evaluate_expression(value, symbol_table)? {
+                    Expression::Number(num) => {
+                        let num = num as usize;
+                        actual_arr =
+                            match evaluate_expression(actual_arr[num].clone(), symbol_table)? {
+                                Expression::ArrayExpression(arr) => arr,
+                                _ => unreachable!(), // as we used the type_from_expression fn in the start we can rest assured that the rest is unreachable
+                            };
+                    }
+                    _ => unreachable!(), // thx to the type_from_expression
+                };
             }
-        },
+
+            let last_index = match evaluate_expression(index_vec.remove(0), symbol_table)? {
+                Expression::Number(num) => {
+                    let num = num as usize;
+                    num
+                }
+                _ => unreachable!(),
+            };
+
+            Ok(evaluate_expression(
+                actual_arr.remove(last_index),
+                symbol_table,
+            )?)
+        }
         _ => Ok(expr),
     }
 }
 
-pub fn evaluate_program(program: Program) {
+pub fn evaluate_program(program: Program) -> Result<SymbolTable, EvaluationError> {
     let statements = program.statements;
+    let program_final_table = program.symbol_table;
+    let mut rerun_table = SymbolTable::table_init();
+    rerun_table
+        .registered_functions
+        .extend(program_final_table.registered_functions);
+    rerun_table.functions.extend(program_final_table.functions);
+    rerun_table.classes.extend(program_final_table.classes);
 
-    let functions = statements
-        .iter()
-        .filter_map(|s| match &s.node {
-            crate::parser::architecture::ASTNode::FunctionDeclaration(dec) => Some(dec),
-            _ => None,
+    statements
+        .into_iter()
+        .map(|statement| -> Result<Statement, EvaluationError> {
+            match statement.node {
+                ASTNode::VariableDeclaration(mut dec) => {
+                    dec.value = evaluate_expression(dec.value, &mut rerun_table)?;
+                    rerun_table.insert_variable(dec.clone());
+                    Ok(variable(dec))
+                }
+                ASTNode::VariableReassignment(mut assignment) => {
+                    assignment.value = evaluate_expression(assignment.value, &mut rerun_table)?;
+                    match rerun_table.reassign_variable(assignment.clone()) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            return Err(EvaluationError::Custom {
+                                message: e.to_string(),
+                            })
+                        }
+                    };
+                    Ok(reassignment(assignment))
+                }
+                ASTNode::FunctionDeclaration(_) | ASTNode::ClassDeclaration(_) => Ok(statement),
+                ASTNode::Return(mut r) => {
+                    r = evaluate_expression(r, &mut rerun_table)?;
+                    Ok(return_statement(r))
+                }
+                ASTNode::FunctionCall(call) => {
+                    let call_clone = call.clone();
+                    evaluate_expression(Expression::FunctionCall(call), &mut rerun_table)?;
+                    Ok(function_call(call_clone))
+                }
+                _ => unreachable!(),
+            }
         })
-        .collect::<Vec<&Function>>();
+        .collect::<Result<Vec<Statement>, EvaluationError>>()?;
+
+    Ok(rerun_table)
 }

@@ -67,23 +67,24 @@ impl StandardFunction {
         name: &str,
         arguments: Vec<Declaration>,
         return_type: Option<VariableType>,
-        code_to_run: Box<dyn Fn(Vec<Expression>) -> Expression>,
+        code: Box<dyn Fn(Vec<Expression>) -> Expression>,
     ) -> StandardFunction {
+        let code_to_run = OnceCell::from(code);
         StandardFunction {
             name: name.to_string(),
             arguments,
             return_type,
-            code_to_run: OnceCell::from(code_to_run),
+            code_to_run,
         }
     }
 
     pub fn run_with_args(
         &self,
         args: &Vec<Expression>,
-        symbol_table: &mut SymbolTable,
+        symbol_table: &SymbolTable,
     ) -> Result<Expression, EvaluationError> {
         err_on_fn_call_args_invalid(&self.name, &self.arguments, args, symbol_table)?;
-
+        println!("here");
         let returned_expr = self.code_to_run.get().expect("Code not initialized");
 
         if self.return_type.is_none() {
@@ -129,6 +130,14 @@ macro_rules! merge_fns_modules {
             modules
         }
     };
+}
+
+pub fn load_std() -> HashMap<String, StandardFunction> {
+    let maths_fns = load_std_math();
+    let console_fns = load_std_console();
+    // initialize all standard fns
+
+    merge_fns_modules!(maths_fns, console_fns)
 }
 
 fn load_std_math() -> HashMap<String, StandardFunction> {
@@ -314,12 +323,4 @@ fn load_std_console() -> HashMap<String, StandardFunction> {
     );
 
     create_function_map!(print, input, eprint, print_no_newline)
-}
-
-pub fn load_std() -> HashMap<String, StandardFunction> {
-    let maths_fns = load_std_math();
-    let console_fns = load_std_console();
-    // initialize all standard fns
-
-    merge_fns_modules!(maths_fns, console_fns)
 }

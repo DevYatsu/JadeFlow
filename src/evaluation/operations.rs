@@ -10,7 +10,7 @@ use super::{evaluate_expression, EvaluationError};
 
 pub fn evaluate_binary_operation(
     op: Expression,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
 ) -> Result<Expression, EvaluationError> {
     match op {
         Expression::BinaryOperation {
@@ -71,16 +71,21 @@ pub fn evaluate_binary_operation(
                     _ => unreachable!(),
                 },
                 Expression::String(mut s) => {
-                    let right_s = match evaluate_expression(*right, symbol_table)? {
-                        Expression::String(s) => s,
+                    match evaluate_expression(*right, symbol_table)? {
+                        Expression::String(other_s) => {
+                            s.push_str(&other_s);
+                        }
+                        // Expression::Number(num) => {
+                        //     let num = num as usize;
+                        //     s.push_str(&s.repeat(num - 1));
+                        // },
                         _ => unreachable!(),
                     };
-                    s.push_str(&right_s);
+
                     return Ok(Expression::String(s));
                 }
                 Expression::ArrayExpression(mut arr) => {
                     // we know that everything can be add with an array
-
                     match *right {
                         Expression::ArrayExpression(other_arr) => arr.extend(other_arr),
                         _ => arr.push(*right),
@@ -111,8 +116,30 @@ pub fn evaluate_binary_operation(
                     return Ok(Expression::String(s));
                 }
                 Expression::FunctionCall(_) => {
-                    print_info!("Function calls evaluation not yet implemented");
-                    todo!()
+                    let left = Box::new(evaluate_expression(expr, symbol_table)?);
+                    let right = Box::new(evaluate_expression(*right, symbol_table)?);
+                    return Ok(evaluate_binary_operation(
+                        Expression::BinaryOperation {
+                            left,
+                            operator,
+                            right,
+                        },
+                        symbol_table,
+                    )?);
+                }
+                Expression::ArrayIndexing(_) => {
+                    println!("{:?}", expr);
+                    let left = Box::new(evaluate_expression(expr, symbol_table)?);
+                    let right = Box::new(evaluate_expression(*right, symbol_table)?);
+
+                    return Ok(evaluate_binary_operation(
+                        Expression::BinaryOperation {
+                            left,
+                            operator,
+                            right,
+                        },
+                        symbol_table,
+                    )?);
                 }
                 _ => unreachable!(),
             }

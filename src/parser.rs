@@ -4,7 +4,7 @@ mod dictionary;
 pub mod errors;
 pub mod expression;
 pub mod functions;
-mod returns;
+pub mod returns;
 pub mod types;
 pub mod vars;
 mod vectors;
@@ -335,7 +335,6 @@ pub fn parse_all_fns_dec(
             }
         }
     }
-    print_info!("initial table: {symbol_table}");
 
     Ok(symbol_table)
 }

@@ -5,6 +5,7 @@ mod select_test;
 mod token;
 
 use crate::{
+    evaluation::{evaluate_program, EvaluationError},
     parser::{architecture::ASTNode, errors::ParsingError, parse},
     select_test::run_file,
     token::{errors::SyntaxError, tokenize, Token},
@@ -41,14 +42,6 @@ fn main() {
     let parsing = time_execution("parsing", || -> Result<ASTNode, ParsingError> {
         let program = parse(tokenization.data.unwrap().iter().peekable(), None)?;
 
-        match &program {
-            ASTNode::Program(p) => {
-                println!("symbol table: \n {}", p.symbol_table);
-                println!("statements number: {}", p.statements.len());
-            }
-            _ => unreachable!(),
-        }
-
         Ok(program)
     });
 
@@ -57,7 +50,28 @@ fn main() {
         return;
     }
 
-    print_info!("total time: {}s", tokenization.duration + parsing.duration);
+    let program = match parsing.data.unwrap() {
+        ASTNode::Program(p) => p,
+        _ => unreachable!(),
+    };
+
+    let evaluation = time_execution("evaluation", || -> Result<(), EvaluationError> {
+        let final_table = evaluate_program(program)?;
+
+        println!("{}", final_table);
+
+        Ok(())
+    });
+
+    if evaluation.data.is_err() {
+        print_error!(evaluation.data.unwrap_err().to_string());
+        return;
+    }
+
+    print_info!(
+        "total time: {}s",
+        tokenization.duration + parsing.duration + evaluation.duration
+    );
 }
 
 fn time_execution<F, R>(name: &str, code: F) -> TimerData<R>

@@ -50,7 +50,7 @@ impl Function {
     pub fn run_with_args(
         &self,
         args: &Vec<Expression>,
-        symbol_table: &mut SymbolTable,
+        symbol_table: &SymbolTable,
     ) -> Result<Expression, EvaluationError> {
         err_on_fn_call_args_invalid(&self.name, &self.arguments, args, symbol_table)?;
 

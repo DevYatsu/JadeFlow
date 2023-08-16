@@ -9,3 +9,5 @@ const hello_james = say_hello("jammy")
 fn say_hello(name: str): str {
     >> hello + " " + name
 } 
+
+print (hello_james)
