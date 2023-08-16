@@ -293,35 +293,47 @@ fn parse_primary_expression(
     symbol_table: &mut SymbolTable,
 ) -> Result<Expression, ParsingError> {
     ignore_whitespace(tokens);
+
     if let Some(token) = tokens.next() {
         match &token.token_type {
             TokenType::Identifier => {
                 let next = tokens.peek();
+
                 if let Some(Token {
                     token_type: TokenType::OpenParen,
                     ..
                 }) = next
                 {
                     let fn_call = parse_fn_call(tokens, &token.value, symbol_table)?;
-
                     return Ok(Expression::FunctionCall(fn_call));
                 }
 
-                let var = symbol_table.get_variable(&token.value)?;
                 if let Some(Token {
                     token_type: TokenType::OpenBracket,
                     ..
                 }) = next
                 {
                     tokens.next();
-                    Ok(parse_array_indexing(
+                    return Ok(parse_array_indexing(
+                        tokens,
+                        vec![Expression::Variable(token.value.clone())],
+                        symbol_table,
+                    )?);
+                }
+
+                let var = symbol_table.get_variable(&token.value)?;
+
+                Ok(match next {
+                    Some(Token {
+                        token_type: TokenType::OpenBracket,
+                        ..
+                    }) => parse_array_indexing(
                         tokens,
                         vec![Expression::Variable(var.name)],
                         symbol_table,
-                    )?)
-                } else {
-                    Ok(Expression::Variable(token.value.clone()))
-                }
+                    )?,
+                    _ => Expression::Variable(token.value.clone()),
+                })
             }
             TokenType::Number => {
                 let number = token
@@ -331,17 +343,14 @@ fn parse_primary_expression(
                     .map_err(|_| ParsingError::InvalidNumber {
                         value: token.value.clone(),
                     })?;
-
-                return Ok(number);
+                Ok(number)
             }
             TokenType::String => Ok(Expression::String(token.value.clone())),
             TokenType::FormatedString => Ok(Expression::FormattedString(
                 FormattedSegment::from_str(&token.value, symbol_table)?,
             )),
             TokenType::Null => Ok(Expression::Null),
-            TokenType::Boolean => {
-                return Ok(Expression::Boolean(token.value == "true"));
-            }
+            TokenType::Boolean => Ok(Expression::Boolean(token.value == "true")),
             TokenType::OpenBracket => parse_array_expression(tokens, symbol_table),
             TokenType::OpenBrace => parse_dictionary_expression(tokens, symbol_table),
             TokenType::OpenParen => {
@@ -362,7 +371,6 @@ fn parse_primary_expression(
                     Err(ParsingError::UnexpectedEndOfInput)
                 }
             }
-            TokenType::Separator => Err(ParsingError::ExpectedSomething),
             _ => Err(ParsingError::InvalidExpression {
                 value: token.value.clone(),
             }),

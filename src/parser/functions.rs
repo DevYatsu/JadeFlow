@@ -138,11 +138,7 @@ impl fmt::Display for Function {
                 .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
                 .collect::<Vec<String>>()
                 .join(", "),
-            if let Some(output_t) = &self.return_type {
-                output_t.as_assignment()
-            } else {
-                "null"
-            },
+            self.return_type.as_ref().map_or("null", |output_t| output_t.as_assignment()),
         )
     }
 }
@@ -193,11 +189,7 @@ impl fmt::Display for MainFunctionData {
                 .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
                 .collect::<Vec<String>>()
                 .join(", "),
-            if let Some(output_t) = &self.return_type {
-                output_t.as_assignment()
-            } else {
-                "null"
-            },
+            self.return_type.as_ref().map_or("null", |output_t| output_t.as_assignment()),
         )
     }
 }

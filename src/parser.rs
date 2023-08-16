@@ -37,11 +37,7 @@ pub fn parse(
     optional_symbol_table: Option<SymbolTable>,
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
-    let mut symbol_table = if let Some(table) = optional_symbol_table {
-        table
-    } else {
-        parse_all_fns_dec(tokens_iter.clone())?
-    };
+    let mut symbol_table = optional_symbol_table.unwrap_or(parse_all_fns_dec(tokens_iter.clone())?);
 
     while 0 != tokens_iter.clone().count() {
         if let Some(token) = tokens_iter.next() {
