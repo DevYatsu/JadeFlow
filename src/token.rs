@@ -59,6 +59,9 @@ pub enum TokenType {
     Class,
     ClassPublic,
     ClassPrivate,
+
+    Import,
+    Export,
 }
 
 #[derive(Debug, Clone)]
@@ -555,6 +558,8 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     "opt" => TokenType::OptionArgFunction,
                     "pub" => TokenType::ClassPublic,
                     "priv" => TokenType::ClassPrivate,
+                    "import" => TokenType::Import,
+                    "export" => TokenType::Export,
                     val if value_lexeme.ends_with('.') => {
                         return Err(SyntaxError::ExpectingSomethingAfterDot {
                             id: val.to_string(),
