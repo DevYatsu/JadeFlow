@@ -86,23 +86,21 @@ impl RunnableFunction for StandardFunction {
         symbol_table: &SymbolTable,
     ) -> Result<Expression, EvaluationError> {
         err_on_fn_call_args_invalid(&self.name, &self.arguments, args, symbol_table)?;
-        let returned_expr = self.code_to_run.get().expect("Code not initialized");
+        let std_func = self.code_to_run.get().expect("Code not initialized");
 
+        let returned_expr = std_func(
+            args.to_owned()
+                .into_iter()
+                .map(|arg| -> Result<Expression, EvaluationError> {
+                    evaluate_expression(arg.clone(), symbol_table)
+                })
+                .collect::<Result<Vec<Expression>, EvaluationError>>()?,
+        );
         if self.return_type.is_none() {
             return Ok(Expression::Null);
         }
 
-        Ok(evaluate_expression(
-            returned_expr(
-                args.to_owned()
-                    .into_iter()
-                    .map(|arg| -> Result<Expression, EvaluationError> {
-                        evaluate_expression(arg.clone(), symbol_table)
-                    })
-                    .collect::<Result<Vec<Expression>, EvaluationError>>()?,
-            ),
-            symbol_table,
-        )?)
+        Ok(evaluate_expression(returned_expr, symbol_table)?)
     }
 }
 
