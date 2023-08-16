@@ -143,8 +143,8 @@ pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationE
                         message: e.to_string(),
                     })?;
             }
-            ASTNode::Return(r) => {
-                *r = evaluate_expression(r.clone(), &mut rerun_table)?;
+            ASTNode::Return { value, keyword } => {
+                return Err(EvaluationError::Custom { message: format!("Return statements only allowed in functions: at '{} {}'", keyword, value) })
             }
             ASTNode::FunctionCall(call) => {
                 rerun_table.run_fn(&call.function_name, &call.arguments)?;

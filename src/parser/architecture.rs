@@ -24,7 +24,10 @@ pub enum ASTNode {
     // corresponds to both {} and => functions
     ClassDeclaration(Class),
 
-    Return(Expression),
+    Return {
+        value: Expression,
+        keyword: String
+    },
     FunctionCall(FunctionCall),
 }
 

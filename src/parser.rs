@@ -108,7 +108,7 @@ pub fn parse(
                     statements.push(function(f));
                 }
                 TokenType::Return => {
-                    statements.push(parse_return_statement(&mut tokens_iter, &mut symbol_table)?);
+                    statements.push(parse_return_statement(&token.value, &mut tokens_iter, &mut symbol_table)?);
                 }
                 TokenType::Comma => {
                     if statements.len() == 0 {
@@ -168,6 +168,14 @@ pub fn parse(
                 }
                 TokenType::While => {
                     print_info!("'while' operator implementation coming soon!");
+                    todo!()
+                }
+                TokenType::Import => {
+                    print_info!("Imports support coming soon!");
+                    todo!()
+                }
+                TokenType::Export => {
+                    print_info!("Exports support coming soon!");
                     todo!()
                 }
                 TokenType::LogicalOperator => {

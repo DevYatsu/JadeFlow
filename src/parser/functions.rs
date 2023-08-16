@@ -58,7 +58,7 @@ impl Function {
     fn get_returned_expr(&self) -> Expression {
         for statement in self.context.iter() {
             match &statement.node {
-                ASTNode::Return(val) => return val.to_owned(),
+                ASTNode::Return { value, .. } => return value.to_owned(),
                 _ => (),
             }
         }
@@ -68,7 +68,7 @@ impl Function {
 
     pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
         if let Some(Statement {
-            node: ASTNode::Return(returned),
+            node: ASTNode::Return { value: returned, .. }
         }) = program.statements.last()
         {
             type_from_expression(returned, &mut program.symbol_table).ok()
