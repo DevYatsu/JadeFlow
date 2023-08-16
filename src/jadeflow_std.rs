@@ -1,5 +1,6 @@
 // functions and constants in the standard lib
-
+mod console;
+mod math;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -8,12 +9,13 @@ use crate::{
     parser::{
         architecture::SymbolTable,
         expression::Expression,
-        functions::Function,
         types::{err_on_fn_call_args_invalid, VariableType},
         vars::Declaration,
     },
 };
 use once_cell::sync::OnceCell;
+
+use self::{console::load_std_console, math::load_std_math};
 
 pub struct StandardFunction {
     pub name: String,
@@ -137,189 +139,4 @@ pub fn load_std() -> HashMap<String, StandardFunction> {
     // initialize all standard fns
 
     merge_fns_modules!(maths_fns, console_fns)
-}
-
-fn load_std_math() -> HashMap<String, StandardFunction> {
-    let sqrt = StandardFunction::new(
-        "sqrt",
-        vec![Function::argument("number", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.sqrt())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-    let abs = StandardFunction::new(
-        "abs",
-        vec![Function::argument("number", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.abs())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-    let sin = StandardFunction::new(
-        "sin",
-        vec![Function::argument("angle", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(angle) = &args[0] {
-                Expression::Number(angle.sin())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let cos = StandardFunction::new(
-        "cos",
-        vec![Function::argument("angle", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(angle) = &args[0] {
-                Expression::Number(angle.cos())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let tan = StandardFunction::new(
-        "tan",
-        vec![Function::argument("angle", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(angle) = &args[0] {
-                Expression::Number(angle.tan())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let log = StandardFunction::new(
-        "log",
-        vec![Function::argument("value", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(value) = &args[0] {
-                Expression::Number(value.ln())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let round = StandardFunction::new(
-        "round",
-        vec![Function::argument("number", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.round())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let floor = StandardFunction::new(
-        "floor",
-        vec![Function::argument("number", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.floor())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let ceil = StandardFunction::new(
-        "ceil",
-        vec![Function::argument("number", VariableType::Number)],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.ceil())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    create_function_map!(sqrt, abs, sin, cos, tan, log, floor, round, ceil)
-}
-
-fn load_std_console() -> HashMap<String, StandardFunction> {
-    let print = StandardFunction::new(
-        "print",
-        vec![Function::argument("message", VariableType::String)],
-        None,
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::String(msg) = &args[0] {
-                println!("{msg}");
-                Expression::Null
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let input = StandardFunction::new(
-        "input",
-        vec![Function::argument("prompt", VariableType::String)],
-        Some(VariableType::String),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            let mut input = String::new();
-
-            if let Expression::String(msg) = &args[0] {
-                print!("{} ", msg);
-                std::io::stdin()
-                    .read_line(&mut input)
-                    .expect("Failed to read input");
-                Expression::String(input.trim().to_string())
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    // You can also create a function similar to 'print' that prints to standard error
-    let eprint = StandardFunction::new(
-        "eprint",
-        vec![Function::argument("message", VariableType::String)],
-        None,
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::String(msg) = &args[0] {
-                eprintln!("{msg}");
-                Expression::Null
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    let print_no_newline = StandardFunction::new(
-        "print_no_newline",
-        vec![Function::argument("text", VariableType::String)],
-        None,
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::String(text) = &args[0] {
-                print!("{}", text);
-                Expression::Null
-            } else {
-                unreachable!()
-            }
-        }),
-    );
-
-    create_function_map!(print, input, eprint, print_no_newline)
 }
