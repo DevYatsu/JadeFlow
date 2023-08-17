@@ -8,6 +8,6 @@ const hello_james = say_hello("jammy")
 fn say_hello (name: str): str => `hello #{name}`
 fn string(s: str): str => s
 
-const question = input ("Your name:") 
+const question = input ("\x1b[31mYour name: \x1b[0m") 
 
-print ( say_hello(question) )
+println ( say_hello(question) )
