@@ -20,6 +20,7 @@ pub trait RunnableFunction {
 
 use super::{
     architecture::{ASTNode, Program, Statement, SymbolTable, SymbolTableError},
+    class::Class,
     expression::Expression,
     ignore_whitespace, parse,
     types::{err_on_fn_call_args_invalid, type_from_expression, VariableType},
@@ -220,8 +221,11 @@ pub fn function_call(call: FunctionCall) -> Statement {
 pub fn parse_fn_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
+    ctx: Option<Expression>,
 ) -> Result<Function, ParsingError> {
     let fn_data = parse_fn_header(tokens, symbol_table)?;
+
+    let is_method = ctx.is_some();
 
     let function_context = match tokens.next() {
         Some(Token {
@@ -231,7 +235,20 @@ pub fn parse_fn_declaration(
             let mut ctx_tokens = Vec::new();
             ctx_tokens.extend(fn_data.args_as_tokens());
             ctx_tokens.extend(parse_fn_block(tokens, &fn_data.name)?);
-            parse(ctx_tokens.iter().peekable(), Some(symbol_table.clone()))
+            let mut table = symbol_table.clone();
+            if is_method {
+                table.variables.insert(
+                    "ctx".to_owned(),
+                    Declaration {
+                        name: "ctx".to_owned(),
+                        var_type: crate::parser::types::VariableType::Dictionary,
+                        value: ctx.unwrap(),
+                        is_mutable: false,
+                        is_object_prop: false,
+                    },
+                );
+            }
+            parse(ctx_tokens.iter().peekable(), Some(table))
         }
         Some(Token {
             token_type: TokenType::FunctionArrow,
@@ -262,8 +279,20 @@ pub fn parse_fn_declaration(
                 }
                 .into());
             }
-
-            parse(ctx_tokens.iter().peekable(), Some(symbol_table.clone()))?
+            let mut table = symbol_table.clone();
+            if is_method {
+                table.variables.insert(
+                    "ctx".to_owned(),
+                    Declaration {
+                        name: "ctx".to_owned(),
+                        var_type: crate::parser::types::VariableType::Dictionary,
+                        value: ctx.unwrap(),
+                        is_mutable: false,
+                        is_object_prop: false,
+                    },
+                );
+            }
+            parse(ctx_tokens.iter().peekable(), Some(table))?
         }),
         _ => {
             return Err(FunctionParsingError::ExpectedBrace {

@@ -1,8 +1,10 @@
-class human (name: str, age: num, gender: str) {
-    ctx.name = name
-    ctx.age = age
-    ctx.gender = gender
-    // can be accessed anywhere in the class and outside of it
+class Human {
+    fn init (name: str, age: num, gender: str) {
+        ctx.name = name
+        ctx.age = age
+        ctx.gender = gender
+        // can be accessed anywhere in the class and outside of it
+    }
 
 /*
     pub {

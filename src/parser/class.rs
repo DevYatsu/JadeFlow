@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt};
 
 use crate::{
-    parser::{architecture::SymbolTableError, vars::parse_var_reassignment},
+    parser::expression::parse_expression,
     print_warning,
     token::{Token, TokenType},
 };
@@ -10,7 +10,7 @@ use super::{
     architecture::SymbolTable,
     errors::ParsingError,
     expression::Expression,
-    functions::{errors::FunctionParsingError, parse_fn_args, Function, MainFunctionData},
+    functions::{errors::FunctionParsingError, parse_fn_declaration, Function, MainFunctionData},
     ignore_until_statement, ignore_whitespace,
     types::TypeError,
     vars::Declaration,
@@ -19,6 +19,8 @@ use super::{
 custom_error::custom_error! {pub ClassError
     FunctionError{source: FunctionParsingError} = "{source}",
     TypeError{source: TypeError} = "{source}",
+    Custom{msg: String} = "{msg}",
+
     ExpectedUppercaseInName{name: String} = "Expected a name starting with an uppercase for '{name}' class",
     ExpectedNameAfterClass = "Expected a class name after 'class'",
     NameAlreadyTaken{name:String} = "The class '{name}' already exists",
@@ -27,16 +29,19 @@ custom_error::custom_error! {pub ClassError
 
     NoVarInClassContext{var_name: String} = "Cannot instanciate variables in the class context: at '{var_name}'",
     CannotReassignExternalVar{var_name: String} = "Cannot reassign global variable in the class context: at '{var_name}'",
-    NoMethodInGlobalCtx{var_name: String, class_name: String} = "Cannot create methods in the class global context: at '{var_name}' in '{class_name}' declaration",
+    NoMethodInGlobalCtxExceptInit{fn_name: String, class_name: String} = "Cannot create methods in the class global context except 'init': at '{fn_name}' in '{class_name}' declaration",
+    NoIdInGlobalContext{identifier: String, class_name: String} = "No variable assignment in class global context: at '{identifier}' in '{class_name}' declaration",
 
+    CannotReassignCtx{class_name: String} = "Cannot reassign '{class_name}' class 'ctx'",
+
+    ClassMissingAnIniter{class_name: String} = "Class '{class_name}' is missing an 'init' method !",
     UnknownClassProp{prop: String} = "Use of an unknown class property '{prop}'"
 }
 
 #[derive(Debug, Clone)]
 pub struct Class {
     pub name: String,
-    pub arguments: Vec<Declaration>,
-    pub global_properties: HashMap<String, Expression>,
+    pub initer: Option<Function>,
     pub public_ctx: ClassCtx,
     pub private_ctx: ClassCtx,
 }
@@ -44,20 +49,209 @@ impl Class {
     pub fn new() -> Class {
         Class {
             name: String::new(),
-            arguments: Vec::new(),
-            global_properties: HashMap::new(),
             public_ctx: ClassCtx::new(),
             private_ctx: ClassCtx::new(),
+            initer: None,
         }
     }
+    pub fn set_pub_prop(&mut self, prop: &str, value: Expression) -> Result<(), ClassError> {
+        if prop == "ctx" {
+            return Err(ClassError::CannotReassignCtx {
+                class_name: self.name.to_owned(),
+            });
+        }
+        let identifier_parts = prop.split('.').collect::<Vec<&str>>();
+
+        if identifier_parts[0] != "ctx" {
+            return Err(ClassError::CannotReassignExternalVar {
+                var_name: prop.to_owned(),
+            }
+            .into());
+        }
+        let last_prop = identifier_parts.last().unwrap();
+
+        let mut current_prop =
+            &mut Expression::DictionaryExpression(self.public_ctx.properties.clone());
+        for part in identifier_parts.iter().take(identifier_parts.len() - 1) {
+            match current_prop {
+                Expression::DictionaryExpression(d) => {
+                    current_prop = d.entry(part.to_string()).or_insert(Expression::Null);
+                }
+                _ => {
+                    return Err(ClassError::Custom {
+                        msg: format!("Cannot access {} as it is not a dictionary!", part),
+                    }
+                    .into());
+                }
+            }
+        }
+
+        if let Expression::DictionaryExpression(d) = current_prop {
+            d.insert(last_prop.to_string(), value);
+        } else {
+            return Err(ClassError::Custom {
+                msg: format!(
+                    "Cannot access {} as it is not a dictionary!",
+                    identifier_parts.join(".")
+                ),
+            }
+            .into());
+        }
+
+        Ok(())
+    }
+
+    pub fn set_priv_prop(&mut self, prop: &str, value: Expression) -> Result<(), ClassError> {
+        if prop == "ctx" {
+            return Err(ClassError::CannotReassignCtx {
+                class_name: self.name.to_owned(),
+            });
+        }
+        let identifier_parts = prop.split('.').collect::<Vec<&str>>();
+
+        if identifier_parts[0] != "ctx" {
+            return Err(ClassError::CannotReassignExternalVar {
+                var_name: prop.to_owned(),
+            }
+            .into());
+        }
+        let last_prop = identifier_parts.last().unwrap();
+
+        let mut current_prop =
+            &mut Expression::DictionaryExpression(self.private_ctx.properties.clone());
+        for part in identifier_parts.iter().take(identifier_parts.len() - 1) {
+            match current_prop {
+                Expression::DictionaryExpression(d) => {
+                    current_prop = d.entry(part.to_string()).or_insert(Expression::Null);
+                }
+                _ => {
+                    return Err(ClassError::Custom {
+                        msg: format!("Cannot access {} as it is not a dictionary!", part),
+                    }
+                    .into());
+                }
+            }
+        }
+
+        if let Expression::DictionaryExpression(d) = current_prop {
+            d.insert(last_prop.to_string(), value);
+        } else {
+            return Err(ClassError::Custom {
+                msg: format!(
+                    "Cannot access {} as it is not a dictionary!",
+                    identifier_parts.join(".")
+                ),
+            }
+            .into());
+        }
+
+        Ok(())
+    }
+
+    pub fn get_pub_prop(&self, prop: &str) -> Result<Expression, ClassError> {
+        if prop == "ctx" {
+            return Ok(Expression::DictionaryExpression(
+                self.public_ctx.properties.clone(),
+            ));
+        }
+        let mut identifier_parts = prop.split('.').collect::<Vec<&str>>();
+
+        if identifier_parts[0] != "ctx" {
+            return Err(ClassError::CannotReassignExternalVar {
+                var_name: prop.to_owned(),
+            }
+            .into());
+        }
+
+        let mut ctx = self.get_pub_prop(identifier_parts.remove(0))?;
+
+        while identifier_parts.len() > 0 {
+            match ctx {
+                Expression::DictionaryExpression(dict) => {
+                    ctx = dict
+                        .get(identifier_parts.remove(0))
+                        .unwrap_or(&Expression::Null)
+                        .to_owned();
+                }
+                _ => {
+                    let whole_name = prop.split('.').collect::<Vec<&str>>();
+                    return Err(ClassError::Custom {
+                        msg: format!(
+                            "Cannot access {} as it is not a dictionary!",
+                            whole_name[0..whole_name.len() - identifier_parts.len()].join(".")
+                        ),
+                    });
+                }
+            }
+        }
+
+        Ok(ctx)
+    }
+
+    pub fn get_priv_prop(&self, prop: &str) -> Result<Expression, ClassError> {
+        if prop == "ctx" {
+            return Ok(Expression::DictionaryExpression(
+                self.private_ctx.properties.clone(),
+            ));
+        }
+
+        let mut identifier_parts = prop.split('.').collect::<Vec<&str>>();
+
+        if identifier_parts[0] != "ctx" {
+            return Err(ClassError::CannotReassignExternalVar {
+                var_name: prop.to_owned(),
+            }
+            .into());
+        }
+
+        let index_0 = identifier_parts.remove(0);
+        let mut ctx = self.get_pub_prop(index_0)?;
+        let priv_ctx = match self.get_priv_prop(index_0)? {
+            Expression::DictionaryExpression(d) => d,
+            _ => unreachable!(),
+        };
+        ctx = match ctx {
+            Expression::DictionaryExpression(mut d) => {
+                d.extend(priv_ctx);
+                Expression::DictionaryExpression(d)
+            }
+            _ => unreachable!(),
+        };
+
+        while identifier_parts.len() > 0 {
+            match ctx {
+                Expression::DictionaryExpression(dict) => {
+                    ctx = dict
+                        .get(identifier_parts.remove(0))
+                        .unwrap_or(&Expression::Null)
+                        .to_owned();
+                }
+                _ => {
+                    let whole_name = prop.split('.').collect::<Vec<&str>>();
+                    return Err(ClassError::Custom {
+                        msg: format!(
+                            "Cannot access {} as it is not a dictionary!",
+                            whole_name[0..whole_name.len() - identifier_parts.len()].join(".")
+                        ),
+                    });
+                }
+            }
+        }
+
+        Ok(ctx)
+    }
 }
+
 impl fmt::Display for Class {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "class {}({})",
             self.name,
-            self.arguments
+            self.initer
+                .clone()
+                .unwrap()
+                .arguments
                 .iter()
                 .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
                 .collect::<Vec<String>>()
@@ -85,15 +279,15 @@ pub struct MainClassCtx {
     pub methods: HashMap<String, MainFunctionData>,
     pub properties: HashMap<String, Expression>,
 }
-impl MainClassCtx {
-    pub fn from_class_ctx(ctx: &ClassCtx) -> MainClassCtx {
+impl From<ClassCtx> for MainClassCtx {
+    fn from(value: ClassCtx) -> Self {
         MainClassCtx {
-            methods: ctx
+            methods: value
                 .methods
                 .iter()
                 .map(|(name, fn_data)| (name.to_owned(), MainFunctionData::from(fn_data.clone())))
                 .collect(),
-            properties: ctx.properties.clone(),
+            properties: value.properties,
         }
     }
 }
@@ -159,24 +353,9 @@ pub fn parse_class_header(
             });
         }
 
-        // Check if the next token is an open parenthesis
-        if let Some(Token {
-            token_type: TokenType::OpenParen,
-            ..
-        }) = tokens.next()
-        {
-            let arguments = parse_fn_args(tokens)?;
+        cls.name = name.to_owned();
 
-            cls.name.push_str(name);
-            cls.arguments = arguments;
-
-            return Ok(());
-        } else {
-            return Err(FunctionParsingError::ExpectedOpenParen {
-                name: name.to_owned(),
-            }
-            .into());
-        }
+        return Ok(());
     } else {
         return Err(ClassError::ExpectedNameAfterClass);
     }
@@ -188,7 +367,6 @@ fn parse_class_content(
     cls: &mut Class,
 ) -> Result<(), ParsingError> {
     while let Some(token) = tokens.next() {
-        println!("{:?}", token.value);
         match token.token_type {
             TokenType::ClassPublic => {
                 // parse public content
@@ -197,56 +375,13 @@ fn parse_class_content(
                 // parse private content
             }
             TokenType::Identifier => {
-                if token.value.starts_with("ctx.") {
-                    let identifier_parts = &token.value.split('.').collect::<Vec<&str>>();
-                    let prop_name = identifier_parts[1];
-
-                    let assignement =
-                        parse_var_reassignment(tokens, None, symbol_table, prop_name)?;
-
-                    if identifier_parts.len() == 2 {
-                        cls.global_properties
-                            .insert(assignement.name, assignement.value.clone());
-                        println!("{:?}", cls.global_properties);
-                        return Ok(());
-                    }
-
-                    // manage the case of objects
-                    let prop = cls.global_properties.get(prop_name);
-                    if prop.is_some() {
-                        let prop = prop.unwrap();
-                        match prop {
-                            Expression::DictionaryExpression(d) => {
-                                let mut new_hash = d.clone();
-                                new_hash.insert(identifier_parts[2].to_owned(), assignement.value);
-                                cls.global_properties.insert(
-                                    prop_name.to_owned(),
-                                    Expression::DictionaryExpression(new_hash),
-                                );
-                            }
-                            _ => {
-                                return Err(SymbolTableError::InvalidDict {
-                                    name: prop_name.to_owned(),
-                                }
-                                .into())
-                            }
-                        }
-                    } else {
-                        return Err(ClassError::UnknownClassProp {
-                            prop: prop_name.to_owned(),
-                        }
-                        .into());
-                    }
-                } else {
-                    return Err(ClassError::CannotReassignExternalVar {
-                        var_name: token.value.to_owned(),
-                    }
-                    .into());
+                return Err(ClassError::NoIdInGlobalContext {
+                    identifier: token.value.to_owned(),
+                    class_name: cls.name.to_owned(),
                 }
+                .into());
             }
-            TokenType::Separator => {
-                // dont do anything
-            }
+            TokenType::Separator => {}
             TokenType::Var => {
                 let mut err_content = String::from(&token.value);
                 ignore_whitespace(tokens);
@@ -263,20 +398,18 @@ fn parse_class_content(
                 .into());
             }
             TokenType::Function => {
-                let mut err_content = String::from(&token.value);
-                ignore_whitespace(tokens);
-                if let Some(token) = tokens.next() {
-                    if token.token_type == TokenType::Identifier {
-                        err_content.push(' ');
+                let ctx = cls.get_pub_prop("ctx")?;
+                let fn_data = parse_fn_declaration(tokens, symbol_table, Some(ctx))?;
 
-                        err_content.push_str(&token.value);
+                if &fn_data.name != "init" {
+                    return Err(ClassError::NoMethodInGlobalCtxExceptInit {
+                        fn_name: fn_data.name,
+                        class_name: cls.name.to_owned(),
                     }
+                    .into());
                 }
-                return Err(ClassError::NoMethodInGlobalCtx {
-                    var_name: err_content,
-                    class_name: cls.name.to_owned(),
-                }
-                .into());
+
+                cls.initer = Some(fn_data);
             }
             TokenType::CloseBrace => {
                 break;
@@ -287,5 +420,73 @@ fn parse_class_content(
         }
     }
 
+    if cls.initer.is_none() {
+        return Err(ClassError::ClassMissingAnIniter {
+            class_name: cls.name.to_owned(),
+        }
+        .into());
+    }
+
     Ok(())
+}
+
+fn parse_ctx_assignment(
+    tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    prop_name: &str,
+    symbol_table: &mut SymbolTable,
+    cls: &mut Class,
+    is_pub: bool,
+) -> Result<(), ParsingError> {
+    let prop = if !is_pub {
+        cls.get_priv_prop(&prop_name)?
+    } else {
+        cls.get_pub_prop(&prop_name)?
+    };
+    let is_prop_null = match prop {
+        Expression::Null => true,
+        _ => false,
+    };
+
+    if let Some(Token {
+        token_type: TokenType::AssignmentOperator,
+        value: operator,
+    }) = tokens.next()
+    {
+        if is_prop_null && operator != "=" {
+            return Err(ClassError::Custom {
+                msg: format!(
+                    "Cannot reassign with '{}' operator '{}' as it was not assigned yet",
+                    operator, prop_name
+                ),
+            }
+            .into());
+        }
+        symbol_table.variables.insert(
+            "ctx".to_owned(),
+            Declaration {
+                name: "ctx".to_owned(),
+                var_type: crate::parser::types::VariableType::Dictionary,
+                value: if is_pub {
+                    cls.get_pub_prop("ctx")?
+                } else {
+                    cls.get_priv_prop("ctx")?
+                },
+                is_mutable: false,
+                is_object_prop: false,
+            },
+        );
+
+        let expr = parse_expression(tokens, symbol_table)?;
+        symbol_table.variables.remove("ctx");
+
+        Ok(if is_pub {
+            cls.set_pub_prop(prop_name, expr)?
+        } else {
+            cls.set_priv_prop(prop_name, expr)?
+        })
+    } else {
+        return Err(ParsingError::ExpectedReassignment {
+            var_name: prop_name.to_owned(),
+        });
+    }
 }

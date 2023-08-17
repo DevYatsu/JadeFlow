@@ -103,7 +103,7 @@ pub fn parse(
                     }
                 }
                 TokenType::Function => {
-                    let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table)?;
+                    let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table, None)?;
                     symbol_table.insert_function(&f);
                     statements.push(function(f));
                 }
