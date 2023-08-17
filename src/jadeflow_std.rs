@@ -30,7 +30,7 @@ macro_rules! create_function_map {
     }};
 }
 
-macro_rules! merge_fns_modules {
+macro_rules! merge_hash_maps {
     ( $( $module:expr ),* ) => {
         {
             let mut modules = HashMap::new();
@@ -47,5 +47,5 @@ pub fn load_std() -> HashMap<String, Function> {
     let console_fns = load_std_console();
     // initialize all standard fns
 
-    merge_fns_modules!(maths_fns, console_fns)
+    merge_hash_maps!(maths_fns, console_fns)
 }
