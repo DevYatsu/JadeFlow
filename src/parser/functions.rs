@@ -1,11 +1,11 @@
 pub mod errors;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use crate::{
     evaluation::{evaluate_expression, EvaluationError},
     jadeflow_std::StandardFunction,
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
-    token::{Token, TokenType},
+    token::{tokenize, Token, TokenType},
 };
 
 use self::errors::FunctionParsingError;
@@ -30,15 +30,49 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
-    pub arguments: Vec<Declaration>,
+    pub arguments: Vec<Argument>,
     pub context: Vec<Statement>,
     pub return_type: Option<VariableType>,
     pub table: SymbolTable,
 }
+#[derive(Debug, Clone)]
+pub struct Argument {
+    pub name: String,
+    pub var_type: VariableType,
+    pub is_mutable: bool,
+}
+impl Argument {
+    pub fn new(name: String, var_type: VariableType, is_mutable: bool) -> Argument {
+        Argument {
+            name,
+            var_type,
+            is_mutable,
+        }
+    }
+    pub fn equivalent_tokens(&self) -> Vec<Token> {
+        let keyword = if self.is_mutable { "mut" } else { "const" };
+        let value = match self.var_type {
+            VariableType::String => Expression::String("".to_owned()),
+            VariableType::Number => Expression::Number(0.0),
+            VariableType::Boolean => Expression::Boolean(false),
+            VariableType::Vector => Expression::ArrayExpression(Vec::new()),
+            VariableType::Dictionary => Expression::DictionaryExpression(HashMap::new()),
+        };
+        let source_code = format!(
+            "{} {}: {} = {};",
+            keyword,
+            self.name,
+            self.var_type.as_assignment(),
+            value
+        );
+        tokenize(source_code.as_bytes()).unwrap().into()
+    }
+}
+
 impl Function {
     pub fn new(
         name: &str,
-        arguments: Vec<Declaration>,
+        arguments: Vec<Argument>,
         context: Vec<Statement>,
         return_type: Option<VariableType>,
         table: SymbolTable,
@@ -50,9 +84,6 @@ impl Function {
             return_type,
             table,
         }
-    }
-    pub fn argument(name: &str, var_type: VariableType) -> Declaration {
-        Declaration::new(name, var_type, Expression::Null, true, false)
     }
 
     fn get_returned_expr(&self) -> Expression {
@@ -93,7 +124,7 @@ impl RunnableFunction for Function {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                let mut new_arg = arg.clone();
+                let mut new_arg = Declaration::from(arg.clone());
                 new_arg.value = args[i].clone();
                 new_arg
             })
@@ -150,7 +181,7 @@ impl fmt::Display for Function {
 #[derive(Debug, Clone)]
 pub struct MainFunctionData {
     pub name: String,
-    pub arguments: Vec<Declaration>,
+    pub arguments: Vec<Argument>,
     pub return_type: Option<VariableType>,
     pub is_std: bool,
 }
@@ -554,14 +585,21 @@ fn parse_fn_block(
 
 pub fn parse_fn_args(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
-) -> Result<Vec<Declaration>, FunctionParsingError> {
-    let mut arguments: Vec<Declaration> = Vec::new();
+) -> Result<Vec<Argument>, FunctionParsingError> {
+    let mut arguments: Vec<Argument> = Vec::new();
 
-    while let Some(initial_token) = tokens.next() {
+    while let Some(mut initial_token) = tokens.next() {
         if initial_token.token_type == TokenType::CloseParen {
             break;
         }
-
+        let is_mutable = if &initial_token.value == "mut" {
+            initial_token = tokens.next().ok_or_else(|| FunctionParsingError::Custom {
+                msg: ParsingError::UnexpectedEndOfInput.to_string(),
+            })?;
+            true
+        } else {
+            false
+        };
         if initial_token.token_type == TokenType::Identifier {
             if let Some(Token {
                 token_type: TokenType::Colon,
@@ -577,12 +615,10 @@ pub fn parse_fn_args(
                             })
                         }
                     };
-                    arguments.push(Declaration {
+                    arguments.push(Argument {
                         name: initial_token.value.to_owned(),
                         var_type: arg_type.clone(),
-                        value: Expression::Null,
-                        is_mutable: true,
-                        is_object_prop: false,
+                        is_mutable: false,
                     });
 
                     let next = tokens.next();

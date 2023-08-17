@@ -8,8 +8,7 @@ use crate::{
 use super::{
     architecture::{SymbolTable, SymbolTableError},
     expression::{operation::BinaryOperator, Expression},
-    functions::errors::FunctionParsingError,
-    vars::Declaration,
+    functions::{errors::FunctionParsingError, Argument},
     ParsingError,
 };
 use custom_error::custom_error;
@@ -314,7 +313,7 @@ pub fn parse_type(token: Option<&Token>) -> Result<VariableType, ParsingError> {
 
 pub fn err_on_fn_call_args_invalid(
     fn_name: &str,
-    fn_arguments: &Vec<Declaration>,
+    fn_arguments: &Vec<Argument>,
     call_args: &Vec<Expression>,
     symbol_table: &SymbolTable,
 ) -> Result<(), EvaluationError> {

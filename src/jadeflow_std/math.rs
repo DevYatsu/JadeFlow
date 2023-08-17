@@ -1,13 +1,17 @@
 use crate::{
     create_function_map,
     jadeflow_std::StandardFunction,
-    parser::{expression::Expression, functions::Function, types::VariableType},
+    parser::{expression::Expression, functions::Argument, types::VariableType},
 };
 use std::collections::HashMap;
 pub fn load_std_math() -> HashMap<String, StandardFunction> {
     let sqrt = StandardFunction::new(
         "sqrt",
-        vec![Function::argument("number", VariableType::Number)],
+        vec![Argument::new(
+            "number".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {
@@ -19,7 +23,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
     );
     let abs = StandardFunction::new(
         "abs",
-        vec![Function::argument("number", VariableType::Number)],
+        vec![Argument::new(
+            "number".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {
@@ -31,7 +39,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
     );
     let sin = StandardFunction::new(
         "sin",
-        vec![Function::argument("angle", VariableType::Number)],
+        vec![Argument::new(
+            "angle".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(angle) = &args[0] {
@@ -44,7 +56,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
 
     let cos = StandardFunction::new(
         "cos",
-        vec![Function::argument("angle", VariableType::Number)],
+        vec![Argument::new(
+            "angle".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(angle) = &args[0] {
@@ -57,7 +73,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
 
     let tan = StandardFunction::new(
         "tan",
-        vec![Function::argument("angle", VariableType::Number)],
+        vec![Argument::new(
+            "angle".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(angle) = &args[0] {
@@ -70,7 +90,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
 
     let log = StandardFunction::new(
         "log",
-        vec![Function::argument("value", VariableType::Number)],
+        vec![Argument::new(
+            "value".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(value) = &args[0] {
@@ -83,7 +107,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
 
     let round = StandardFunction::new(
         "round",
-        vec![Function::argument("number", VariableType::Number)],
+        vec![Argument::new(
+            "number".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {
@@ -96,7 +124,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
 
     let floor = StandardFunction::new(
         "floor",
-        vec![Function::argument("number", VariableType::Number)],
+        vec![Argument::new(
+            "number".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {
@@ -109,7 +141,11 @@ pub fn load_std_math() -> HashMap<String, StandardFunction> {
 
     let ceil = StandardFunction::new(
         "ceil",
-        vec![Function::argument("number", VariableType::Number)],
+        vec![Argument::new(
+            "number".to_owned(),
+            VariableType::Number,
+            false,
+        )],
         Some(VariableType::Number),
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {

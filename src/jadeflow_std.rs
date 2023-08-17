@@ -10,9 +10,8 @@ use crate::{
     parser::{
         architecture::SymbolTable,
         expression::Expression,
-        functions::RunnableFunction,
+        functions::{Argument, RunnableFunction},
         types::{err_on_fn_call_args_invalid, VariableType},
-        vars::Declaration,
     },
 };
 use once_cell::sync::OnceCell;
@@ -21,7 +20,7 @@ use self::{console::load_std_console, math::load_std_math};
 
 pub struct StandardFunction {
     pub name: String,
-    pub arguments: Vec<Declaration>,
+    pub arguments: Vec<Argument>,
     pub return_type: Option<VariableType>,
     pub code_to_run: OnceCell<Box<dyn Fn(Vec<Expression>) -> Expression>>,
 }
@@ -67,7 +66,7 @@ impl fmt::Display for StandardFunction {
 impl StandardFunction {
     pub fn new(
         name: &str,
-        arguments: Vec<Declaration>,
+        arguments: Vec<Argument>,
         return_type: Option<VariableType>,
         code: Box<dyn Fn(Vec<Expression>) -> Expression>,
     ) -> StandardFunction {

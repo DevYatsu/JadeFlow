@@ -82,7 +82,6 @@ pub fn parse_array_indexing(
                     _ => break,
                 }
             }
-            println!("parse {:?}", expressions_vec);
             return Ok(Expression::ArrayIndexing(expressions_vec));
         } else {
             return Err(ParsingError::ExpectedBracketAfterVectorIndex {

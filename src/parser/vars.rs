@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap,
+    fmt::{self},
+};
 
 use crate::{
     parser::expression::parse_expression,
@@ -8,6 +11,7 @@ use crate::{
 use super::{
     architecture::{ASTNode, Statement, SymbolTable},
     expression::{parse_with_operator, Expression},
+    functions::Argument,
     ignore_whitespace,
     types::{parse_type, type_from_expression, VariableType},
     ParsingError,
@@ -47,14 +51,14 @@ impl fmt::Display for Declaration {
 }
 impl Declaration {
     pub fn new(
-        name: &str,
+        name: String,
         var_type: VariableType,
         value: Expression,
         is_mutable: bool,
         is_object_prop: bool,
     ) -> Declaration {
         Declaration {
-            name: name.to_string(),
+            name,
             var_type,
             value,
             is_mutable,
@@ -89,6 +93,17 @@ impl Declaration {
         } else {
             "const"
         }
+    }
+}
+impl From<Argument> for Declaration {
+    fn from(value: Argument) -> Self {
+        Declaration::new(
+            value.name,
+            value.var_type,
+            Expression::Null,
+            value.is_mutable,
+            false,
+        )
     }
 }
 

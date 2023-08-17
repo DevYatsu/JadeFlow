@@ -5,7 +5,7 @@ use crate::parser::types::VariableType;
 custom_error! {pub FunctionParsingError
     ExpectedIdentifier = "Expected a function name after the 'fn' keyword",
     ExpectedOpenParen{name: String} = "Expected parentheses after '{name}' in the function declaration",
-
+    Custom{msg: String} = "{msg}",
     ExpectedArgName = "Expected a valid function argument name",
     ExpectedArgColon{arg_name: String} = "Expected a type declaration after '{arg_name}'",
     ExpectedArgType{arg_name: String} = "Missing type declaration for argument '{arg_name}'",

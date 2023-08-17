@@ -1,7 +1,7 @@
 use crate::{
     create_function_map,
     jadeflow_std::StandardFunction,
-    parser::{expression::Expression, functions::Function, types::VariableType},
+    parser::{expression::Expression, functions::Argument, types::VariableType},
 };
 use std::{
     collections::HashMap,
@@ -11,7 +11,11 @@ use std::{
 pub fn load_std_console() -> HashMap<String, StandardFunction> {
     let println = StandardFunction::new(
         "println",
-        vec![Function::argument("message", VariableType::String)],
+        vec![Argument::new(
+            "message".to_owned(),
+            VariableType::String,
+            false,
+        )],
         None,
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::String(msg) = &args[0] {
@@ -25,7 +29,11 @@ pub fn load_std_console() -> HashMap<String, StandardFunction> {
 
     let input = StandardFunction::new(
         "input",
-        vec![Function::argument("prompt", VariableType::String)],
+        vec![Argument::new(
+            "prompt".to_owned(),
+            VariableType::String,
+            false,
+        )],
         Some(VariableType::String),
         Box::new(|args: Vec<Expression>| -> Expression {
             let mut input = String::new();
@@ -45,7 +53,11 @@ pub fn load_std_console() -> HashMap<String, StandardFunction> {
 
     let print = StandardFunction::new(
         "print",
-        vec![Function::argument("message", VariableType::String)],
+        vec![Argument::new(
+            "message".to_owned(),
+            VariableType::String,
+            false,
+        )],
         None,
         Box::new(|args: Vec<Expression>| -> Expression {
             if let Expression::String(text) = &args[0] {
