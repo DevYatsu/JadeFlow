@@ -1,6 +1,7 @@
 // functions and constants in the standard lib
 mod console;
 mod math;
+mod modules;
 use std::collections::HashMap;
 use std::fmt;
 

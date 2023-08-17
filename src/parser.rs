@@ -1,5 +1,5 @@
 pub mod architecture;
-mod class;
+pub mod class;
 mod dictionary;
 pub mod errors;
 pub mod expression;
