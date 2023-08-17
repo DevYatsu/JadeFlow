@@ -9,4 +9,5 @@ fn say_hello (name: str): str => `hello #{name}`
 fn string(s: str): str => s
 
 const question = input ("Your name:") 
-print (`#{ say_hello(question) }`)
+
+print ( say_hello(question) )
