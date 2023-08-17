@@ -17,7 +17,7 @@ macro_rules! create_function_map {
 
         $(
             match &$func {
-                Function::StandardFunction {name, ..} => {
+                Function::StandardFunction {name,..} => {
                     function_map.insert(name.clone(), $func);
                 }
                 Function::DefinedFunction {name, ..} => {
