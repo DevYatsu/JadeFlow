@@ -1,11 +1,12 @@
 const test = "str"
 const s = string(test)
 const num_5 = 5.0
-fn string(s: str): str => s
 
 const hello = "hello"
 const hello_james = say_hello("jammy")
 
 fn say_hello (name: str): str => `hello #{name}`
+fn string(s: str): str => s
 
-print ( hello_james )
+const question = input ("Your name:") 
+print (`#{ say_hello(question) }`)

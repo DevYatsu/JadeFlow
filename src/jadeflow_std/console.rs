@@ -3,7 +3,10 @@ use crate::{
     jadeflow_std::StandardFunction,
     parser::{expression::Expression, functions::Function, types::VariableType},
 };
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+};
 
 pub fn load_std_console() -> HashMap<String, StandardFunction> {
     let print = StandardFunction::new(
@@ -29,6 +32,7 @@ pub fn load_std_console() -> HashMap<String, StandardFunction> {
 
             if let Expression::String(msg) = &args[0] {
                 print!("{} ", msg);
+                io::stdout().flush().expect("Failed to flush stdout");
                 std::io::stdin()
                     .read_line(&mut input)
                     .expect("Failed to read input");
