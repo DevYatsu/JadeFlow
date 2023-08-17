@@ -108,7 +108,11 @@ pub fn parse(
                     statements.push(function(f));
                 }
                 TokenType::Return => {
-                    statements.push(parse_return_statement(&token.value, &mut tokens_iter, &mut symbol_table)?);
+                    statements.push(parse_return_statement(
+                        &token.value,
+                        &mut tokens_iter,
+                        &mut symbol_table,
+                    )?);
                 }
                 TokenType::Comma => {
                     if statements.len() == 0 {

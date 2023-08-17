@@ -8,7 +8,10 @@ use super::{
 
 pub fn return_statement(expr: Expression, keyword: &str) -> Statement {
     Statement {
-        node: ASTNode::Return { value: expr, keyword: String::from(keyword) },
+        node: ASTNode::Return {
+            value: expr,
+            keyword: String::from(keyword),
+        },
     }
 }
 

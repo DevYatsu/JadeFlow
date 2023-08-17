@@ -144,7 +144,12 @@ pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationE
                     })?;
             }
             ASTNode::Return { value, keyword } => {
-                return Err(EvaluationError::Custom { message: format!("Return statements only allowed in functions: at '{} {}'", keyword, value) })
+                return Err(EvaluationError::Custom {
+                    message: format!(
+                        "Return statements only allowed in functions: at '{} {}'",
+                        keyword, value
+                    ),
+                })
             }
             ASTNode::FunctionCall(call) => {
                 rerun_table.run_fn(&call.function_name, &call.arguments)?;

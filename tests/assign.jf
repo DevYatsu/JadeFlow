@@ -33,7 +33,7 @@ const a = {o: [2]}
 const arr = ["test", 1, 3, a, [2]]
 
 fn index_4(): num => 04
-return "e" + "hey n"
+
 const y = index_4 ()
 const x = y
 const b = arr[x][0.4]

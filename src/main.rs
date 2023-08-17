@@ -1,29 +1,35 @@
 mod evaluation;
 mod jadeflow_std;
 mod parser;
-mod select_test;
+mod tests;
 mod token;
 
 use crate::{
-    evaluation::{evaluate_program, EvaluationError},
-    parser::{
-        architecture::{ASTNode, SymbolTable},
-        errors::ParsingError,
-        parse,
-    },
-    select_test::run_file,
-    token::{errors::SyntaxError, tokenize, Token},
+    evaluation::evaluate_program,
+    parser::{architecture::ASTNode, parse},
+    tests::run_tests,
+    token::tokenize,
 };
-use std::{fs, time::Instant};
+use std::{env, fs};
 
 fn main() {
-    let file_name = match run_file() {
-        Ok(f) => f,
-        Err(e) => {
-            print_error!(e.to_string());
-            return;
-        }
-    };
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() == 1 {
+        print_error!("At least one argument is required!");
+        return;
+    }
+
+    if &args[1] == "tests" {
+        return run_tests();
+    }
+
+    let file_name = &args[1];
+
+    return run_script(file_name);
+}
+
+fn run_script(file_name: &str) {
     let content = match fs::read(file_name) {
         Ok(c) => c,
         Err(e) => {
@@ -31,72 +37,29 @@ fn main() {
             return;
         }
     };
+    let tokens = tokenize(&content);
 
-    let tokenization = time_execution("tokenization", || -> Result<Vec<Token>, SyntaxError> {
-        let tokens = tokenize(&content)?;
-
-        Ok(tokens)
-    });
-
-    if tokenization.data.is_err() {
-        print_error!(tokenization.data.unwrap_err().to_string());
+    if tokens.is_err() {
+        print_error!(tokens.unwrap_err().to_string());
         return;
     }
 
-    let parsing = time_execution("parsing", || -> Result<ASTNode, ParsingError> {
-        let program = parse(tokenization.data.unwrap().iter().peekable(), None)?;
+    let program = parse(tokens.unwrap().iter().peekable(), None);
 
-        Ok(program)
-    });
-
-    if parsing.data.is_err() {
-        print_error!(parsing.data.unwrap_err().to_string());
+    if program.is_err() {
+        print_error!(program.unwrap_err().to_string());
         return;
     }
 
-    let program = match parsing.data.unwrap() {
+    let program = match program.unwrap() {
         ASTNode::Program(p) => p,
         _ => unreachable!(),
     };
 
-    let evaluation = time_execution("evaluation", || -> Result<SymbolTable, EvaluationError> {
-        let final_table = evaluate_program(program)?;
+    let final_table = evaluate_program(program);
 
-        Ok(final_table)
-    });
-
-    if evaluation.data.is_err() {
-        print_error!(evaluation.data.unwrap_err().to_string());
+    if final_table.is_err() {
+        print_error!(final_table.unwrap_err().to_string());
         return;
-    }
-
-    print_info!(
-        "total time: {}s",
-        tokenization.duration + parsing.duration + evaluation.duration
-    );
-}
-
-fn time_execution<F, R>(name: &str, code: F) -> TimerData<R>
-where
-    F: FnOnce() -> R,
-{
-    let start = Instant::now();
-    let returned_val = code();
-    let end = Instant::now();
-    let duration = (end - start).as_secs_f64();
-    println!("{}: {}s", name, duration);
-
-    TimerData::new(returned_val, duration)
-}
-
-#[derive(Clone, Debug)]
-struct TimerData<D> {
-    pub duration: f64,
-    pub data: D,
-}
-
-impl<D> TimerData<D> {
-    pub fn new(data: D, duration: f64) -> TimerData<D> {
-        TimerData { duration, data }
     }
 }

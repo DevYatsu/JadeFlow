@@ -68,7 +68,9 @@ impl Function {
 
     pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
         if let Some(Statement {
-            node: ASTNode::Return { value: returned, .. }
+            node: ASTNode::Return {
+                value: returned, ..
+            },
         }) = program.statements.last()
         {
             type_from_expression(returned, &mut program.symbol_table).ok()
