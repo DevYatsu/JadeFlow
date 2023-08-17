@@ -3,6 +3,7 @@ use crate::parser::{
     expression::{Expression, FormattedSegment},
     functions::{errors::FunctionParsingError, RunnableFunction},
     types::type_from_expression,
+    vars::Declaration,
 };
 
 use self::operations::evaluate_binary_operation;
@@ -130,15 +131,28 @@ pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationE
         .extend(program.symbol_table.classes.drain());
 
     for statement in program.statements.iter_mut() {
-        match &mut statement.node {
-            ASTNode::VariableDeclaration(dec) => {
-                dec.value = evaluate_expression(dec.value.clone(), &mut rerun_table)?;
-                rerun_table.insert_variable(dec.clone());
+        match &statement.node {
+            ASTNode::VariableDeclaration {
+                name,
+                var_type,
+                value,
+                is_mutable,
+                is_object_prop,
+            } => {
+                let value = evaluate_expression(value.clone(), &mut rerun_table)?;
+
+                rerun_table.insert_variable(Declaration {
+                    name: name.to_owned(),
+                    var_type: var_type.to_owned(),
+                    value,
+                    is_mutable: *is_mutable,
+                    is_object_prop: *is_object_prop,
+                });
             }
-            ASTNode::VariableReassignment(assignment) => {
-                assignment.value = evaluate_expression(assignment.value.clone(), &mut rerun_table)?;
+            ASTNode::VariableReassignment { name, value } => {
+                let value = evaluate_expression(value.to_owned(), &mut rerun_table)?;
                 rerun_table
-                    .reassign_variable(assignment.clone())
+                    .reassign_variable(name.to_owned(), value)
                     .map_err(|e| EvaluationError::Custom {
                         message: e.to_string(),
                     })?;
@@ -151,8 +165,11 @@ pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationE
                     ),
                 })
             }
-            ASTNode::FunctionCall(call) => {
-                rerun_table.run_fn(&call.function_name, &call.arguments)?;
+            ASTNode::FunctionCall {
+                function_name,
+                arguments,
+            } => {
+                rerun_table.run_fn(&function_name, &arguments)?;
             }
             ASTNode::FunctionDeclaration(_) | ASTNode::ClassDeclaration(_) => {}
             _ => unreachable!(),

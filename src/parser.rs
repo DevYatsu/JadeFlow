@@ -58,7 +58,7 @@ pub fn parse(
                         ..
                     }) = next_token
                     {
-                        let assignment = if symbol_table.is_object_prop(&token.value) {
+                        let (name, value) = if symbol_table.is_object_prop(&token.value) {
                             parse_var_reassignment(
                                 &mut tokens_iter,
                                 None,
@@ -81,8 +81,8 @@ pub fn parse(
                             )?
                         };
 
-                        symbol_table.reassign_variable(assignment.clone())?;
-                        statements.push(reassignment(assignment));
+                        symbol_table.reassign_variable(name.to_owned(), value.clone())?;
+                        statements.push(reassignment(name, value));
                     } else if let Some(Token {
                         token_type: TokenType::OpenParen,
                         ..
@@ -122,9 +122,9 @@ pub fn parse(
                     }
                     match &statements[statements.len() - 1] {
                         Statement {
-                            node: ASTNode::VariableDeclaration(dec),
+                            node: ASTNode::VariableDeclaration { is_mutable, .. },
                         } => {
-                            let keyword = if dec.is_mutable { "mut" } else { "const" };
+                            let keyword = if *is_mutable { "mut" } else { "const" };
 
                             let declaration = parse_var_declaration(
                                 &mut tokens_iter,

@@ -20,7 +20,6 @@ pub trait RunnableFunction {
 
 use super::{
     architecture::{ASTNode, Program, Statement, SymbolTable, SymbolTableError},
-    class::Class,
     expression::Expression,
     ignore_whitespace, parse,
     types::{err_on_fn_call_args_invalid, type_from_expression, VariableType},
@@ -214,7 +213,10 @@ pub fn function(f: Function) -> Statement {
 }
 pub fn function_call(call: FunctionCall) -> Statement {
     Statement {
-        node: ASTNode::FunctionCall(call),
+        node: ASTNode::FunctionCall {
+            function_name: call.function_name,
+            arguments: call.arguments,
+        },
     }
 }
 

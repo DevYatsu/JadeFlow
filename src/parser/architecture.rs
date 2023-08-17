@@ -6,26 +6,42 @@ use crate::{
 use super::{
     class::Class,
     expression::Expression,
-    functions::{
-        errors::FunctionParsingError, Function, FunctionCall, MainFunctionData, RunnableFunction,
-    },
+    functions::{errors::FunctionParsingError, Function, MainFunctionData, RunnableFunction},
     types::{type_from_expression, TypeError, VariableType},
-    vars::{Declaration, Reassignment},
+    vars::Declaration,
 };
 use std::{collections::HashMap, fmt, num::ParseIntError};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
     Program(Program),
-    VariableDeclaration(Declaration),
-    VariableReassignment(Reassignment),
+
+    VariableDeclaration {
+        name: String,
+        var_type: VariableType,
+        value: Expression,
+        is_mutable: bool,
+        is_object_prop: bool,
+    },
+
+    VariableReassignment {
+        name: String,
+        value: Expression,
+    },
 
     FunctionDeclaration(Function),
     // corresponds to both {} and => functions
+    
     ClassDeclaration(Class),
 
-    Return { value: Expression, keyword: String },
-    FunctionCall(FunctionCall),
+    Return {
+        value: Expression,
+        keyword: String,
+    },
+    FunctionCall {
+        function_name: String,
+        arguments: Vec<Expression>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -143,24 +159,25 @@ impl SymbolTable {
 
     pub fn reassign_variable(
         &mut self,
-        reassignement: Reassignment,
+        var_name: String,
+        value: Expression,
     ) -> Result<(), SymbolTableError> {
-        if self.is_object_prop(&reassignement.name) {
-            let parent_name = reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>();
+        if self.is_object_prop(&var_name) {
+            let parent_name = var_name.rsplitn(2, '.').collect::<Vec<&str>>();
             let initial_var = self.get_variable(&parent_name[1])?;
 
             match initial_var.value {
                 Expression::DictionaryExpression(mut hash) => {
-                    hash.insert(parent_name[0].to_owned(), reassignement.value.clone());
+                    hash.insert(parent_name[0].to_owned(), value.to_owned());
 
                     self.insert_variable(Declaration {
                         value: Expression::DictionaryExpression(hash),
                         ..initial_var
                     });
-                    let var_type = type_from_expression(&reassignement.value, self)?;
+                    let var_type = type_from_expression(&value, self)?;
                     self.insert_variable(Declaration {
-                        value: reassignement.value,
-                        name: reassignement.name,
+                        value,
+                        name: var_name,
                         var_type,
                         is_mutable: true,
                         is_object_prop: true,
@@ -174,22 +191,22 @@ impl SymbolTable {
             }
 
             // let dec = Declaration {
-            //     name: reassignement.name.clone(),
-            //     var_type: type_from_expression(&reassignement.value, self, Some(tokens))?,
-            //     value: reassignement.value,
+            //     name: var_name.clone(),
+            //     var_type: type_from_expression(&value, self, Some(tokens))?,
+            //     value: value,
             //     is_mutable: true,
             //     is_object_prop: true,
             // };
             // self.variables.insert(reassignement.name, dec);
         } else {
-            let initial_var = self.get_variable(&reassignement.name)?;
-            if reassignement.value != initial_var.value {
+            let initial_var = self.get_variable(&var_name)?;
+            if value != initial_var.value {
                 self.variables.insert(
-                    reassignement.name.clone(),
+                    var_name.clone(),
                     Declaration {
                         name: initial_var.name,
                         var_type: initial_var.var_type,
-                        value: reassignement.value,
+                        value,
                         is_mutable: true,
                         is_object_prop: initial_var.is_object_prop,
                     },
