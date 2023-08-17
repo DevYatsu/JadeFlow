@@ -70,22 +70,6 @@ impl Argument {
 }
 
 impl Function {
-    pub fn new(
-        name: &str,
-        arguments: Vec<Argument>,
-        context: Vec<Statement>,
-        return_type: Option<VariableType>,
-        table: SymbolTable,
-    ) -> Function {
-        Function {
-            name: name.to_string(),
-            arguments,
-            context,
-            return_type,
-            table,
-        }
-    }
-
     fn get_returned_expr(&self) -> Expression {
         for statement in self.context.iter() {
             match &statement.node {
@@ -618,7 +602,7 @@ pub fn parse_fn_args(
                     arguments.push(Argument {
                         name: initial_token.value.to_owned(),
                         var_type: arg_type.clone(),
-                        is_mutable: false,
+                        is_mutable,
                     });
 
                     let next = tokens.next();

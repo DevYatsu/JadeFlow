@@ -109,7 +109,7 @@ pub fn parse(
                 }
                 TokenType::Return => {
                     statements.push(parse_return_statement(
-                        &token.value,
+                        token.value.to_owned(),
                         &mut tokens_iter,
                         &mut symbol_table,
                     )?);

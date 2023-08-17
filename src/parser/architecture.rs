@@ -115,15 +115,6 @@ custom_error::custom_error! {pub SymbolTableError
 }
 
 impl SymbolTable {
-    pub fn new() -> SymbolTable {
-        SymbolTable {
-            variables: HashMap::new(),
-            functions: HashMap::new(),
-            registered_functions: HashMap::new(),
-            classes: HashMap::new(),
-            std_functions: HashMap::new(),
-        }
-    }
     pub fn table_init() -> SymbolTable {
         let std_functions = load_std();
         SymbolTable {
