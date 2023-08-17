@@ -1,23 +1,5 @@
 pub mod errors;
-use std::{collections::HashMap, fmt};
-
-use crate::{
-    evaluation::{evaluate_expression, EvaluationError},
-    jadeflow_std::StandardFunction,
-    parser::{expression::parse_expression, vectors::check_and_insert_expression},
-    token::{tokenize, Token, TokenType},
-};
-
 use self::errors::FunctionParsingError;
-
-pub trait RunnableFunction {
-    fn run_with_args(
-        &self,
-        args: &Vec<Expression>,
-        symbol_table: &SymbolTable,
-    ) -> Result<Expression, EvaluationError>;
-}
-
 use super::{
     architecture::{ASTNode, Program, Statement, SymbolTable, SymbolTableError},
     expression::Expression,
@@ -26,15 +8,121 @@ use super::{
     vars::Declaration,
     ParsingError,
 };
+use crate::{
+    evaluation::{evaluate_expression, EvaluationError},
+    parser::{expression::parse_expression, vectors::check_and_insert_expression},
+    token::{tokenize, Token, TokenType},
+};
+use once_cell::sync::OnceCell;
+use std::{collections::HashMap, fmt};
 
-#[derive(Debug, Clone)]
-pub struct Function {
-    pub name: String,
-    pub arguments: Vec<Argument>,
-    pub context: Vec<Statement>,
-    pub return_type: Option<VariableType>,
-    pub table: SymbolTable,
+pub enum Function {
+    DefinedFunction {
+        name: String,
+        arguments: Vec<Argument>,
+        context: Vec<Statement>,
+        return_type: Option<VariableType>,
+        table: SymbolTable,
+    },
+    StandardFunction {
+        name: String,
+        arguments: Vec<Argument>,
+        return_type: Option<VariableType>,
+        code_to_run: OnceCell<Box<dyn Fn(Vec<Expression>) -> Expression>>,
+    },
 }
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        match self {
+            Function::DefinedFunction {
+                name,
+                arguments,
+                context,
+                return_type,
+                table,
+            } => Function::DefinedFunction {
+                name: name.clone(),
+                arguments: arguments.clone(),
+                context: context.clone(),
+                return_type: return_type.clone(),
+                table: table.clone(),
+            },
+            Function::StandardFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => Function::StandardFunction {
+                name: name.clone(),
+                arguments: arguments.clone(),
+                return_type: return_type.clone(),
+                code_to_run: OnceCell::new(),
+            },
+        }
+    }
+}
+impl fmt::Debug for Function {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Function::DefinedFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => write!(
+                f,
+                "StandardFunction {{ name: {}, arguments: {:?}, return_type: {:?} }}",
+                name, arguments, return_type
+            ),
+            Function::StandardFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => write!(
+                f,
+                "StandardFunction {{ name: {}, arguments: {:?}, return_type: {:?} }}",
+                name, arguments, return_type
+            ),
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! function {
+    (
+        $name:expr,
+        arguments: $arguments:expr,
+        context: $context:expr,
+        return_type: $return_type:expr,
+        table: $table:expr
+    ) => {
+        Function::DefinedFunction {
+            name: $name.to_string(),
+            arguments: $arguments,
+            context: $context,
+            return_type: $return_type,
+            table: $table,
+        }
+    };
+    (
+        $name:expr,
+        arguments: $arguments:expr,
+        return_type: $return_type:expr,
+        code: $code:expr
+    ) => {{
+        let boxed_closure: Box<dyn Fn(Vec<Expression>) -> Expression> = Box::new($code);
+        let once_cell = OnceCell::from(boxed_closure);
+
+        Function::StandardFunction {
+            name: $name.to_string(),
+            arguments: $arguments,
+            return_type: $return_type,
+            code_to_run: once_cell,
+        }
+    }};
+}
+
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub name: String,
@@ -70,15 +158,103 @@ impl Argument {
 }
 
 impl Function {
-    fn get_returned_expr(&self) -> Expression {
-        for statement in self.context.iter() {
-            match &statement.node {
-                ASTNode::Return { value, .. } => return value.to_owned(),
-                _ => (),
+    pub fn run_with_args(
+        &self,
+        args: &Vec<Expression>,
+        symbol_table: &SymbolTable,
+    ) -> Result<Expression, EvaluationError> {
+        match self {
+            Function::DefinedFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => {
+                err_on_fn_call_args_invalid(&name, &arguments, args, symbol_table)?;
+
+                let new_args = arguments
+                    .iter()
+                    .enumerate()
+                    .map(|(i, arg)| {
+                        let mut new_arg = Declaration::from(arg.clone());
+                        new_arg.value = args[i].clone();
+                        new_arg
+                    })
+                    .collect::<Vec<Declaration>>();
+
+                let tokens = new_args
+                    .iter()
+                    .flat_map(|dec| dec.equivalent_tokens())
+                    .collect::<Vec<Token>>();
+
+                let tokens_iter = tokens.iter().peekable();
+
+                let fn_parsing = match parse(tokens_iter.clone(), Some(symbol_table.clone())) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return Err(EvaluationError::Custom {
+                            message: e.to_string(),
+                        })
+                    }
+                };
+                let mut program = match fn_parsing {
+                    ASTNode::Program(p) => p,
+                    _ => unreachable!(),
+                };
+
+                if return_type.is_none() {
+                    return Ok(Expression::Null);
+                }
+
+                Ok(evaluate_expression(
+                    self.get_returned_expr(),
+                    &mut program.symbol_table,
+                )?)
+            }
+            Function::StandardFunction {
+                name,
+                arguments,
+                return_type,
+                code_to_run,
+            } => {
+                err_on_fn_call_args_invalid(&name, &arguments, args, symbol_table)?;
+                let std_func = code_to_run.get().expect("Code not initialized");
+
+                let returned_expr = std_func(
+                    args.to_owned()
+                        .into_iter()
+                        .map(|arg| -> Result<Expression, EvaluationError> {
+                            evaluate_expression(arg.clone(), symbol_table)
+                        })
+                        .collect::<Result<Vec<Expression>, EvaluationError>>()?,
+                );
+                if return_type.is_none() {
+                    return Ok(Expression::Null);
+                }
+
+                Ok(evaluate_expression(returned_expr, symbol_table)?)
             }
         }
+    }
 
-        Expression::Null
+    fn get_returned_expr(&self) -> Expression {
+        match self {
+            Function::DefinedFunction { context, .. } => {
+                for statement in context.iter() {
+                    match &statement.node {
+                        ASTNode::Return { value, .. } => return value.to_owned(),
+                        _ => (),
+                    }
+                }
+
+                Expression::Null
+            }
+            Function::StandardFunction { .. } => {
+                unreachable!(
+                    "Cannot get returned expr of standard function as the ran code is rust code"
+                )
+            }
+        }
     }
 
     pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
@@ -95,70 +271,46 @@ impl Function {
     }
 }
 
-impl RunnableFunction for Function {
-    fn run_with_args(
-        &self,
-        args: &Vec<Expression>,
-        symbol_table: &SymbolTable,
-    ) -> Result<Expression, EvaluationError> {
-        err_on_fn_call_args_invalid(&self.name, &self.arguments, args, symbol_table)?;
-
-        let new_args = self
-            .arguments
-            .iter()
-            .enumerate()
-            .map(|(i, arg)| {
-                let mut new_arg = Declaration::from(arg.clone());
-                new_arg.value = args[i].clone();
-                new_arg
-            })
-            .collect::<Vec<Declaration>>();
-
-        let tokens = new_args
-            .iter()
-            .flat_map(|dec| dec.equivalent_tokens())
-            .collect::<Vec<Token>>();
-
-        let tokens_iter = tokens.iter().peekable();
-
-        let fn_parsing = match parse(tokens_iter.clone(), Some(symbol_table.clone())) {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(EvaluationError::Custom {
-                    message: e.to_string(),
-                })
-            }
-        };
-        let mut program = match fn_parsing {
-            ASTNode::Program(p) => p,
-            _ => unreachable!(),
-        };
-
-        if self.return_type.is_none() {
-            return Ok(Expression::Null);
-        }
-
-        Ok(evaluate_expression(
-            self.get_returned_expr(),
-            &mut program.symbol_table,
-        )?)
-    }
-}
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "fn {}({}) => {}",
-            self.name,
-            self.arguments
-                .iter()
-                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
-                .collect::<Vec<String>>()
-                .join(", "),
-            self.return_type
-                .as_ref()
-                .map_or("null", |output_t| output_t.as_assignment()),
-        )
+        match self {
+            Function::DefinedFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => write!(
+                f,
+                "fn {}({}) => {}",
+                name,
+                arguments
+                    .iter()
+                    .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                return_type
+                    .as_ref()
+                    .map_or("null", |output_t| output_t.as_assignment()),
+            ),
+            Function::StandardFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => write!(
+                f,
+                "fn {}({}) => {}",
+                name,
+                arguments
+                    .iter()
+                    .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                return_type
+                    .as_ref()
+                    .map_or("null", |output_t| output_t.as_assignment()),
+            ),
+        }
     }
 }
 
@@ -179,24 +331,33 @@ impl MainFunctionData {
 }
 impl From<Function> for MainFunctionData {
     fn from(f: Function) -> Self {
-        MainFunctionData {
-            name: f.name,
-            arguments: f.arguments,
-            return_type: f.return_type,
-            is_std: false,
+        match f {
+            Function::DefinedFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => MainFunctionData {
+                name,
+                arguments,
+                return_type,
+                is_std: false,
+            },
+            Function::StandardFunction {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => MainFunctionData {
+                name,
+                arguments,
+                return_type,
+                is_std: true,
+            },
         }
     }
 }
-impl From<StandardFunction> for MainFunctionData {
-    fn from(f: StandardFunction) -> Self {
-        MainFunctionData {
-            name: f.name,
-            arguments: f.arguments,
-            return_type: f.return_type,
-            is_std: true,
-        }
-    }
-}
+
 impl fmt::Display for MainFunctionData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -241,6 +402,7 @@ pub fn parse_fn_declaration(
     ctx: Option<Expression>,
 ) -> Result<Function, ParsingError> {
     let fn_data = parse_fn_header(tokens, symbol_table)?;
+    let arguments = fn_data.clone().arguments;
 
     let is_method = ctx.is_some();
 
@@ -328,13 +490,13 @@ pub fn parse_fn_declaration(
 
     let function_context = program.statements;
 
-    let f = Function {
-        name: fn_data.name.to_owned(),
-        arguments: fn_data.arguments,
+    let f = function!(
+        fn_data.name.to_owned(),
+        arguments: arguments,
         context: function_context,
         return_type: fn_data.return_type,
-        table: symbol_table.clone(),
-    };
+        table: symbol_table.clone()
+    );
 
     return Ok(f);
 }
@@ -351,13 +513,13 @@ pub fn parse_fn_header(
     {
         let name = value;
 
-        if symbol_table.is_fn_declared(name) {
-            return Err(FunctionParsingError::NameAlreadyTaken {
+        if symbol_table.is_fn_std(name) {
+            return Err(FunctionParsingError::NameAlreadyTakenByStd {
                 name: name.to_owned(),
             }
             .into());
-        } else if symbol_table.is_fn_std(name) {
-            return Err(FunctionParsingError::NameAlreadyTakenByStd {
+        } else if symbol_table.is_fn_declared(name) {
+            return Err(FunctionParsingError::NameAlreadyTaken {
                 name: name.to_owned(),
             }
             .into());

@@ -248,14 +248,16 @@ impl fmt::Display for Class {
             f,
             "class {}({})",
             self.name,
-            self.initer
-                .clone()
-                .unwrap()
-                .arguments
-                .iter()
-                .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
-                .collect::<Vec<String>>()
-                .join(", "),
+            match self.initer.clone().unwrap() {
+                Function::StandardFunction { .. } => unreachable!(),
+                Function::DefinedFunction { arguments, .. } => {
+                    arguments
+                        .iter()
+                        .map(|arg| format!("{}: {}", arg.name, arg.var_type.as_assignment()))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                }
+            }
         )
     }
 }
@@ -401,13 +403,18 @@ fn parse_class_content(
                 let ctx = cls.get_pub_prop("ctx")?;
                 let fn_data = parse_fn_declaration(tokens, symbol_table, Some(ctx))?;
 
-                if &fn_data.name != "init" {
-                    return Err(ClassError::NoMethodInGlobalCtxExceptInit {
-                        fn_name: fn_data.name,
-                        class_name: cls.name.to_owned(),
+                match &fn_data {
+                    Function::DefinedFunction { name, .. } => {
+                        if name != "init" {
+                            return Err(ClassError::NoMethodInGlobalCtxExceptInit {
+                                fn_name: name.to_owned(),
+                                class_name: cls.name.to_owned(),
+                            }
+                            .into());
+                        }
                     }
-                    .into());
-                }
+                    Function::StandardFunction { .. } => unreachable!(),
+                };
 
                 cls.initer = Some(fn_data);
             }

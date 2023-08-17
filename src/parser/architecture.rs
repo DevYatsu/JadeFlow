@@ -1,12 +1,9 @@
-use crate::{
-    evaluation::EvaluationError,
-    jadeflow_std::{load_std, StandardFunction},
-};
+use crate::{evaluation::EvaluationError, jadeflow_std::load_std, parser::functions};
 
 use super::{
     class::Class,
     expression::Expression,
-    functions::{errors::FunctionParsingError, Function, MainFunctionData, RunnableFunction},
+    functions::{errors::FunctionParsingError, Function, MainFunctionData},
     types::{type_from_expression, TypeError, VariableType},
     vars::Declaration,
 };
@@ -73,29 +70,6 @@ pub struct SymbolTable {
     pub functions: HashMap<String, Function>,
     pub registered_functions: HashMap<String, MainFunctionData>,
     pub classes: HashMap<String, Class>,
-    pub std_functions: HashMap<String, StandardFunction>,
-}
-#[macro_export]
-macro_rules! merge_symbol_tables {
-    ( $($hashmap:expr),* $(,)? ) => {
-        {
-            let mut symbol_table = SymbolTable {
-                variables: hashmap!{},
-                functions: hashmap!{},
-                registered_functions: hashmap!{},
-                classes: hashmap!{},
-            };
-
-            $(
-                symbol_table.variables.extend($hashmap.variables);
-                symbol_table.functions.extend($hashmap.functions);
-                symbol_table.registered_functions.extend($hashmap.registered_functions);
-                symbol_table.classes.extend($hashmap.classes);
-            )*
-
-            symbol_table
-        }
-    };
 }
 
 custom_error::custom_error! {pub SymbolTableError
@@ -115,15 +89,40 @@ custom_error::custom_error! {pub SymbolTableError
 }
 
 impl SymbolTable {
-    pub fn table_init() -> SymbolTable {
-        let std_functions = load_std();
-        SymbolTable {
+    pub fn init() -> SymbolTable {
+        let functions = load_std();
+
+        println!(
+            "oncecell value {}",
+            match functions.get("println").unwrap() {
+                functions::Function::StandardFunction { code_to_run, .. } => {
+                    code_to_run.get().is_none()
+                }
+                _ => unreachable!(),
+            }
+        ); // returns false
+
+        let symbol_table = SymbolTable {
             variables: HashMap::new(),
-            functions: HashMap::new(),
-            registered_functions: HashMap::new(),
+            registered_functions: functions
+                .clone()
+                .into_iter()
+                .map(|(name, func)| (name, MainFunctionData::from(func)))
+                .collect(),
+            functions,
             classes: HashMap::new(),
-            std_functions,
-        }
+        };
+
+        println!(
+            "oncecell value {}",
+            match symbol_table.get_full_function("println").unwrap() {
+                functions::Function::StandardFunction { code_to_run, .. } => {
+                    code_to_run.get().is_none()
+                }
+                _ => unreachable!(),
+            }
+        ); // returns true while it shoudl return false
+        symbol_table
     }
 
     pub fn run_fn(
@@ -131,17 +130,17 @@ impl SymbolTable {
         name: &str,
         args: &Vec<Expression>,
     ) -> Result<Expression, EvaluationError> {
-        if self.get_function(&name)?.is_std {
-            Ok(self.get_std_function(&name)?.run_with_args(&args, &self)?)
-        } else {
-            Ok(self.get_full_function(&name)?.run_with_args(&args, &self)?)
-        }
+        Ok(self.get_full_function(&name)?.run_with_args(&args, &self)?)
     }
     pub fn insert_variable(&mut self, declaration: Declaration) {
         self.variables.insert(declaration.name.clone(), declaration);
     }
-    pub fn insert_function(&mut self, f: &Function) {
-        self.functions.insert(f.name.to_owned(), f.clone());
+    pub fn insert_function(&mut self, f: Function) {
+        let name = match &f {
+            Function::DefinedFunction { name, .. } => name,
+            Function::StandardFunction { name, .. } => name,
+        };
+        self.functions.insert(name.to_owned(), f);
     }
     pub fn register_function(&mut self, f: MainFunctionData) {
         self.registered_functions.insert(f.name.to_owned(), f);
@@ -351,8 +350,11 @@ impl SymbolTable {
         self.functions.get(name).is_some()
     }
     pub fn is_fn_std(&self, name: &str) -> bool {
-        self.std_functions.get(name).is_some()
+        self.registered_functions
+            .get(name)
+            .map_or_else(|| false, |f| f.is_std)
     }
+
     pub fn is_class_declared(&self, name: &str) -> bool {
         self.classes.get(name).is_some()
     }
@@ -361,13 +363,9 @@ impl SymbolTable {
         let func = match self.registered_functions.get(name) {
             Some(v) => v.clone(),
             None => {
-                let func = self.std_functions.get(name);
-                if func.is_none() {
-                    return Err(FunctionParsingError::NotDefinedFunction {
-                        fn_name: name.to_owned(),
-                    });
-                }
-                MainFunctionData::from(func.unwrap().clone())
+                return Err(FunctionParsingError::NotDefinedFunction {
+                    fn_name: name.to_owned(),
+                });
             }
         };
 
@@ -382,15 +380,6 @@ impl SymbolTable {
             .ok_or_else(|| FunctionParsingError::NotDefinedFunction {
                 fn_name: name.to_owned(),
             })?)
-    }
-    pub fn get_std_function(&self, name: &str) -> Result<&StandardFunction, FunctionParsingError> {
-        let func = self.std_functions.get(name);
-
-        Ok(
-            func.ok_or_else(|| FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
-            })?,
-        )
     }
 }
 
@@ -432,27 +421,20 @@ impl fmt::Display for SymbolTable {
             }
         }
 
-        write!(f, "-- STD FNs -- \n")?;
-        if self.std_functions.is_empty() {
-            write!(f, "None\n")?;
-        } else {
-            for var in &self.std_functions {
-                write!(f, "- {}\n", var.1.to_string())?;
-            }
-        }
-
         Ok(())
     }
 }
 
 impl Clone for SymbolTable {
     fn clone(&self) -> Self {
+        let mut functions = self.functions.clone();
+        functions.extend(load_std());
+
         Self {
             variables: self.variables.clone(),
-            functions: self.functions.clone(),
+            functions,
             registered_functions: self.registered_functions.clone(),
             classes: self.classes.clone(),
-            std_functions: load_std(),
         }
     }
 }

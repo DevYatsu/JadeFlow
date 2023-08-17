@@ -1,159 +1,163 @@
 use crate::{
-    create_function_map,
-    jadeflow_std::StandardFunction,
-    parser::{expression::Expression, functions::Argument, types::VariableType},
+    create_function_map, function,
+    parser::{
+        expression::Expression,
+        functions::{Argument, Function},
+        types::VariableType,
+    },
 };
+use once_cell::sync::OnceCell;
 use std::collections::HashMap;
-pub fn load_std_math() -> HashMap<String, StandardFunction> {
-    let sqrt = StandardFunction::new(
+
+pub fn load_std_math() -> HashMap<String, Function> {
+    let sqrt = function!(
         "sqrt",
-        vec![Argument::new(
+        arguments: vec![Argument::new(
             "number".to_owned(),
             VariableType::Number,
             false,
         )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {
                 Expression::Number(num.sqrt())
             } else {
                 unreachable!()
             }
-        }),
+        }
     );
-    let abs = StandardFunction::new(
+    let abs = function!(
         "abs",
-        vec![Argument::new(
+        arguments: vec![Argument::new(
             "number".to_owned(),
             VariableType::Number,
             false,
         )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
             if let Expression::Number(num) = &args[0] {
                 Expression::Number(num.abs())
             } else {
                 unreachable!()
             }
-        }),
+        }
     );
-    let sin = StandardFunction::new(
+    let sin = function!(
         "sin",
-        vec![Argument::new(
-            "angle".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(angle) = &args[0] {
-                Expression::Number(angle.sin())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "angle".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(angle) = &args[0] {
+                    Expression::Number(angle.sin())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
-
-    let cos = StandardFunction::new(
+    let cos = function!(
         "cos",
-        vec![Argument::new(
-            "angle".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(angle) = &args[0] {
-                Expression::Number(angle.cos())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "angle".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(angle) = &args[0] {
+                    Expression::Number(angle.cos())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
 
-    let tan = StandardFunction::new(
+    let tan = function!(
         "tan",
-        vec![Argument::new(
-            "angle".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(angle) = &args[0] {
-                Expression::Number(angle.tan())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "angle".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(angle) = &args[0] {
+                    Expression::Number(angle.tan())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
 
-    let log = StandardFunction::new(
+    let log = function!(
         "log",
-        vec![Argument::new(
-            "value".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(value) = &args[0] {
-                Expression::Number(value.ln())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "value".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(value) = &args[0] {
+                    Expression::Number(value.ln())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
 
-    let round = StandardFunction::new(
+    let round = function!(
         "round",
-        vec![Argument::new(
-            "number".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.round())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "number".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(num) = &args[0] {
+                    Expression::Number(num.round())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
 
-    let floor = StandardFunction::new(
+    let floor = function!(
         "floor",
-        vec![Argument::new(
-            "number".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.floor())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "number".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(num) = &args[0] {
+                    Expression::Number(num.floor())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
 
-    let ceil = StandardFunction::new(
+    let ceil = function!(
         "ceil",
-        vec![Argument::new(
-            "number".to_owned(),
-            VariableType::Number,
-            false,
-        )],
-        Some(VariableType::Number),
-        Box::new(|args: Vec<Expression>| -> Expression {
-            if let Expression::Number(num) = &args[0] {
-                Expression::Number(num.ceil())
-            } else {
-                unreachable!()
+        arguments: vec![Argument::new(
+                "number".to_owned(),
+                VariableType::Number,
+                false,
+            )],
+        return_type: Some(VariableType::Number),
+        code: |args: Vec<Expression>| -> Expression {
+                if let Expression::Number(num) = &args[0] {
+                    Expression::Number(num.ceil())
+                } else {
+                    unreachable!()
+                }
             }
-        }),
     );
 
     create_function_map!(sqrt, abs, sin, cos, tan, log, floor, round, ceil)

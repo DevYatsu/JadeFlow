@@ -1,9 +1,5 @@
-use std::collections::HashMap;
-
 use crate::parser::{class::Class, functions::Function, vars::Declaration};
-
-use super::StandardFunction;
-
+use std::collections::HashMap;
 pub mod fs;
 
 pub struct Module {
@@ -12,11 +8,9 @@ pub struct Module {
 }
 
 pub enum ModuleComponent {
-    Function(Function),
-    // need to put classical Function with StandardFunction
     Variable(Declaration),
     Class(Class),
-    StandardFunction(StandardFunction),
+    Function(Function),
 }
 
 impl Module {
@@ -25,11 +19,6 @@ impl Module {
             name: name.to_owned(),
             elements: HashMap::new(),
         }
-    }
-}
-impl From<Function> for ModuleComponent {
-    fn from(value: Function) -> Self {
-        ModuleComponent::Function(value)
     }
 }
 impl From<Declaration> for ModuleComponent {
@@ -42,20 +31,41 @@ impl From<Class> for ModuleComponent {
         ModuleComponent::Class(value)
     }
 }
-impl From<StandardFunction> for ModuleComponent {
-    fn from(value: StandardFunction) -> Self {
-        ModuleComponent::StandardFunction(value)
+impl From<Function> for ModuleComponent {
+    fn from(value: Function) -> Self {
+        ModuleComponent::Function(value)
     }
 }
 
 #[macro_export]
 macro_rules! generate_module {
-    (in $module:expr; $($args:expr),* $(,)?) => {
+    (in $module:expr;
+     $(Class $class:expr),* $(,)*,
+     $(Function $function:expr),* $(,)*,
+     $(Const $constant:expr),* $(,)*
+    ) => {
         {
             let mut module = Module::new($module);
+
             $(
-                module.elements.insert($args.name.clone(), ModuleComponent::from($args));
+                module.elements.insert($class.name.clone(), ModuleComponent::from($class));
             )*
+
+            $(
+                match $function {
+                    Function::StandardFunction {name, ..} => {
+                        module.elements.insert(name.clone(), ModuleComponent::from($function));
+                    }
+                    Function::DefinedFunction {name, ..} => {
+                        module.elements.insert(name.clone(), ModuleComponent::from($function));
+                    }
+                }
+            )*
+
+            $(
+                module.elements.insert($constant.name.clone(), ModuleComponent::from($constant));
+            )*
+
             module
         }
     };

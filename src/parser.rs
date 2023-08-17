@@ -104,7 +104,7 @@ pub fn parse(
                 }
                 TokenType::Function => {
                     let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table, None)?;
-                    symbol_table.insert_function(&f);
+                    symbol_table.insert_function(f.clone());
                     statements.push(function(f));
                 }
                 TokenType::Return => {
@@ -300,7 +300,7 @@ pub fn ignore_until_statement(
 pub fn parse_all_fns_dec(
     mut tokens_iter: Peekable<Iter<'_, Token>>,
 ) -> Result<SymbolTable, ParsingError> {
-    let mut symbol_table = SymbolTable::table_init();
+    let mut symbol_table = SymbolTable::init();
 
     while let Some(token) = tokens_iter.peek() {
         match token.token_type {

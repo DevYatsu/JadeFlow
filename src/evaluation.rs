@@ -1,9 +1,12 @@
-use crate::parser::{
-    architecture::{ASTNode, Program, SymbolTable},
-    expression::{Expression, FormattedSegment},
-    functions::{errors::FunctionParsingError, RunnableFunction},
-    types::type_from_expression,
-    vars::Declaration,
+use crate::{
+    jadeflow_std::load_std,
+    parser::{
+        architecture::{ASTNode, Program, SymbolTable},
+        expression::{Expression, FormattedSegment},
+        functions::errors::FunctionParsingError,
+        types::type_from_expression,
+        vars::Declaration,
+    },
 };
 
 use self::operations::evaluate_binary_operation;
@@ -55,17 +58,9 @@ pub fn evaluate_expression(
             Ok(Expression::String(final_str))
         }
         Expression::FunctionCall(fn_call) => {
-            if symbol_table.is_fn_std(&fn_call.function_name) {
-                let f = symbol_table.get_std_function(&fn_call.function_name)?;
-                let ex = f.run_with_args(&fn_call.arguments, symbol_table)?;
-                // borrowing issue here
-                Ok(ex)
-            } else {
-                let f = symbol_table.get_full_function(&fn_call.function_name)?;
-                let ex = f.run_with_args(&fn_call.arguments, symbol_table)?;
-
-                Ok(ex)
-            }
+            let f = symbol_table.get_full_function(&fn_call.function_name)?;
+            let ex = f.run_with_args(&fn_call.arguments, symbol_table)?;
+            Ok(ex)
         }
         Expression::ArrayIndexing(mut index_vec) => {
             // throw an error if there is a type issue in the array indexing,
@@ -119,16 +114,8 @@ pub fn evaluate_expression(
 }
 
 pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationError> {
-    let mut rerun_table = SymbolTable::table_init();
-    rerun_table
-        .registered_functions
-        .extend(program.symbol_table.registered_functions.drain());
-    rerun_table
-        .functions
-        .extend(program.symbol_table.functions.drain());
-    rerun_table
-        .classes
-        .extend(program.symbol_table.classes.drain());
+    let mut rerun_table = program.symbol_table;
+    rerun_table.functions.extend(load_std());
 
     for statement in program.statements.iter_mut() {
         match &statement.node {
