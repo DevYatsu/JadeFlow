@@ -357,7 +357,7 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     }
                 }
             }
-            '"' | '\'' => {
+            '"' => {
                 // for strings
                 let mut string_lexeme = String::new();
 
@@ -371,6 +371,12 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     }
                     if position == source_code.len() - 1 {
                         return Err(SyntaxError::UnclosedString);
+                    }
+                    if c == '\\' {
+                        position += 1;
+                        string_lexeme.push(source_code[position] as char);
+                        position += 1;
+                        continue;
                     }
 
                     string_lexeme.push(c);
@@ -397,6 +403,12 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     }
                     if position == source_code.len() - 1 {
                         return Err(SyntaxError::UnclosedString);
+                    }
+                    if c == '\\' {
+                        position += 1;
+                        string_lexeme.push(source_code[position] as char);
+                        position += 1;
+                        continue;
                     }
 
                     string_lexeme.push(c);
