@@ -97,7 +97,7 @@ impl SymbolTable {
             registered_functions: functions
                 .clone()
                 .into_iter()
-                .map(|(name, func)| (name, MainFunctionData::from(func)))
+                .map(|(name, func)| (name, func.into()))
                 .collect(),
             functions,
             classes: HashMap::new(),
