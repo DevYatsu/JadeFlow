@@ -1,4 +1,4 @@
-use crate::{evaluation::EvaluationError, jadeflow_std::load_std, parser::functions};
+use crate::{evaluation::EvaluationError, jadeflow_std::load_std};
 
 use super::{
     class::Class,
@@ -92,16 +92,6 @@ impl SymbolTable {
     pub fn init() -> SymbolTable {
         let functions = load_std();
 
-        println!(
-            "oncecell value {}",
-            match functions.get("println").unwrap() {
-                functions::Function::StandardFunction { code_to_run, .. } => {
-                    code_to_run.get().is_none()
-                }
-                _ => unreachable!(),
-            }
-        ); // returns false
-
         let symbol_table = SymbolTable {
             variables: HashMap::new(),
             registered_functions: functions
@@ -113,15 +103,6 @@ impl SymbolTable {
             classes: HashMap::new(),
         };
 
-        println!(
-            "oncecell value {}",
-            match symbol_table.get_full_function("println").unwrap() {
-                functions::Function::StandardFunction { code_to_run, .. } => {
-                    code_to_run.get().is_none()
-                }
-                _ => unreachable!(),
-            }
-        ); // returns true while it shoudl return false
         symbol_table
     }
 

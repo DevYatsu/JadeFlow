@@ -10,6 +10,7 @@ use super::{
 };
 use crate::{
     evaluation::{evaluate_expression, EvaluationError},
+    jadeflow_std::load_std,
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{tokenize, Token, TokenType},
 };
@@ -56,7 +57,10 @@ impl Clone for Function {
                 name: name.clone(),
                 arguments: arguments.clone(),
                 return_type: return_type.clone(),
-                code_to_run: OnceCell::new(),
+                code_to_run: match load_std().remove(name).unwrap() {
+                    Function::DefinedFunction { .. } => unreachable!(),
+                    Function::StandardFunction { code_to_run, .. } => code_to_run,
+                },
             },
         }
     }

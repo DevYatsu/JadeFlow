@@ -232,7 +232,6 @@ pub fn type_from_expression(
                         if i == indexing.len() - 1 {
                             return Ok(type_from_expression(&vec[index], symbol_table)?);
                         } else {
-                            println!("vec {:?}", vec);
                             vec = match &vec[index] {
                                 Expression::ArrayExpression(arr) => arr.to_owned(),
                                 _ => {
