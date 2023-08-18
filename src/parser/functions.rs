@@ -9,7 +9,7 @@ use super::{
     ParsingError,
 };
 use crate::{
-    evaluation::{evaluate_expression, EvaluationError},
+    evaluation::{evaluate_expression, evaluate_program, EvaluationError},
     jadeflow_std::load_std,
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{tokenize, Token, TokenType},
@@ -163,7 +163,7 @@ impl Argument {
 
 impl Function {
     pub fn run_with_args(
-        &self,
+        self,
         args: &Vec<Expression>,
         symbol_table: &SymbolTable,
     ) -> Result<Expression, EvaluationError> {
@@ -172,46 +172,32 @@ impl Function {
                 name,
                 arguments,
                 return_type,
+                context: statements,
                 ..
             } => {
                 err_on_fn_call_args_invalid(&name, &arguments, args, symbol_table)?;
+                let mut table = symbol_table.clone();
 
-                let new_args = arguments
-                    .iter()
-                    .enumerate()
-                    .map(|(i, arg)| {
-                        let mut new_arg = Declaration::from(arg.clone());
-                        new_arg.value = args[i].clone();
-                        new_arg
-                    })
-                    .collect::<Vec<Declaration>>();
+                arguments.iter().enumerate().for_each(|(i, arg)| {
+                    let mut new_arg = Declaration::from(arg.clone());
+                    new_arg.value = args[i].clone();
+                    table.insert_variable(new_arg)
+                });
 
-                let tokens = new_args
-                    .iter()
-                    .flat_map(|dec| dec.equivalent_tokens())
-                    .collect::<Vec<Token>>();
-
-                let tokens_iter = tokens.iter().peekable();
-
-                let fn_parsing = match parse(tokens_iter.clone(), Some(symbol_table.clone())) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        return Err(EvaluationError::Custom {
-                            message: e.to_string(),
-                        })
-                    }
+                let returned_expr = Function::get_returned_expr(&statements);
+                let mut program = Program {
+                    statements,
+                    symbol_table: table,
                 };
-                let mut program = match fn_parsing {
-                    ASTNode::Program(p) => p,
-                    _ => unreachable!(),
-                };
+
+                evaluate_program(program.clone())?;
 
                 if return_type.is_none() {
                     return Ok(Expression::Null);
                 }
 
                 Ok(evaluate_expression(
-                    self.get_returned_expr(),
+                    returned_expr,
                     &mut program.symbol_table,
                 )?)
             }
@@ -241,24 +227,15 @@ impl Function {
         }
     }
 
-    fn get_returned_expr(&self) -> Expression {
-        match self {
-            Function::DefinedFunction { context, .. } => {
-                for statement in context.iter() {
-                    match &statement.node {
-                        ASTNode::Return { value, .. } => return value.to_owned(),
-                        _ => (),
-                    }
-                }
-
-                Expression::Null
-            }
-            Function::StandardFunction { .. } => {
-                unreachable!(
-                    "Cannot get returned expr of standard function as the ran code is rust code"
-                )
+    fn get_returned_expr(statements: &Vec<Statement>) -> Expression {
+        for statement in statements.iter() {
+            match &statement.node {
+                ASTNode::Return { value, .. } => return value.to_owned(),
+                _ => (),
             }
         }
+
+        Expression::Null
     }
 
     pub fn get_returned_type(program: &mut Program) -> Option<VariableType> {
@@ -493,13 +470,12 @@ pub fn parse_fn_declaration(
     err_if_fn_type_issue(&fn_data, &mut program)?;
 
     let function_context = program.statements;
-
     let f = function!(
         fn_data.name.to_owned(),
         arguments: arguments,
         context: function_context,
         return_type: fn_data.return_type,
-        table: symbol_table.clone()
+        table: program.symbol_table
     );
 
     return Ok(f);

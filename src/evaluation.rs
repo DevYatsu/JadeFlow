@@ -151,6 +151,7 @@ pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationE
                 rerun_table.run_fn(&function_name, &arguments)?;
             }
             ASTNode::FunctionDeclaration(_) | ASTNode::ClassDeclaration(_) => {}
+            ASTNode::Return { .. } => {}
             _ => unreachable!(),
         }
     }

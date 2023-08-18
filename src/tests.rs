@@ -57,7 +57,7 @@ pub fn run_tests() {
 
     let evaluation = time_execution("evaluation", || -> Result<SymbolTable, EvaluationError> {
         let final_table = evaluate_program(program)?;
-
+        print!("\n");
         Ok(final_table)
     });
 
