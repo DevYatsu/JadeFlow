@@ -75,7 +75,7 @@ fn token(value: String, token_type: TokenType) -> Token {
 }
 
 pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
-    let mut tokens: Vec<Token> = Vec::new();
+    let mut tokens: Vec<Token> = Vec::with_capacity(5000);
     let mut position: usize = 0;
 
     while position < source_code.len() {

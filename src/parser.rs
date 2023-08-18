@@ -25,6 +25,7 @@ use self::{
     architecture::{ASTNode, Statement, SymbolTable},
     class::{parse_class_declaration, Class},
     errors::ParsingError,
+    expression::parse_expression,
     functions::{function, function_call, parse_fn_call, parse_fn_declaration},
     returns::parse_return_statement,
     vars::{parse_var_declaration, parse_var_reassignment, reassignment, variable},
@@ -37,161 +38,158 @@ pub fn parse(
     optional_symbol_table: Option<SymbolTable>,
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
+    let is_in_fn = optional_symbol_table.is_none();
     let mut symbol_table = optional_symbol_table.unwrap_or(parse_all_fns_dec(tokens_iter.clone())?);
 
-    while 0 != tokens_iter.clone().count() {
-        if let Some(token) = tokens_iter.next() {
-            match &token.token_type {
-                TokenType::Separator => continue,
-                TokenType::Var => {
-                    let declaration =
-                        parse_var_declaration(&mut tokens_iter, &token.value, &mut symbol_table)?;
-                    symbol_table.insert_variable(declaration.clone());
-                    statements.push(variable(declaration));
-                }
-                TokenType::Identifier => {
-                    let mut peek_iter = tokens_iter.clone().peekable();
-                    let next_token = peek_iter.peek();
+    while let Some(token) = tokens_iter.next() {
+        match &token.token_type {
+            TokenType::Separator => continue,
+            TokenType::Var => {
+                let declaration =
+                    parse_var_declaration(&mut tokens_iter, &token.value, &mut symbol_table)?;
+                symbol_table.insert_variable(declaration.clone());
+                statements.push(variable(declaration));
+            }
+            TokenType::Identifier => {
+                let mut peek_iter = tokens_iter.clone().peekable();
+                let next_token = peek_iter.peek();
 
-                    if let Some(Token {
-                        token_type: TokenType::AssignmentOperator,
-                        ..
-                    }) = next_token
-                    {
-                        let (name, value) = if symbol_table.is_object_prop(&token.value) {
-                            parse_var_reassignment(
-                                &mut tokens_iter,
-                                None,
-                                &mut symbol_table,
-                                &token.value,
-                            )?
-                        } else {
-                            let var = symbol_table.get_variable(&token.value)?;
-                            if !var.is_mutable {
-                                return Err(ParsingError::CannotReassignConst {
-                                    var_name: token.value.clone(),
-                                });
-                            }
-
-                            parse_var_reassignment(
-                                &mut tokens_iter,
-                                Some(&var),
-                                &mut symbol_table,
-                                &token.value,
-                            )?
-                        };
-
-                        symbol_table.reassign_variable(name.to_owned(), value.clone())?;
-                        statements.push(reassignment(name, value));
-                    } else if let Some(Token {
-                        token_type: TokenType::OpenParen,
-                        ..
-                    }) = next_token
-                    {
-                        let call =
-                            parse_fn_call(&mut tokens_iter, &token.value, &mut symbol_table)?;
-
-                        statements.push(function_call(call));
-                    } else if let Some(Token {
-                        token_type: TokenType::Colon,
-                        ..
-                    }) = next_token
-                    {
-                        return Err(ParsingError::UnwantedColon);
+                if let Some(Token {
+                    token_type: TokenType::AssignmentOperator,
+                    ..
+                }) = next_token
+                {
+                    let (name, value) = if symbol_table.is_object_prop(&token.value) {
+                        parse_var_reassignment(
+                            &mut tokens_iter,
+                            None,
+                            &mut symbol_table,
+                            &token.value,
+                        )?
                     } else {
-                        ignore_until_statement(&mut tokens_iter)?;
-                    }
-                }
-                TokenType::Function => {
-                    let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table, None)?;
-                    symbol_table.insert_function(f.clone());
-                    statements.push(function(f));
-                }
-                TokenType::Return => {
-                    statements.push(parse_return_statement(
-                        token.value.to_owned(),
-                        &mut tokens_iter,
-                        &mut symbol_table,
-                    )?);
-                }
-                TokenType::Comma => {
-                    if statements.len() == 0 {
-                        return Err(ParsingError::InvalidExpression {
-                            value: ",".to_string(),
-                        });
-                    }
-                    match &statements[statements.len() - 1] {
-                        Statement {
-                            node: ASTNode::VariableDeclaration { is_mutable, .. },
-                        } => {
-                            let keyword = if *is_mutable { "mut" } else { "const" };
+                        let var = symbol_table.get_variable(&token.value)?;
+                        if !var.is_mutable {
+                            return Err(ParsingError::CannotReassignConst {
+                                var_name: token.value.clone(),
+                            });
+                        }
 
-                            let declaration = parse_var_declaration(
-                                &mut tokens_iter,
-                                &keyword,
-                                &mut symbol_table,
-                            )?;
-                            symbol_table.insert_variable(declaration.clone());
-                            statements.push(variable(declaration));
-                        }
-                        _ => {
-                            return Err(ParsingError::InvalidExpression {
-                                value: ",".to_string(),
-                            })
-                        }
-                    }
-                }
-                TokenType::Class => {
-                    print_info!("cls implementation coming soon!");
-                    let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
-                    todo!()
-                }
-                TokenType::If => {
-                    print_info!("'if' implementation coming soon!");
-                    todo!()
-                }
-                TokenType::Else => {
-                    print_info!("'if' implementation coming soon!");
-                    todo!()
-                }
-                TokenType::Match => {
-                    print_info!("'match' implementation coming soon!");
-                    todo!()
-                }
-                TokenType::For => {
-                    print_info!("'for' implementation coming soon!");
-                    todo!()
-                }
-                TokenType::IncrementOperator => {
-                    print_info!("'++' operator implementation coming soon!");
-                    todo!()
-                }
-                TokenType::DecrementOperator => {
-                    print_info!("'--' operator implementation coming soon!");
-                    todo!()
-                }
-                TokenType::While => {
-                    print_info!("'while' operator implementation coming soon!");
-                    todo!()
-                }
-                TokenType::Import => {
-                    print_info!("Imports support coming soon!");
-                    todo!()
-                }
-                TokenType::Export => {
-                    print_info!("Exports support coming soon!");
-                    todo!()
-                }
-                TokenType::LogicalOperator => {
-                    print_info!(
-                        "'{}' logical operator implementation coming soon!",
-                        token.value
-                    );
-                    todo!()
-                }
-                _ => {
+                        parse_var_reassignment(
+                            &mut tokens_iter,
+                            Some(&var),
+                            &mut symbol_table,
+                            &token.value,
+                        )?
+                    };
+
+                    symbol_table.reassign_variable(name.to_owned(), value.clone())?;
+                    statements.push(reassignment(name, value));
+                } else if let Some(Token {
+                    token_type: TokenType::OpenParen,
+                    ..
+                }) = next_token
+                {
+                    let call = parse_fn_call(&mut tokens_iter, &token.value, &mut symbol_table)?;
+
+                    statements.push(function_call(call));
+                } else if let Some(Token {
+                    token_type: TokenType::Colon,
+                    ..
+                }) = next_token
+                {
+                    return Err(ParsingError::UnwantedColon);
+                } else {
                     ignore_until_statement(&mut tokens_iter)?;
                 }
+            }
+            TokenType::Function => {
+                let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table, None)?;
+                symbol_table.insert_function(f.clone());
+                statements.push(function(f));
+            }
+            TokenType::Return => {
+                if is_in_fn {
+                    return Err(ParsingError::Custom {
+                        data: format!(
+                            "Return statements only allowed in functions: at '{} {}'",
+                            token.value,
+                            parse_expression(&mut tokens_iter, &mut symbol_table)?
+                        ),
+                    });
+                };
+                statements.push(parse_return_statement(
+                    token.value.to_owned(),
+                    &mut tokens_iter,
+                    &mut symbol_table,
+                )?);
+            }
+            TokenType::Comma => {
+                if let Some(Statement {
+                    node: ASTNode::VariableDeclaration { is_mutable, .. },
+                }) = statements.last()
+                {
+                    let keyword = if *is_mutable { "mut" } else { "const" };
+
+                    let declaration =
+                        parse_var_declaration(&mut tokens_iter, &keyword, &mut symbol_table)?;
+                    symbol_table.insert_variable(declaration.clone());
+                    statements.push(variable(declaration));
+                } else {
+                    return Err(ParsingError::InvalidExpression {
+                        value: ",".to_string(),
+                    });
+                }
+            }
+            TokenType::Class => {
+                print_info!("cls implementation coming soon!");
+                let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
+                todo!()
+            }
+            TokenType::If => {
+                print_info!("'if' implementation coming soon!");
+                todo!()
+            }
+            TokenType::Else => {
+                print_info!("'if' implementation coming soon!");
+                todo!()
+            }
+            TokenType::Match => {
+                print_info!("'match' implementation coming soon!");
+                todo!()
+            }
+            TokenType::For => {
+                print_info!("'for' implementation coming soon!");
+                todo!()
+            }
+            TokenType::IncrementOperator => {
+                print_info!("'++' operator implementation coming soon!");
+                todo!()
+            }
+            TokenType::DecrementOperator => {
+                print_info!("'--' operator implementation coming soon!");
+                todo!()
+            }
+            TokenType::While => {
+                print_info!("'while' operator implementation coming soon!");
+                todo!()
+            }
+            TokenType::Import => {
+                print_info!("Imports support coming soon!");
+                todo!()
+            }
+            TokenType::Export => {
+                print_info!("Exports support coming soon!");
+                todo!()
+            }
+            TokenType::LogicalOperator => {
+                print_info!(
+                    "'{}' logical operator implementation coming soon!",
+                    token.value
+                );
+                todo!()
+            }
+            _ => {
+                ignore_until_statement(&mut tokens_iter)?;
             }
         }
     }
