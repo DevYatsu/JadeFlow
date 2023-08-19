@@ -10,7 +10,7 @@ use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use std::io::{self, Write};
 
-pub fn load_std_console() -> HashMap<String, Function> {
+pub fn load_jadeflow_console() -> HashMap<String, Function> {
     let println = function!(
         "println",
         arguments: vec![Argument::new(

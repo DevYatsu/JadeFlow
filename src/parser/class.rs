@@ -55,6 +55,7 @@ impl Class {
             initer: None,
         }
     }
+
     pub fn set_pub_prop(&mut self, prop: &str, value: Expression) -> Result<(), ClassError> {
         if prop == "ctx" {
             return Err(ClassError::CannotReassignCtx {

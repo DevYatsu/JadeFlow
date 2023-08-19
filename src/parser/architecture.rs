@@ -1,4 +1,4 @@
-use crate::{evaluation::EvaluationError, jadeflow_std::load_std};
+use crate::{evaluation::EvaluationError, jadeflow_std::load_jadeflow_fns};
 
 use super::{
     class::Class,
@@ -91,7 +91,7 @@ custom_error::custom_error! {pub SymbolTableError
 
 impl SymbolTable {
     pub fn init() -> SymbolTable {
-        let functions = load_std();
+        let functions = load_jadeflow_fns();
 
         let symbol_table = SymbolTable {
             variables: HashMap::new(),

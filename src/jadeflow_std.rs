@@ -5,7 +5,7 @@ mod modules;
 use crate::parser::functions::Function;
 use hashbrown::HashMap;
 
-use self::{console::load_std_console, math::load_std_math};
+use self::{console::load_jadeflow_console, math::load_jadeflow_math};
 
 #[macro_export]
 macro_rules! create_function_map {
@@ -41,9 +41,9 @@ macro_rules! merge_hash_maps {
     };
 }
 
-pub fn load_std() -> HashMap<String, Function> {
-    let maths_fns = load_std_math();
-    let console_fns = load_std_console();
+pub fn load_jadeflow_fns() -> HashMap<String, Function> {
+    let maths_fns = load_jadeflow_math();
+    let console_fns = load_jadeflow_console();
     // initialize all standard fns
     println!("load stdd");
     merge_hash_maps!(maths_fns, console_fns)

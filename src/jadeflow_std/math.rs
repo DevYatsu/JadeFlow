@@ -9,7 +9,7 @@ use crate::{
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 
-pub fn load_std_math() -> HashMap<String, Function> {
+pub fn load_jadeflow_math() -> HashMap<String, Function> {
     let sqrt = function!(
         "sqrt",
         arguments: vec![Argument::new(
