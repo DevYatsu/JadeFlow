@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    architecture::{ASTNode, Statement, SymbolTable},
+    architecture::SymbolTable,
     expression::{parse_with_operator, Expression},
     functions::Argument,
     ignore_whitespace,
