@@ -42,7 +42,7 @@ impl fmt::Debug for Function {
                 ..
             } => write!(
                 f,
-                "StandardFunction {{ name: {}, arguments: {:?}, return_type: {:?} }}",
+                "DefinedFunction '{}' {{ arguments: {:?}, return_type: {:?} }}",
                 name, arguments, return_type
             ),
             Function::StandardFunction {
@@ -300,20 +300,6 @@ pub struct FunctionCall {
     pub arguments: Vec<Expression>,
 }
 
-pub fn function(f: Function) -> Statement {
-    Statement {
-        node: ASTNode::FunctionDeclaration(f),
-    }
-}
-pub fn function_call(call: FunctionCall) -> Statement {
-    Statement {
-        node: ASTNode::FunctionCall {
-            function_name: call.function_name,
-            arguments: call.arguments,
-        },
-    }
-}
-
 pub fn parse_fn_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
@@ -450,7 +436,7 @@ pub fn parse_fn_header(
             ..
         }) = tokens.next()
         {
-            let arguments = parse_fn_args(tokens)?;
+            let arguments = parse_fn_args(tokens, &symbol_table)?;
 
             let mut return_type: Option<VariableType> = None;
 
@@ -466,7 +452,7 @@ pub fn parse_fn_header(
             }) = tokens.peek()
             {
                 tokens.next();
-                return_type = parse_return_type(tokens, &name)?;
+                return_type = parse_return_type(tokens, &name, &symbol_table)?;
             }
             ignore_whitespace(tokens);
 
@@ -650,6 +636,7 @@ fn parse_fn_block(
 
 pub fn parse_fn_args(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
+    symbol_table: &SymbolTable,
 ) -> Result<Vec<Argument>, FunctionParsingError> {
     let mut arguments: Vec<Argument> = Vec::new();
 
@@ -672,7 +659,7 @@ pub fn parse_fn_args(
             }) = tokens.next()
             {
                 if let Some(Token { value, .. }) = tokens.next() {
-                    let arg_type = match VariableType::from_assignment(&value) {
+                    let arg_type = match VariableType::from_assignment(&value, symbol_table) {
                         Some(t) => t,
                         None => {
                             return Err(FunctionParsingError::ExpectedArgType {
@@ -737,9 +724,10 @@ pub fn parse_fn_args(
 fn parse_return_type(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     fn_name: &str,
+    symbol_table: &SymbolTable,
 ) -> Result<Option<VariableType>, FunctionParsingError> {
     if let Some(Token { value, .. }) = tokens.next() {
-        match VariableType::from_assignment(&value) {
+        match VariableType::from_assignment(&value, symbol_table) {
             Some(t) => Ok(Some(t)),
             None => {
                 return Err(FunctionParsingError::ExpectedValidReturnType {

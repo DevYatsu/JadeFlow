@@ -33,6 +33,7 @@ pub enum VariableType {
     Boolean,
     Vector,
     Dictionary,
+    Class(String),
 }
 impl fmt::Display for VariableType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -42,6 +43,7 @@ impl fmt::Display for VariableType {
             VariableType::Boolean => write!(f, "Boolean"),
             VariableType::Vector => write!(f, "Vector"),
             VariableType::Dictionary => write!(f, "Dictionary"),
+            VariableType::Class(name) => write!(f, "Class {}", name),
         }
     }
 }
@@ -54,15 +56,19 @@ impl VariableType {
             VariableType::Boolean => "bool",
             VariableType::Vector => "vec",
             VariableType::Dictionary => "dict",
+            VariableType::Class(name) => &name,
         }
     }
-    pub fn from_assignment(input: &str) -> Option<VariableType> {
+    pub fn from_assignment(input: &str, symbol_table: &SymbolTable) -> Option<VariableType> {
         match input {
             "str" => Some(VariableType::String),
             "num" => Some(VariableType::Number),
             "bool" => Some(VariableType::Boolean),
             "vec" => Some(VariableType::Vector),
             "dict" => Some(VariableType::Dictionary),
+            cls_name if symbol_table.is_class_declared(input) => {
+                Some(VariableType::Class(cls_name.to_owned()))
+            }
             _ => None,
         }
     }

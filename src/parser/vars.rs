@@ -22,16 +22,10 @@ pub struct Declaration {
     pub is_mutable: bool,
     pub is_object_prop: bool,
 }
-pub fn variable(declaration: Declaration) -> Statement {
-    Statement {
-        node: ASTNode::VariableDeclaration {
-            name: declaration.name,
-            var_type: declaration.var_type,
-            value: declaration.value,
-            is_mutable: declaration.is_mutable,
-            is_object_prop: declaration.is_object_prop,
-        },
-    }
+#[derive(Debug, Clone)]
+pub struct Reassigment {
+    pub name: String,
+    pub value: Expression,
 }
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -81,13 +75,6 @@ impl From<Argument> for Declaration {
         )
     }
 }
-
-pub fn reassignment(name: String, value: Expression) -> Statement {
-    Statement {
-        node: ASTNode::VariableReassignment { name, value },
-    }
-}
-
 pub fn parse_var_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var_keyword: &str,
@@ -215,7 +202,7 @@ pub fn parse_var_reassignment(
     initial_var: Option<&Declaration>,
     symbol_table: &mut SymbolTable,
     identifier: &str,
-) -> Result<(String, Expression), ParsingError> {
+) -> Result<Reassigment, ParsingError> {
     ignore_whitespace(tokens);
 
     // initial_var is none if it's an object prop reassignment
@@ -265,7 +252,10 @@ pub fn parse_var_reassignment(
             }
         }
 
-        return Ok((identifier.to_owned(), expression));
+        return Ok(Reassigment {
+            name: identifier.to_owned(),
+            value: expression,
+        });
     } else {
         // If there's no assignment operator, it's an error.
         return Err(ParsingError::ExpectedReassignment {

@@ -26,9 +26,9 @@ use self::{
     class::{parse_class_declaration, Class},
     errors::ParsingError,
     expression::parse_expression,
-    functions::{function, function_call, parse_fn_call, parse_fn_declaration},
+    functions::{parse_fn_call, parse_fn_declaration},
     returns::parse_return_statement,
-    vars::{parse_var_declaration, parse_var_reassignment, reassignment, variable},
+    vars::{parse_var_declaration, parse_var_reassignment},
 };
 
 // need to support functions call evaluation when func is defined after its call
@@ -53,7 +53,7 @@ pub fn parse(
                 let declaration =
                     parse_var_declaration(&mut tokens_iter, &token.value, &mut symbol_table)?;
                 symbol_table.insert_variable(declaration.clone());
-                statements.push(variable(declaration));
+                statements.push(declaration.into());
             }
             TokenType::Identifier => {
                 let mut peek_iter = tokens_iter.clone().peekable();
@@ -64,7 +64,7 @@ pub fn parse(
                     ..
                 }) = next_token
                 {
-                    let (name, value) = if symbol_table.is_object_prop(&token.value) {
+                    let reassignment = if symbol_table.is_object_prop(&token.value) {
                         parse_var_reassignment(
                             &mut tokens_iter,
                             None,
@@ -87,8 +87,11 @@ pub fn parse(
                         )?
                     };
 
-                    symbol_table.reassign_variable(name.to_owned(), value.clone())?;
-                    statements.push(reassignment(name, value));
+                    symbol_table.reassign_variable(
+                        reassignment.name.to_owned(),
+                        reassignment.value.clone(),
+                    )?;
+                    statements.push(reassignment.into());
                 } else if let Some(Token {
                     token_type: TokenType::OpenParen,
                     ..
@@ -96,7 +99,7 @@ pub fn parse(
                 {
                     let call = parse_fn_call(&mut tokens_iter, &token.value, &mut symbol_table)?;
 
-                    statements.push(function_call(call));
+                    statements.push(call.into());
                 } else if let Some(Token {
                     token_type: TokenType::Colon,
                     ..
@@ -110,7 +113,7 @@ pub fn parse(
             TokenType::Function => {
                 let f = parse_fn_declaration(&mut tokens_iter, &mut symbol_table, None)?;
                 symbol_table.insert_function(f.clone());
-                statements.push(function(f));
+                statements.push(f.into());
             }
             TokenType::Return => {
                 if is_in_fn {
@@ -138,7 +141,7 @@ pub fn parse(
                     let declaration =
                         parse_var_declaration(&mut tokens_iter, &keyword, &mut symbol_table)?;
                     symbol_table.insert_variable(declaration.clone());
-                    statements.push(variable(declaration));
+                    statements.push(declaration.into());
                 } else {
                     return Err(ParsingError::InvalidExpression {
                         value: ",".to_string(),
@@ -146,9 +149,10 @@ pub fn parse(
                 }
             }
             TokenType::Class => {
-                print_info!("cls implementation coming soon!");
                 let cls = parse_class_declaration(&mut tokens_iter, &mut symbol_table)?;
-                todo!()
+                symbol_table.insert_cls(cls.clone());
+                statements.push(cls.into());
+                print_info!("full cls implementation coming soon!");
             }
             TokenType::If => {
                 print_info!("'if' implementation coming soon!");

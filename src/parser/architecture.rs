@@ -3,9 +3,9 @@ use crate::{evaluation::EvaluationError, jadeflow_std::load_jadeflow_fns};
 use super::{
     class::Class,
     expression::Expression,
-    functions::{errors::FunctionParsingError, Function, MainFunctionData},
+    functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
     types::{type_from_expression, TypeError, VariableType},
-    vars::Declaration,
+    vars::{Declaration, Reassigment},
 };
 use hashbrown::HashMap;
 use std::{fmt, num::ParseIntError};
@@ -39,6 +39,54 @@ pub enum ASTNode {
         function_name: String,
         arguments: Vec<Expression>,
     },
+}
+
+impl From<Function> for Statement {
+    fn from(value: Function) -> Self {
+        Statement {
+            node: ASTNode::FunctionDeclaration(value),
+        }
+    }
+}
+impl From<FunctionCall> for Statement {
+    fn from(value: FunctionCall) -> Self {
+        Statement {
+            node: ASTNode::FunctionCall {
+                function_name: value.function_name,
+                arguments: value.arguments,
+            },
+        }
+    }
+}
+impl From<Declaration> for Statement {
+    fn from(value: Declaration) -> Self {
+        Statement {
+            node: ASTNode::VariableDeclaration {
+                name: value.name,
+                var_type: value.var_type,
+                value: value.value,
+                is_mutable: value.is_mutable,
+                is_object_prop: value.is_object_prop,
+            },
+        }
+    }
+}
+impl From<Reassigment> for Statement {
+    fn from(value: Reassigment) -> Self {
+        Statement {
+            node: ASTNode::VariableReassignment {
+                name: value.name,
+                value: value.value,
+            },
+        }
+    }
+}
+impl From<Class> for Statement {
+    fn from(value: Class) -> Self {
+        Statement {
+            node: ASTNode::ClassDeclaration(value),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +172,9 @@ impl SymbolTable {
             Function::StandardFunction { name, .. } => name,
         };
         self.functions.insert(name.to_owned(), f);
+    }
+    pub fn insert_cls(&mut self, cls: Class) {
+        self.classes.insert(cls.name.to_owned(), cls);
     }
     pub fn register_function(&mut self, f: MainFunctionData) {
         self.registered_functions.insert(f.name.to_owned(), f);
