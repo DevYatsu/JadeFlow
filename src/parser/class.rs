@@ -171,7 +171,7 @@ impl Class {
                 Expression::DictionaryExpression(dict) => {
                     ctx = dict
                         .get(identifier_parts.remove(0))
-                        .unwrap_or(&Expression::Null)
+                        .unwrap_or_else(|| &Expression::Null)
                         .to_owned();
                 }
                 _ => {
@@ -224,7 +224,7 @@ impl Class {
                 Expression::DictionaryExpression(dict) => {
                     ctx = dict
                         .get(identifier_parts.remove(0))
-                        .unwrap_or(&Expression::Null)
+                        .unwrap_or_else(|| &Expression::Null)
                         .to_owned();
                 }
                 _ => {
