@@ -495,6 +495,9 @@ pub fn parse_fn_call(
 ) -> Result<FunctionCall, ParsingError> {
     // jump the '('
     tokens.next();
+    if symbol_table.is_class_declared(function_name) {
+        todo!()
+    }
     let fn_data = symbol_table.get_function(function_name)?;
     let arguments = fn_data.arguments;
 
