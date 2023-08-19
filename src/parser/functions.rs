@@ -185,21 +185,17 @@ impl Function {
                 });
 
                 let returned_expr = Function::get_returned_expr(&statements);
-                let mut program = Program {
+
+                let mut table = evaluate_program(Program {
                     statements,
                     symbol_table: table,
-                };
-
-                evaluate_program(program.clone())?;
+                })?;
 
                 if return_type.is_none() {
                     return Ok(Expression::Null);
                 }
 
-                Ok(evaluate_expression(
-                    returned_expr,
-                    &mut program.symbol_table,
-                )?)
+                Ok(evaluate_expression(returned_expr, &mut table)?)
             }
             Function::StandardFunction {
                 name,
@@ -393,9 +389,11 @@ pub fn parse_fn_declaration(
             ..
         }) => {
             let mut ctx_tokens = Vec::new();
-            ctx_tokens.extend(fn_data.args_as_tokens());
             ctx_tokens.extend(parse_fn_block(tokens, &fn_data.name)?);
             let mut table = symbol_table.clone();
+            fn_data.arguments.iter().for_each(|arg| {
+                table.insert_variable(arg.clone().into());
+            });
             if is_method {
                 table.variables.insert(
                     "ctx".to_owned(),

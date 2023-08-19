@@ -6,3 +6,9 @@ fn hello() {
 }
 
 hello()
+
+fn duplicate(mut hey: str): str {
+    hey = hey + hey
+    >> hey
+}
+println(duplicate("dude"))
