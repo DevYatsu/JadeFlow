@@ -360,7 +360,7 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     }
                 }
             }
-            '"' => {
+            '"' | '\'' => {
                 // for strings
                 let mut string_lexeme = String::new();
 

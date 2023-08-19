@@ -22,6 +22,7 @@ custom_error! {pub FunctionParsingError
 
     NameAlreadyTaken{name: String} = "The function name '{name}' is already in use",
     NameAlreadyTakenByStd{name: String} = "The function name '{name}' is already in use by a standard library function",
+    NameAlreadyTakenByClass{name: String} = "The name '{name}' is already in use by the '{name}' class",
 
     ExpectingExpressionAfterArrow{fn_name: String} = "Expecting expression after '=>' in \"{fn_name}\" declaration",
 

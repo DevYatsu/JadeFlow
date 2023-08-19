@@ -419,13 +419,6 @@ pub fn parse_fn_header(
     {
         let name = value;
 
-        if name.chars().next().unwrap().is_uppercase() {
-            print_warning!(FunctionParsingError::ExpectedLowercaseInName {
-                name: name.to_owned()
-            }
-            .to_string());
-        }
-
         if symbol_table.is_fn_std(name) {
             return Err(FunctionParsingError::NameAlreadyTakenByStd {
                 name: name.to_owned(),
@@ -436,6 +429,18 @@ pub fn parse_fn_header(
                 name: name.to_owned(),
             }
             .into());
+        } else if symbol_table.is_class_declared(name) {
+            return Err(FunctionParsingError::NameAlreadyTakenByClass {
+                name: name.to_owned(),
+            }
+            .into());
+        }
+
+        if name.chars().next().unwrap().is_uppercase() {
+            print_warning!(FunctionParsingError::ExpectedLowercaseInName {
+                name: name.to_owned()
+            }
+            .to_string());
         }
 
         // Check if the next token is an open parenthesis

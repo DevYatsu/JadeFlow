@@ -26,6 +26,7 @@ class Human {
     }*/
 }
 
-/*const human = Human('Bob', 23, 'male')
+const human = Human('Bob', 23, "male")
+/*
 human.presentation()
 human.increase_age()*/

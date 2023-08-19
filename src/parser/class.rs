@@ -22,6 +22,8 @@ custom_error::custom_error! {pub ClassError
     TypeError{source: TypeError} = "{source}",
     Custom{msg: String} = "{msg}",
 
+    NameAlreadyTakenByFn{name: String} = "The name '{name}' is already in use by the '{name}' function",
+
     ExpectedUppercaseInName{name: String} = "Expected a name starting with an uppercase for '{name}' class",
     ExpectedNameAfterClass = "Expected a class name after 'class'",
     NameAlreadyTaken{name:String} = "The class '{name}' already exists",
@@ -306,9 +308,6 @@ pub fn parse_class_declaration(
 
     parse_class_content(tokens, symbol_table, &mut cls)?;
 
-    println!("{}", cls);
-    println!("{:?}", cls.initer);
-
     Ok(cls)
 }
 
@@ -345,17 +344,22 @@ pub fn parse_class_header(
     {
         let name = value;
 
+        if symbol_table.is_class_declared(name) {
+            return Err(ClassError::NameAlreadyTakenByFn {
+                name: name.to_owned(),
+            });
+        } else if symbol_table.is_fn_declared(name) {
+            return Err(FunctionParsingError::NameAlreadyTaken {
+                name: name.to_owned(),
+            }
+            .into());
+        }
+
         if !name.chars().next().unwrap().is_uppercase() {
             print_warning!(ClassError::ExpectedUppercaseInName {
                 name: name.to_owned()
             }
             .to_string());
-        }
-
-        if symbol_table.is_class_declared(name) {
-            return Err(ClassError::NameAlreadyTaken {
-                name: name.to_owned(),
-            });
         }
 
         cls.name = name.to_owned();
