@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fmt};
+use hashbrown::HashMap;
+use std::fmt;
 
 use crate::{
     parser::expression::parse_expression,

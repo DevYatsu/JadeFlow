@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap,
-    fmt::{self},
-};
+use hashbrown::HashMap;
+use std::fmt::{self};
 
 use crate::{
     parser::expression::parse_expression,

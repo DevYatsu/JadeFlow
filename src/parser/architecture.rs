@@ -7,7 +7,8 @@ use super::{
     types::{type_from_expression, TypeError, VariableType},
     vars::Declaration,
 };
-use std::{collections::HashMap, fmt, num::ParseIntError};
+use hashbrown::HashMap;
+use std::{fmt, num::ParseIntError};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
@@ -114,7 +115,8 @@ impl SymbolTable {
         Ok(self.get_full_function(&name)?.run_with_args(&args, &self)?)
     }
     pub fn insert_variable(&mut self, declaration: Declaration) {
-        self.variables.insert(declaration.name.clone(), declaration);
+        self.variables
+            .insert(declaration.name.to_owned(), declaration);
     }
     pub fn insert_function(&mut self, f: Function) {
         let name = match &f {

@@ -14,8 +14,9 @@ use crate::{
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{tokenize, Token, TokenType},
 };
+use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 pub enum Function {
     DefinedFunction {

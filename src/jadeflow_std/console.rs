@@ -6,11 +6,9 @@ use crate::{
         types::VariableType,
     },
 };
+use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 pub fn load_std_console() -> HashMap<String, Function> {
     let println = function!(

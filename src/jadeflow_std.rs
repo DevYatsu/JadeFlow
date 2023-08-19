@@ -2,7 +2,7 @@
 mod console;
 mod math;
 mod modules;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use crate::parser::functions::Function;
 
@@ -11,7 +11,7 @@ use self::{console::load_std_console, math::load_std_math};
 #[macro_export]
 macro_rules! create_function_map {
     ( $( $func:expr ),* ) => {{
-        use std::collections::HashMap;
+    use hashbrown::HashMap;
 
         let mut function_map = HashMap::new();
 

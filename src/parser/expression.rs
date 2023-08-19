@@ -1,8 +1,6 @@
 pub mod operation;
-use std::{
-    collections::HashMap,
-    fmt::{self},
-};
+use hashbrown::HashMap;
+use std::fmt::{self};
 
 use self::operation::BinaryOperator;
 

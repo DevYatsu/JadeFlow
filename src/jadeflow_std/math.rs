@@ -6,8 +6,8 @@ use crate::{
         types::VariableType,
     },
 };
+use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
-use std::collections::HashMap;
 
 pub fn load_std_math() -> HashMap<String, Function> {
     let sqrt = function!(

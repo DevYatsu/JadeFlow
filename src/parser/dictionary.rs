@@ -4,7 +4,7 @@ use super::{
     ParsingError,
 };
 use crate::token::{Token, TokenType};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 pub fn parse_dictionary_expression(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,

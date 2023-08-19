@@ -1,5 +1,5 @@
 use crate::parser::{class::Class, functions::Function, vars::Declaration};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 pub mod fs;
 
 pub struct Module {

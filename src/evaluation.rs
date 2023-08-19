@@ -143,8 +143,6 @@ pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationE
                     .map_err(|e| EvaluationError::Custom {
                         message: e.to_string(),
                     })?;
-
-                println!("{}", rerun_table);
             }
             ASTNode::FunctionCall {
                 function_name,
