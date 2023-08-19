@@ -1,3 +1,6 @@
+use hashbrown::HashMap;
+use lazy_static::lazy_static;
+
 use self::{errors::SyntaxError, line::get_line};
 
 pub mod errors;
@@ -547,38 +550,16 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
                     position += 1;
                 }
 
-                let token_type = match value_lexeme.as_str() {
-                    "true" | "false" => TokenType::Boolean,
-                    "null" => TokenType::Null,
-                    "fn" => TokenType::Function,
-                    "class" => TokenType::Class,
-                    "return" => TokenType::Return,
-                    "if" => TokenType::If,
-                    "else" => TokenType::Else,
-                    "while" => TokenType::While,
-                    "match" => TokenType::Match,
-                    "for" => TokenType::For,
-                    "in" => TokenType::In,
-                    "mut" => TokenType::Var,
-                    "const" => TokenType::Var,
-                    "bool" => TokenType::TypeBool,
-                    "num" => TokenType::TypeNumber,
-                    "str" => TokenType::TypeString,
-                    "vec" => TokenType::TypeVec,
-                    "dict" => TokenType::TypeDict,
-                    "and" | "or" => TokenType::LogicalOperator,
-                    "opt" => TokenType::OptionArgFunction,
-                    "pub" => TokenType::ClassPublic,
-                    "priv" => TokenType::ClassPrivate,
-                    "import" => TokenType::Import,
-                    "export" => TokenType::Export,
-                    val if value_lexeme.ends_with('.') => {
-                        return Err(SyntaxError::ExpectingSomethingAfterDot {
-                            id: val.to_string(),
-                        })
-                    }
-                    _ => TokenType::Identifier,
-                };
+                if value_lexeme.ends_with('.') {
+                    return Err(SyntaxError::ExpectingSomethingAfterDot {
+                        id: value_lexeme.to_owned(),
+                    });
+                }
+
+                let token_type = KEYWORDS
+                    .get(value_lexeme.as_str())
+                    .unwrap_or_else(|| &TokenType::Identifier)
+                    .to_owned();
 
                 tokens.push(token(value_lexeme, token_type));
 
@@ -611,4 +592,38 @@ pub fn tokenize(source_code: &[u8]) -> Result<Vec<Token>, SyntaxError> {
     }
 
     Ok(tokens)
+}
+
+lazy_static! {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
+        let mut keywords: HashMap<&str, TokenType> = HashMap::new();
+        keywords.insert("true", TokenType::Boolean);
+        keywords.insert("false", TokenType::Boolean);
+        keywords.insert("null", TokenType::Null);
+        keywords.insert("fn", TokenType::Function);
+        keywords.insert("class", TokenType::Class);
+        keywords.insert("return", TokenType::Return);
+        keywords.insert("if", TokenType::If);
+        keywords.insert("else", TokenType::Else);
+        keywords.insert("while", TokenType::While);
+        keywords.insert("match", TokenType::Match);
+        keywords.insert("for", TokenType::For);
+        keywords.insert("in", TokenType::In);
+        keywords.insert("mut", TokenType::Var);
+        keywords.insert("const", TokenType::Var);
+        keywords.insert("bool", TokenType::TypeBool);
+        keywords.insert("num", TokenType::TypeNumber);
+        keywords.insert("str", TokenType::TypeString);
+        keywords.insert("vec", TokenType::TypeVec);
+        keywords.insert("dict", TokenType::TypeDict);
+        keywords.insert("and", TokenType::LogicalOperator);
+        keywords.insert("or", TokenType::LogicalOperator);
+        keywords.insert("opt", TokenType::OptionArgFunction);
+        keywords.insert("pub", TokenType::ClassPublic);
+        keywords.insert("priv", TokenType::ClassPrivate);
+        keywords.insert("import", TokenType::Import);
+        keywords.insert("export", TokenType::Export);
+
+        keywords
+    };
 }

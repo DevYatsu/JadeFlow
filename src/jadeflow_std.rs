@@ -2,9 +2,8 @@
 mod console;
 mod math;
 mod modules;
-use hashbrown::HashMap;
-
 use crate::parser::functions::Function;
+use hashbrown::HashMap;
 
 use self::{console::load_std_console, math::load_std_math};
 

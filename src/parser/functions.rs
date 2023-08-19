@@ -10,13 +10,12 @@ use super::{
 };
 use crate::{
     evaluation::{evaluate_expression, evaluate_program, EvaluationError},
-    jadeflow_std::load_std,
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
     token::{tokenize, Token, TokenType},
 };
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 pub enum Function {
     DefinedFunction {
@@ -30,7 +29,7 @@ pub enum Function {
         name: String,
         arguments: Vec<Argument>,
         return_type: Option<VariableType>,
-        code_to_run: OnceCell<Box<dyn Fn(Vec<Expression>) -> Expression>>,
+        code_to_run: OnceCell<Arc<dyn Fn(Vec<Expression>) -> Expression + 'static>>,
     },
 }
 impl Clone for Function {
@@ -53,15 +52,12 @@ impl Clone for Function {
                 name,
                 arguments,
                 return_type,
-                ..
+                code_to_run
             } => Function::StandardFunction {
                 name: name.clone(),
                 arguments: arguments.clone(),
                 return_type: return_type.clone(),
-                code_to_run: match load_std().remove(name).unwrap() {
-                    Function::DefinedFunction { .. } => unreachable!(),
-                    Function::StandardFunction { code_to_run, .. } => code_to_run,
-                },
+                code_to_run: code_to_run.clone(),
             },
         }
     }
@@ -116,7 +112,8 @@ macro_rules! function {
         return_type: $return_type:expr,
         code: $code:expr
     ) => {{
-        let boxed_closure: Box<dyn Fn(Vec<Expression>) -> Expression> = Box::new($code);
+        use std::sync::Arc;
+        let boxed_closure: Arc<dyn Fn(Vec<Expression>) -> Expression> = Arc::new($code);
         let once_cell = OnceCell::from(boxed_closure);
 
         Function::StandardFunction {

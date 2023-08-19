@@ -64,7 +64,7 @@ pub struct Statement {
     pub node: ASTNode,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SymbolTable {
     //struct to keep track of variables, fns and everything created
     pub variables: HashMap<String, Declaration>,
@@ -408,16 +408,3 @@ impl fmt::Display for SymbolTable {
     }
 }
 
-impl Clone for SymbolTable {
-    fn clone(&self) -> Self {
-        let mut functions = self.functions.clone();
-        functions.extend(load_std());
-
-        Self {
-            variables: self.variables.clone(),
-            functions,
-            registered_functions: self.registered_functions.clone(),
-            classes: self.classes.clone(),
-        }
-    }
-}

@@ -124,6 +124,7 @@ dependencies = [
  "custom_error",
  "dialoguer",
  "hashbrown",
+ "lazy_static",
  "once_cell",
 ]
 
