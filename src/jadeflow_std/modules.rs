@@ -48,22 +48,22 @@ macro_rules! generate_module {
             let mut module = Module::new($module);
 
             $(
-                module.elements.insert($class.name.clone(), ModuleComponent::from($class));
+                module.elements.insert($class.name.clone(), $class.into());
             )*
 
             $(
                 match $function {
                     Function::StandardFunction {name, ..} => {
-                        module.elements.insert(name.clone(), ModuleComponent::from($function));
+                        module.elements.insert(name.clone(), $function.into());
                     }
                     Function::DefinedFunction {name, ..} => {
-                        module.elements.insert(name.clone(), ModuleComponent::from($function));
+                        module.elements.insert(name.clone(), $function.into());
                     }
                 }
             )*
 
             $(
-                module.elements.insert($constant.name.clone(), ModuleComponent::from($constant));
+                module.elements.insert($constant.name.clone(), $constant.into());
             )*
 
             module

@@ -17,6 +17,7 @@ use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use std::{fmt, sync::Arc};
 
+#[derive(Clone)]
 pub enum Function {
     DefinedFunction {
         name: String,
@@ -31,36 +32,6 @@ pub enum Function {
         return_type: Option<VariableType>,
         code_to_run: OnceCell<Arc<dyn Fn(Vec<Expression>) -> Expression + 'static>>,
     },
-}
-impl Clone for Function {
-    fn clone(&self) -> Self {
-        match self {
-            Function::DefinedFunction {
-                name,
-                arguments,
-                context,
-                return_type,
-                table,
-            } => Function::DefinedFunction {
-                name: name.clone(),
-                arguments: arguments.clone(),
-                context: context.clone(),
-                return_type: return_type.clone(),
-                table: table.clone(),
-            },
-            Function::StandardFunction {
-                name,
-                arguments,
-                return_type,
-                code_to_run
-            } => Function::StandardFunction {
-                name: name.clone(),
-                arguments: arguments.clone(),
-                return_type: return_type.clone(),
-                code_to_run: code_to_run.clone(),
-            },
-        }
-    }
 }
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

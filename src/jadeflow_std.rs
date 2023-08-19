@@ -45,6 +45,6 @@ pub fn load_std() -> HashMap<String, Function> {
     let maths_fns = load_std_math();
     let console_fns = load_std_console();
     // initialize all standard fns
-
+    println!("load stdd");
     merge_hash_maps!(maths_fns, console_fns)
 }

@@ -407,4 +407,3 @@ impl fmt::Display for SymbolTable {
         Ok(())
     }
 }
-

@@ -1,9 +1,8 @@
-use hashbrown::HashMap;
 use std::fmt::{self};
 
 use crate::{
     parser::expression::parse_expression,
-    token::{tokenize, Token, TokenType},
+    token::{Token, TokenType},
 };
 
 use super::{
@@ -62,28 +61,6 @@ impl Declaration {
             is_mutable,
             is_object_prop,
         }
-    }
-
-    pub fn equivalent_tokens(&self) -> Vec<Token> {
-        let keyword = self.get_var_keyword();
-        let value = match &self.value {
-            Expression::Null => match self.var_type {
-                VariableType::String => Expression::String("".to_owned()),
-                VariableType::Number => Expression::Number(0.0),
-                VariableType::Boolean => Expression::Boolean(false),
-                VariableType::Vector => Expression::ArrayExpression(Vec::new()),
-                VariableType::Dictionary => Expression::DictionaryExpression(HashMap::new()),
-            },
-            _ => self.value.to_owned(),
-        };
-        let source_code = format!(
-            "{} {}: {} = {};",
-            keyword,
-            self.name,
-            self.var_type.as_assignment(),
-            value
-        );
-        tokenize(source_code.as_bytes()).unwrap().into()
     }
     fn get_var_keyword(&self) -> &str {
         if self.is_mutable {

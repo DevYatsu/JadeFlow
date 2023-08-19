@@ -1,12 +1,9 @@
-use crate::{
-    jadeflow_std::load_std,
-    parser::{
-        architecture::{ASTNode, Program, SymbolTable},
-        expression::{Expression, FormattedSegment},
-        functions::errors::FunctionParsingError,
-        types::type_from_expression,
-        vars::Declaration,
-    },
+use crate::parser::{
+    architecture::{ASTNode, Program, SymbolTable},
+    expression::{Expression, FormattedSegment},
+    functions::errors::FunctionParsingError,
+    types::type_from_expression,
+    vars::Declaration,
 };
 
 use self::operations::evaluate_binary_operation;
@@ -115,7 +112,6 @@ pub fn evaluate_expression(
 
 pub fn evaluate_program(mut program: Program) -> Result<SymbolTable, EvaluationError> {
     let mut rerun_table = program.symbol_table;
-    rerun_table.functions.extend(load_std());
 
     for statement in program.statements.iter_mut() {
         match &statement.node {
