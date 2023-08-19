@@ -66,7 +66,7 @@ pub struct Statement {
 
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
-    //struct to keep track of variables, fns and everything created
+    //struct to keep track of variables, fns and everything classes initialized
     pub variables: HashMap<String, Declaration>,
     pub functions: HashMap<String, Function>,
     pub registered_functions: HashMap<String, MainFunctionData>,

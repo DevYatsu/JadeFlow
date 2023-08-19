@@ -29,7 +29,7 @@ pub enum Function {
         name: String,
         arguments: Vec<Argument>,
         return_type: Option<VariableType>,
-        code_to_run: OnceCell<Arc<dyn Fn(Vec<Expression>) -> Expression + 'static>>,
+        code_to_run: OnceCell<Arc<dyn Fn(Vec<Expression>) -> Expression>>,
     },
 }
 impl fmt::Debug for Function {
@@ -321,9 +321,7 @@ pub fn parse_fn_declaration(
 ) -> Result<Function, ParsingError> {
     let fn_data = parse_fn_header(tokens, symbol_table)?;
     let arguments = fn_data.clone().arguments;
-
     let is_method = ctx.is_some();
-
     let function_context = match tokens.next() {
         Some(Token {
             token_type: TokenType::OpenBrace,

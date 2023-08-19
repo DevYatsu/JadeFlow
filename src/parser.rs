@@ -9,7 +9,7 @@ pub mod types;
 pub mod vars;
 mod vectors;
 
-use std::{iter::Peekable, slice::Iter};
+use std::{iter::Peekable, process, slice::Iter};
 
 use crate::{
     parser::{
@@ -17,7 +17,7 @@ use crate::{
         class::{parse_class_header, ClassError},
         functions::parse_fn_header,
     },
-    print_info,
+    print_error, print_info,
     token::{Token, TokenType},
 };
 
@@ -39,7 +39,12 @@ pub fn parse(
 ) -> Result<ASTNode, ParsingError> {
     let mut statements = Vec::new();
     let is_in_fn = optional_symbol_table.is_none();
-    let mut symbol_table = optional_symbol_table.unwrap_or(parse_all_fns_dec(tokens_iter.clone())?);
+    let mut symbol_table = optional_symbol_table.unwrap_or_else(|| {
+        parse_all_fns_dec(tokens_iter.clone()).unwrap_or_else(|e| {
+            print_error!("{}", e);
+            process::exit(0)
+        })
+    });
 
     while let Some(token) = tokens_iter.next() {
         match &token.token_type {
