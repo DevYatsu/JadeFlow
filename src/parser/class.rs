@@ -387,15 +387,16 @@ fn parse_class_content(
             }
             TokenType::Separator => {}
             TokenType::Var => {
-                let mut err_content = String::from(&token.value);
+                let mut err_content = token.value.to_owned();
                 ignore_whitespace(tokens);
+
                 if let Some(token) = tokens.next() {
                     if token.token_type == TokenType::Identifier {
                         err_content.push(' ');
 
                         err_content.push_str(&token.value);
                     }
-                }
+                };
                 return Err(ClassError::NoVarInClassContext {
                     var_name: err_content,
                 }

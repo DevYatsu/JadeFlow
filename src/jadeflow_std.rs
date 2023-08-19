@@ -44,7 +44,7 @@ macro_rules! merge_hash_maps {
 pub fn load_jadeflow_fns() -> HashMap<String, Function> {
     let maths_fns = load_jadeflow_math();
     let console_fns = load_jadeflow_console();
-    // initialize all standard fns
-    println!("load stdd");
+    // initialize all language fns
+
     merge_hash_maps!(maths_fns, console_fns)
 }
