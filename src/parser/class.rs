@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    architecture::{ASTNode, Statement, SymbolTable},
+    architecture::SymbolTable,
     errors::ParsingError,
     expression::Expression,
     functions::{errors::FunctionParsingError, parse_fn_declaration, Function, MainFunctionData},
@@ -37,11 +37,6 @@ custom_error::custom_error! {pub ClassError
 
     ClassMissingAnIniter{class_name: String} = "Class '{class_name}' is missing an 'init' method !",
     UnknownClassProp{prop: String} = "Use of an unknown class property '{prop}'"
-}
-pub fn cls(cls: Class) -> Statement {
-    Statement {
-        node: ASTNode::ClassDeclaration(cls),
-    }
 }
 
 #[derive(Debug, Clone)]

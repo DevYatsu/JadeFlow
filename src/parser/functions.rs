@@ -11,6 +11,7 @@ use super::{
 use crate::{
     evaluation::{evaluate_expression, evaluate_program, EvaluationError},
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
+    print_warning,
     token::{Token, TokenType},
 };
 use once_cell::sync::OnceCell;
@@ -417,6 +418,13 @@ pub fn parse_fn_header(
     }) = tokens.next()
     {
         let name = value;
+
+        if name.chars().next().unwrap().is_uppercase() {
+            print_warning!(FunctionParsingError::ExpectedLowercaseInName {
+                name: name.to_owned()
+            }
+            .to_string());
+        }
 
         if symbol_table.is_fn_std(name) {
             return Err(FunctionParsingError::NameAlreadyTakenByStd {
