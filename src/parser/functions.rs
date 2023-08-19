@@ -11,9 +11,8 @@ use super::{
 use crate::{
     evaluation::{evaluate_expression, evaluate_program, EvaluationError},
     parser::{expression::parse_expression, vectors::check_and_insert_expression},
-    token::{tokenize, Token, TokenType},
+    token::{Token, TokenType},
 };
-use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use std::{fmt, sync::Arc};
 
@@ -109,24 +108,6 @@ impl Argument {
             var_type,
             is_mutable,
         }
-    }
-    pub fn equivalent_tokens(&self) -> Vec<Token> {
-        let keyword = if self.is_mutable { "mut" } else { "const" };
-        let value = match self.var_type {
-            VariableType::String => Expression::String("".to_owned()),
-            VariableType::Number => Expression::Number(0.0),
-            VariableType::Boolean => Expression::Boolean(false),
-            VariableType::Vector => Expression::ArrayExpression(Vec::new()),
-            VariableType::Dictionary => Expression::DictionaryExpression(HashMap::new()),
-        };
-        let source_code = format!(
-            "{} {}: {} = {};",
-            keyword,
-            self.name,
-            self.var_type.as_assignment(),
-            value
-        );
-        tokenize(source_code.as_bytes()).unwrap().into()
     }
 }
 
@@ -267,14 +248,6 @@ pub struct MainFunctionData {
     pub return_type: Option<VariableType>,
     pub is_std: bool,
 }
-impl MainFunctionData {
-    pub fn args_as_tokens(&self) -> Vec<Token> {
-        self.arguments
-            .iter()
-            .flat_map(|dec| dec.equivalent_tokens())
-            .collect()
-    }
-}
 impl From<Function> for MainFunctionData {
     fn from(f: Function) -> Self {
         match f {
@@ -303,7 +276,6 @@ impl From<Function> for MainFunctionData {
         }
     }
 }
-
 impl fmt::Display for MainFunctionData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -383,8 +355,6 @@ pub fn parse_fn_declaration(
         }) => Ok({
             let mut ctx_tokens: Vec<Token> = Vec::new();
 
-            ctx_tokens.extend(fn_data.args_as_tokens());
-
             ctx_tokens.push(Token {
                 value: "return".to_owned(),
                 token_type: TokenType::Return,
@@ -406,7 +376,12 @@ pub fn parse_fn_declaration(
                 }
                 .into());
             }
+
             let mut table = symbol_table.clone();
+            fn_data.arguments.iter().for_each(|arg| {
+                table.insert_variable(arg.clone().into());
+            });
+
             if is_method {
                 table.variables.insert(
                     "ctx".to_owned(),
@@ -436,11 +411,10 @@ pub fn parse_fn_declaration(
 
     err_if_fn_type_issue(&fn_data, &mut program)?;
 
-    let function_context = program.statements;
     let f = function!(
         fn_data.name.to_owned(),
         arguments: arguments,
-        context: function_context,
+        context: program.statements,
         return_type: fn_data.return_type,
         table: program.symbol_table
     );
