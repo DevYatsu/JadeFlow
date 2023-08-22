@@ -2,7 +2,8 @@ use hashbrown::HashMap;
 use std::fmt;
 
 use crate::{
-    parser::vars::parse_var_reassignment,
+    parser::expression::parse_expression,
+    print_warning,
     token::{Token, TokenType},
 };
 
@@ -304,6 +305,7 @@ pub fn parse_class_declaration(
     let mut cls = Class::new();
 
     parse_class_header(tokens, symbol_table, &mut cls)?;
+
     parse_class_content(tokens, symbol_table, &mut cls)?;
 
     Ok(cls)
@@ -373,7 +375,7 @@ fn parse_class_content(
     symbol_table: &mut SymbolTable,
     cls: &mut Class,
 ) -> Result<(), ParsingError> {
-    while let Some(token) = tokens.peek() {
+    while let Some(token) = tokens.next() {
         match token.token_type {
             TokenType::ClassPublic => {
                 // parse public content
@@ -382,50 +384,9 @@ fn parse_class_content(
                 // parse private content
             }
             TokenType::Identifier => {
-                if token.value.starts_with("ctx.") {
-                    let identifier_parts = &token.value.split('.').collect::<Vec<&str>>();
-                    let prop_name = identifier_parts[1];
-
-                    let assignement =
-                        parse_var_reassignment(tokens, None, symbol_table, prop_name)?;
-
-                    if identifier_parts.len() == 2 {
-                        cls.global_properties
-                            .insert(assignement.name, assignement.value.clone());
-
-                        return Ok(());
-                    }
-
-                    // manage the case of objects
-                    let prop = cls.global_properties.get(prop_name);
-                    if prop.is_some() {
-                        let prop = prop.unwrap();
-                        match prop {
-                            Expression::DictionaryExpression(d) => {
-                                let mut new_hash = d.clone();
-                                new_hash.insert(identifier_parts[2].to_owned(), assignement.value);
-                                cls.global_properties.insert(
-                                    prop_name.to_owned(),
-                                    Expression::DictionaryExpression(new_hash),
-                                );
-                            }
-                            _ => {
-                                return Err(ParsingError::InvalidDict {
-                                    name: prop_name.to_owned(),
-                                })
-                            }
-                        }
-                    } else {
-                        return Err(ClassError::UnknownClassProp {
-                            prop: prop_name.to_owned(),
-                        }
-                        .into());
-                    }
-                } else {
-                    return Err(ClassError::CannotReassignExternalVar {
-                        var_name: token.value.to_owned(),
-                    }
-                    .into());
+                return Err(ClassError::NoIdInGlobalContext {
+                    identifier: token.value.to_owned(),
+                    class_name: cls.name.to_owned(),
                 }
                 .into());
             }
@@ -447,13 +408,18 @@ fn parse_class_content(
                 .into());
             }
             TokenType::Function => {
-                let mut err_content = String::from(&token.value);
-                ignore_whitespace(tokens);
-                if let Some(token) = tokens.next() {
-                    if token.token_type == TokenType::Identifier {
-                        err_content.push(' ');
+                let ctx = cls.get_pub_prop("ctx")?;
+                let fn_data = parse_fn_declaration(tokens, symbol_table, Some(ctx))?;
 
-                        err_content.push_str(&token.value);
+                match &fn_data {
+                    Function::DefinedFunction { name, .. } => {
+                        if name != "init" {
+                            return Err(ClassError::NoMethodInGlobalCtxExceptInit {
+                                fn_name: name.to_owned(),
+                                class_name: cls.name.to_owned(),
+                            }
+                            .into());
+                        }
                     }
                     Function::StandardFunction { .. } => unreachable!(),
                 };
@@ -463,23 +429,17 @@ fn parse_class_content(
             TokenType::CloseBrace => {
                 break;
             }
-            TokenType::Class => {
-                return Err(ParsingError::Custom {
-                    data: "Cannot instanciate a class in the context of another class!".to_owned(),
-                })
-            }
-            TokenType::Return => {
-                return Err(ParsingError::Custom {
-                    data: "Invalid return statement! Cannot return a value in the class context"
-                        .to_owned(),
-                })
-            }
             _ => {
-                println!("{:?}",token.value);
-                ignore_tokens_until!(TokenType::Return, TokenType::Class, TokenType::CloseBrace, TokenType::Identifier in tokens);
+                ignore_until_statement(tokens)?;
             }
         }
-        tokens.next();
+    }
+
+    if cls.initer.is_none() {
+        return Err(ClassError::ClassMissingAnIniter {
+            class_name: cls.name.to_owned(),
+        }
+        .into());
     }
 
     Ok(())

@@ -298,7 +298,7 @@ pub fn ignore_until_statement(
     tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
 ) -> Result<(), ParsingError> {
     ignore_tokens_until!(
-        TokenType::Var, TokenType::For, TokenType::Function, TokenType::If, 
+        TokenType::Var, TokenType::For, TokenType::Function, TokenType::If,
         TokenType::Return,TokenType::While, TokenType::Class, TokenType::Match, TokenType::Identifier
         in tokens
     );
