@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt};
 
 use crate::{
+    ignore_tokens_until,
     parser::vars::parse_var_reassignment,
     token::{Token, TokenType},
 };
@@ -90,7 +91,11 @@ pub fn parse_class_declaration(
     let mut cls = Class::new();
 
     parse_class_header(tokens, symbol_table, &mut cls)?;
-    parse_class_content(tokens, symbol_table, &mut cls)?;
+    if let Some(Token { token_type: TokenType::OpenBrace ,..}) = tokens.next() {
+        parse_class_content(tokens, symbol_table, &mut cls)?;
+    }else {
+        return Err(ClassError::ExpectedBrace { cls_name: cls.name }.into())
+    }
 
     println!("{:?}", cls);
 
@@ -170,7 +175,7 @@ fn parse_class_content(
     symbol_table: &mut SymbolTable,
     cls: &mut Class,
 ) -> Result<(), ParsingError> {
-    while let Some(token) = tokens.next() {
+    while let Some(token) = tokens.peek() {
         match token.token_type {
             TokenType::ClassPublic => {
                 // parse public content
@@ -182,7 +187,7 @@ fn parse_class_content(
                 if token.value.starts_with("ctx.") {
                     let identifier_parts = &token.value.split('.').collect::<Vec<&str>>();
                     let prop_name = identifier_parts[1];
-
+                    
                     let assignement =
                         parse_var_reassignment(tokens, None, symbol_table, prop_name)?;
 
@@ -190,7 +195,7 @@ fn parse_class_content(
                         cls.global_properties
                             .insert(assignement.name, assignement.value.clone());
 
-                        return Ok(());
+                        continue;
                     }
 
                     // manage the case of objects
@@ -249,7 +254,6 @@ fn parse_class_content(
                 if let Some(token) = tokens.next() {
                     if token.token_type == TokenType::Identifier {
                         err_content.push(' ');
-
                         err_content.push_str(&token.value);
                     }
                 }
@@ -261,11 +265,25 @@ fn parse_class_content(
             TokenType::CloseBrace => {
                 break;
             }
+            TokenType::Class => {
+                return Err(ParsingError::Custom {
+                    data: "Cannot instanciate a class in the context of another class!".to_owned(),
+                })
+            }
+            TokenType::Return => {
+                return Err(ParsingError::Custom {
+                    data: "Invalid return statement! Cannot return a value in the class context"
+                        .to_owned(),
+                })
+            }
             _ => {
-                ignore_until_statement(tokens)?;
+                println!("{:?}",token.value);
+                ignore_tokens_until!(TokenType::Return, TokenType::Class, TokenType::CloseBrace, TokenType::Identifier in tokens);
             }
         }
+        tokens.next();
     }
+    println!("{:?}", tokens);
 
     Ok(())
 }
