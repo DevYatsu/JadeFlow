@@ -2,7 +2,7 @@ use std::{fs, io::Error, path::PathBuf};
 
 use dialoguer::{theme::ColorfulTheme, Select};
 
-pub fn run_file() -> Result<PathBuf, Error> {
+pub fn select_test() -> Result<PathBuf, Error> {
     let mut directory_path = String::from("tests/");
 
     let mut files = match get_files_in(&directory_path) {

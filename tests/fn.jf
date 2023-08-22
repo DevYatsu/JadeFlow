@@ -1,22 +1,14 @@
-
-// fn concatenate (s:str, s2:str): str => s + s2
+const x = "ssss"
 
 fn obj_from (s: str, s2: str,): dict => {s, s2}
-
-fn concatenate_several(s: str, s2: str, s3: str, s4: str): str {
-    >> concatenate ( concatenate(s, s2), concatenate( s3, s4) )
-}
-
-fn concatenate(s: str, s2: str): str {
-    mut o = s + s2
-
-    return o
-}
 fn hello() {
     print("Hello, world!")
 }
-fn print(s: str) {
-    // print in the console, but dont know how yet
-}
 
-hello();
+hello()
+
+fn duplicate(mut hey: str): str {
+    hey = hey + hey
+    >> hey
+}
+println(duplicate("dude"))

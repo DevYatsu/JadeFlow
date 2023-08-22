@@ -1,27 +1,92 @@
-use crate::token::Token;
+use crate::{evaluation::EvaluationError, jadeflow_std::load_jadeflow_fns};
 
 use super::{
     class::Class,
     expression::Expression,
     functions::{errors::FunctionParsingError, Function, FunctionCall, MainFunctionData},
-    types::type_from_expression,
-    vars::{Declaration, Reassignment},
-    ParsingError, TypeError,
+    types::{type_from_expression, TypeError, VariableType},
+    vars::{Declaration, Reassigment},
 };
-use std::{collections::HashMap, fmt, iter::Peekable};
+use hashbrown::HashMap;
+use std::{fmt, num::ParseIntError};
 
 #[derive(Debug, Clone)]
 pub enum ASTNode {
     Program(Program),
-    VariableDeclaration(Declaration),
-    VariableReassignment(Reassignment),
+
+    VariableDeclaration {
+        name: String,
+        var_type: VariableType,
+        value: Expression,
+        is_mutable: bool,
+        is_object_prop: bool,
+    },
+
+    VariableReassignment {
+        name: String,
+        value: Expression,
+    },
 
     FunctionDeclaration(Function),
     // corresponds to both {} and => functions
     ClassDeclaration(Class),
 
-    Return(Expression),
-    FunctionCall(FunctionCall),
+    Return {
+        value: Expression,
+        keyword: String,
+    },
+    FunctionCall {
+        function_name: String,
+        arguments: Vec<Expression>,
+    },
+}
+
+impl From<Function> for Statement {
+    fn from(value: Function) -> Self {
+        Statement {
+            node: ASTNode::FunctionDeclaration(value),
+        }
+    }
+}
+impl From<FunctionCall> for Statement {
+    fn from(value: FunctionCall) -> Self {
+        Statement {
+            node: ASTNode::FunctionCall {
+                function_name: value.function_name,
+                arguments: value.arguments,
+            },
+        }
+    }
+}
+impl From<Declaration> for Statement {
+    fn from(value: Declaration) -> Self {
+        Statement {
+            node: ASTNode::VariableDeclaration {
+                name: value.name,
+                var_type: value.var_type,
+                value: value.value,
+                is_mutable: value.is_mutable,
+                is_object_prop: value.is_object_prop,
+            },
+        }
+    }
+}
+impl From<Reassigment> for Statement {
+    fn from(value: Reassigment) -> Self {
+        Statement {
+            node: ASTNode::VariableReassignment {
+                name: value.name,
+                value: value.value,
+            },
+        }
+    }
+}
+impl From<Class> for Statement {
+    fn from(value: Class) -> Self {
+        Statement {
+            node: ASTNode::ClassDeclaration(value),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,38 +114,67 @@ pub struct Statement {
 
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
-    //struct to keep track of variables, fns and everything created
-    variables: HashMap<String, Declaration>,
-    functions: HashMap<String, Function>,
-    registered_functions: HashMap<String, MainFunctionData>,
-    classes: HashMap<String, Class>,
+    //struct to keep track of variables, fns and everything classes initialized
+    pub variables: HashMap<String, Declaration>,
+    pub functions: HashMap<String, Function>,
+    pub registered_functions: HashMap<String, MainFunctionData>,
+    pub classes: HashMap<String, Class>,
 }
+
+custom_error::custom_error! {pub SymbolTableError
+    TypeError{source: TypeError} = "{source}",
+    ParseIntError{source: ParseIntError} = "{source}",
+    EvaluationError{source: EvaluationError} = "{source}",
+    FunctionParsingError{source: FunctionParsingError} = "{source}",
+
+    InvalidDict{name: String} = "'{name}' is not a valid object",
+    CannotIndexNotVector{indexed_expr: Expression, actual_type: VariableType} = "Cannot index '{indexed_expr}' as it is not a vector, it's of type '{actual_type}'",
+    IndexOutOfRange{vec_name: String, index: usize, length: usize} = "Index out of range! Cannot index \"{vec_name}\" at index {index} when length is {length}",
+    CannotIndexNegatively{vec_name: String, index: isize} = "Index out of range! Cannot index \"{vec_name}\" at index {index}",
+    CannotIndexEmptyVec{vec_name: String} = "Cannot index empty vector \"{vec_name}\"",
+    CannotDetermineObjPropTypeNotDefined{obj_name: String, prop: String} = "Cannot determine type of '{prop}' property on \"{obj_name}\" as it is not defined",
+    CannotDetermineVarType{name: String} = "Cannot determine \"{name}\" type as it is not defined",
+    InvalidTypeIndex{found_type: VariableType, full_expr: Expression} = "Index must be of type 'Number' while found type is '{found_type}' at '{full_expr}'"
+}
+
 impl SymbolTable {
-    pub fn new() -> Self {
-        SymbolTable {
+    pub fn init() -> SymbolTable {
+        let functions = load_jadeflow_fns();
+
+        let symbol_table = SymbolTable {
             variables: HashMap::new(),
-            functions: HashMap::new(),
-            registered_functions: HashMap::new(),
+            registered_functions: functions
+                .clone()
+                .into_iter()
+                .map(|(name, func)| (name, func.into()))
+                .collect(),
+            functions,
             classes: HashMap::new(),
-        }
+        };
+
+        symbol_table
     }
 
-    pub fn merge(first_table: &SymbolTable, second_table: SymbolTable) -> SymbolTable {
-        let mut table = SymbolTable::new();
-
-        table.variables.extend(first_table.variables.clone());
-        table.functions.extend(first_table.functions.clone());
-        table.variables.extend(second_table.variables);
-        table.functions.extend(second_table.functions);
-
-        table
+    pub fn run_fn(
+        &self,
+        name: &str,
+        args: &Vec<Expression>,
+    ) -> Result<Expression, EvaluationError> {
+        Ok(self.get_full_function(&name)?.run_with_args(&args, &self)?)
     }
-
     pub fn insert_variable(&mut self, declaration: Declaration) {
-        self.variables.insert(declaration.name.clone(), declaration);
+        self.variables
+            .insert(declaration.name.to_owned(), declaration);
     }
-    pub fn insert_function(&mut self, f: &Function) {
-        self.functions.insert(f.name.to_owned(), f.clone());
+    pub fn insert_function(&mut self, f: Function) {
+        let name = match &f {
+            Function::DefinedFunction { name, .. } => name,
+            Function::StandardFunction { name, .. } => name,
+        };
+        self.functions.insert(name.to_owned(), f);
+    }
+    pub fn insert_cls(&mut self, cls: Class) {
+        self.classes.insert(cls.name.to_owned(), cls);
     }
     pub fn register_function(&mut self, f: MainFunctionData) {
         self.registered_functions.insert(f.name.to_owned(), f);
@@ -88,54 +182,54 @@ impl SymbolTable {
 
     pub fn reassign_variable(
         &mut self,
-        reassignement: Reassignment,
-        tokens: &mut Peekable<std::slice::Iter<'_, Token>>,
-    ) -> Result<(), ParsingError> {
-        if self.is_object_prop(&reassignement.name) {
-            let parent_name = reassignement.name.rsplitn(2, '.').collect::<Vec<&str>>();
-            let initial_var = self.get_variable(&parent_name[1], Some(tokens))?;
+        var_name: String,
+        value: Expression,
+    ) -> Result<(), SymbolTableError> {
+        if self.is_object_prop(&var_name) {
+            let parent_name = var_name.rsplitn(2, '.').collect::<Vec<&str>>();
+            let initial_var = self.get_variable(&parent_name[1])?;
 
             match initial_var.value {
                 Expression::DictionaryExpression(mut hash) => {
-                    hash.insert(parent_name[0].to_owned(), reassignement.value.clone());
+                    hash.insert(parent_name[0].to_owned(), value.to_owned());
 
                     self.insert_variable(Declaration {
                         value: Expression::DictionaryExpression(hash),
                         ..initial_var
                     });
-                    let var_type = type_from_expression(&reassignement.value, self, Some(tokens))?;
+                    let var_type = type_from_expression(&value, self)?;
                     self.insert_variable(Declaration {
-                        value: reassignement.value,
-                        name: reassignement.name,
+                        value,
+                        name: var_name,
                         var_type,
                         is_mutable: true,
                         is_object_prop: true,
                     });
                 }
                 _ => {
-                    return Err(ParsingError::InvalidDict {
+                    return Err(SymbolTableError::InvalidDict {
                         name: parent_name[1].to_owned(),
                     })
                 }
             }
 
             // let dec = Declaration {
-            //     name: reassignement.name.clone(),
-            //     var_type: type_from_expression(&reassignement.value, self, Some(tokens))?,
-            //     value: reassignement.value,
+            //     name: var_name.clone(),
+            //     var_type: type_from_expression(&value, self, Some(tokens))?,
+            //     value: value,
             //     is_mutable: true,
             //     is_object_prop: true,
             // };
             // self.variables.insert(reassignement.name, dec);
         } else {
-            let initial_var = self.get_variable(&reassignement.name, Some(tokens))?;
-            if reassignement.value != initial_var.value {
+            let initial_var = self.get_variable(&var_name)?;
+            if value != initial_var.value {
                 self.variables.insert(
-                    reassignement.name.clone(),
+                    var_name.clone(),
                     Declaration {
                         name: initial_var.name,
                         var_type: initial_var.var_type,
-                        value: reassignement.value,
+                        value,
                         is_mutable: true,
                         is_object_prop: initial_var.is_object_prop,
                     },
@@ -145,61 +239,93 @@ impl SymbolTable {
         Ok(())
     }
 
-    pub fn get_variable(
-        &mut self,
-        name: &str,
-        tokens: Option<&mut Peekable<std::slice::Iter<'_, Token>>>,
-    ) -> Result<Declaration, TypeError> {
+    pub fn get_variable(&self, name: &str) -> Result<Declaration, SymbolTableError> {
         let name_vec: Vec<&str> = name.split('.').collect();
 
         if name_vec.len() == 1 {
-            let name_vec: Vec<&str> = name.split('[').collect();
+            let name_vec: Vec<&str> = name.split('[').map(|s| s.trim_matches(']')).collect();
 
             if name_vec.len() == 1 {
                 return self
                     .variables
                     .get(name)
                     .map(|declaration| declaration.clone())
-                    .ok_or_else(|| TypeError::CannotDetermineVarType {
-                        name: name.to_owned(),
+                    .ok_or_else(|| {
+                        SymbolTableError::CannotDetermineVarType {
+                            name: name.to_owned(),
+                        }
+                        .into()
                     });
             }
 
-            let var = self
-                .variables
-                .get(name_vec[0])
-                .map(|declaration| declaration.value.clone())
-                .ok_or_else(|| TypeError::CannotDetermineVarType {
-                    name: name.to_owned(),
-                })?;
+            // let mut var = self
+            //     .variables
+            //     .get(name_vec[0])
+            //     .map(|declaration| declaration.value.clone())
+            //     .ok_or_else(|| SymbolTableError::CannotDetermineVarType {
+            //         name: name.to_owned(),
+            //     })?;
 
-            match var {
-                Expression::ArrayExpression(vec) => {
-                    let index = name_vec[1].parse::<usize>()?;
-                    if index > vec.len() - 1 {
-                        return Err(TypeError::IndexOutOfRange {
-                            vec_name: name_vec[0].to_owned(),
-                            index,
-                            length: vec.len(),
-                        });
-                    }
-                    return Ok(Declaration {
-                        name: name_vec[0].to_owned(),
-                        var_type: type_from_expression(&vec[index], self, tokens)?,
-                        value: vec[index].clone(),
-                        is_mutable: true,
-                        is_object_prop: false,
-                    });
-                }
-                _ => unreachable!(),
-            }
+            // for (i, element) in name_vec.iter().skip(1).enumerate() {
+            //     match var {
+            //         Expression::ArrayExpression(vec) => {
+            //             let index = element.parse::<usize>()?;
+            //             if index > vec.len() - 1 {
+            //                 return Err(SymbolTableError::IndexOutOfRange {
+            //                     vec_name: name_vec[0..i + 1]
+            //                         .iter()
+            //                         .enumerate()
+            //                         .map(|(i, val)| {
+            //                             if i != 0 {
+            //                                 String::from(val.to_owned()) + "]"
+            //                             } else {
+            //                                 val.to_owned().to_owned()
+            //                             }
+            //                         })
+            //                         .collect::<Vec<String>>()
+            //                         .join("["),
+            //                     index,
+            //                     length: vec.len(),
+            //                 }
+            //                 .into());
+            //             }
+
+            //             var = vec[index].to_owned();
+            //         }
+            //         expr => {
+            //             return Err(SymbolTableError::CannotIndexNotVector {
+            //                 var_name: name_vec[0..i + 1]
+            //                     .iter()
+            //                     .enumerate()
+            //                     .map(|(i, val)| {
+            //                         if i != 0 {
+            //                             String::from(val.to_owned()) + "]"
+            //                         } else {
+            //                             val.to_owned().to_owned()
+            //                         }
+            //                     })
+            //                     .collect::<Vec<String>>()
+            //                     .join("["),
+            //                 actual_value: expr,
+            //             })
+            //         }
+            //     }
+            // }
+
+            // return Ok(Declaration {
+            //     name: name.to_owned(),
+            //     var_type: type_from_expression(&var, self)?,
+            //     value: var,
+            //     is_mutable: true,
+            //     is_object_prop: false,
+            // });
         }
 
         let mut var = self
             .variables
             .get(name_vec[0])
             .map(|declaration| declaration.value.clone())
-            .ok_or_else(|| TypeError::CannotDetermineVarType {
+            .ok_or_else(|| SymbolTableError::CannotDetermineVarType {
                 name: name.to_owned(),
             })?
             .clone();
@@ -210,7 +336,7 @@ impl SymbolTable {
                     if let Some(e) = expr.get(*prop) {
                         match e {
                             Expression::Variable(name) => {
-                                var = self.get_variable(&name, None)?.value;
+                                var = self.get_variable(&name)?.value;
                                 continue;
                             }
                             _ => {
@@ -219,10 +345,11 @@ impl SymbolTable {
                             }
                         }
                     } else {
-                        return Err(TypeError::CannotDetermineObjPropTypeNotDefined {
+                        return Err(SymbolTableError::CannotDetermineObjPropTypeNotDefined {
                             obj_name: name_vec[0..=i].join("."),
                             prop: name_vec[0..=i + 1].join("."),
-                        });
+                        }
+                        .into());
                     }
                 }
                 expr => {
@@ -232,10 +359,10 @@ impl SymbolTable {
             }
         }
 
-        let var_type = type_from_expression(&var, self, tokens)?;
+        let var_type = type_from_expression(&var, self)?;
 
         Ok(Declaration {
-            name: name_vec.last().unwrap().to_string(),
+            name: name.to_owned(),
             var_type,
             value: var,
             is_mutable: true,
@@ -243,7 +370,7 @@ impl SymbolTable {
         })
     }
 
-    pub fn is_object_prop(&mut self, name: &str) -> bool {
+    pub fn is_object_prop(&self, name: &str) -> bool {
         let name_vec = name.split('.').collect::<Vec<&str>>();
 
         if name_vec.len() == 1 {
@@ -256,19 +383,31 @@ impl SymbolTable {
     pub fn is_fn_declared(&self, name: &str) -> bool {
         self.functions.get(name).is_some()
     }
+    pub fn is_fn_std(&self, name: &str) -> bool {
+        self.registered_functions
+            .get(name)
+            .map_or_else(|| false, |f| f.is_std)
+    }
+
     pub fn is_class_declared(&self, name: &str) -> bool {
         self.classes.get(name).is_some()
     }
 
-    pub fn get_function(&mut self, name: &str) -> Result<MainFunctionData, ParsingError> {
-        let func = self.registered_functions.get(name);
-
-        if func.is_none() {
-            return Err(FunctionParsingError::NotDefinedFunction {
-                fn_name: name.to_owned(),
+    pub fn get_function(&self, name: &str) -> Result<MainFunctionData, FunctionParsingError> {
+        let func = match self.registered_functions.get(name) {
+            Some(v) => v.clone(),
+            None => {
+                return Err(FunctionParsingError::NotDefinedFunction {
+                    fn_name: name.to_owned(),
+                });
             }
-            .into());
-        }
+        };
+
+        Ok(func)
+    }
+
+    pub fn get_full_function(&self, name: &str) -> Result<Function, FunctionParsingError> {
+        let func = self.functions.get(name);
 
         Ok(func
             .cloned()
@@ -280,8 +419,8 @@ impl SymbolTable {
 
 impl fmt::Display for SymbolTable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "-- VARIABLES -- \n",)?;
-        if self.variables.len() == 0 {
+        write!(f, "-- VARIABLES -- \n")?;
+        if self.variables.is_empty() {
             write!(f, "None\n")?;
         } else {
             for var in &self.variables {
@@ -289,28 +428,33 @@ impl fmt::Display for SymbolTable {
             }
         }
 
-        write!(f, "-- FUNCTIONS -- \n",)?;
-
-        if self.functions.len() == 0 {
-            {
-                write!(f, "None\n")?;
-            }
+        write!(f, "-- FUNCTIONS -- \n")?;
+        if self.functions.is_empty() {
+            write!(f, "None\n")?;
         } else {
             for var in &self.functions {
                 write!(f, "- {}\n", var.1.to_string())?;
             }
         }
 
-        write!(f, "-- Registered FUNCTIONS -- \n",)?;
-
-        if self.registered_functions.len() == 0 {
-            Ok({
-                write!(f, "None\n")?;
-            })
+        write!(f, "-- Registered FUNCTIONS -- \n")?;
+        if self.registered_functions.is_empty() {
+            write!(f, "None\n")?;
         } else {
-            Ok(for var in &self.registered_functions {
+            for var in &self.registered_functions {
                 write!(f, "- {}\n", var.1.to_string())?;
-            })
+            }
         }
+
+        write!(f, "-- CLASSES -- \n")?;
+        if self.classes.is_empty() {
+            write!(f, "None\n")?;
+        } else {
+            for var in &self.classes {
+                write!(f, "- {}\n", var.1.to_string())?;
+            }
+        }
+
+        Ok(())
     }
 }

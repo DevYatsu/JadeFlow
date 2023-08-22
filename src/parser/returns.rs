@@ -6,17 +6,18 @@ use super::{
     ParsingError,
 };
 
-pub fn return_statement(expr: Expression) -> Statement {
+pub fn return_statement(value: Expression, keyword: String) -> Statement {
     Statement {
-        node: ASTNode::Return(expr),
+        node: ASTNode::Return { value, keyword },
     }
 }
 
 pub fn parse_return_statement(
+    keyword: String,
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     symbol_table: &mut SymbolTable,
 ) -> Result<Statement, ParsingError> {
     let expr = parse_expression(tokens, symbol_table)?;
 
-    Ok(return_statement(expr))
+    Ok(return_statement(expr, keyword))
 }

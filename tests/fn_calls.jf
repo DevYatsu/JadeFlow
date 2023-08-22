@@ -1,0 +1,13 @@
+const test = "str"
+const s = string(test)
+const num_5 = 5.0
+
+const hello = "hello"
+const hello_james = say_hello("jammy")
+
+fn say_hello (name: str): str => `hello #{name}`
+fn string(s: str): str => s
+
+const question = input ("Your name: ") 
+
+println ( say_hello(question) )

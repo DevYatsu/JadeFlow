@@ -5,6 +5,9 @@ use crate::parser::types::VariableType;
 custom_error! {pub FunctionParsingError
     ExpectedIdentifier = "Expected a function name after the 'fn' keyword",
     ExpectedOpenParen{name: String} = "Expected parentheses after '{name}' in the function declaration",
+    Custom{msg: String} = "{msg}",
+
+    ExpectedLowercaseInName{name: String} = "Expected a name starting with a lowercase for '{name}' function",
 
     ExpectedArgName = "Expected a valid function argument name",
     ExpectedArgColon{arg_name: String} = "Expected a type declaration after '{arg_name}'",
@@ -18,6 +21,8 @@ custom_error! {pub FunctionParsingError
     ExpectedBrace{fn_name: String} = "Expected the function body after the function arguments in the '{fn_name}' function",
 
     NameAlreadyTaken{name: String} = "The function name '{name}' is already in use",
+    NameAlreadyTakenByStd{name: String} = "The function name '{name}' is already in use by a standard library function",
+    NameAlreadyTakenByClass{name: String} = "The name '{name}' is already in use by the '{name}' class",
 
     ExpectingExpressionAfterArrow{fn_name: String} = "Expecting expression after '=>' in \"{fn_name}\" declaration",
 
@@ -26,6 +31,7 @@ custom_error! {pub FunctionParsingError
     ReturnTypeInvalid{fn_name: String, return_type: String, found: String} = "Return Type '{return_type}' of function \"{fn_name}\" does not correspond to returned type '{found}'",
 
     NotDefinedFunction{fn_name: String} = "\"{fn_name}\" does not correspond to any defined function",
+    NotDefinedFunctionInStd{fn_name: String} = "\"{fn_name}\" does not correspond to any function defined in the standard library",
 
     MissingClosingParenInFnCall{fn_name: String} = "Missing a closing parenthesis in \"{fn_name}\" call",
     InvalidFnCallArg{fn_name: String, err: String} = "Invalid \"{fn_name}\" call arguments: {err}",

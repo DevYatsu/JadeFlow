@@ -1,13 +1,14 @@
-use std::fmt;
+use std::fmt::{self};
 
 use crate::{
     parser::expression::parse_expression,
-    token::{tokenize, Token, TokenType},
+    token::{Token, TokenType},
 };
 
 use super::{
-    architecture::{ASTNode, Statement, SymbolTable},
+    architecture::SymbolTable,
     expression::{parse_with_operator, Expression},
+    functions::Argument,
     ignore_whitespace,
     types::{parse_type, type_from_expression, VariableType},
     ParsingError,
@@ -21,10 +22,10 @@ pub struct Declaration {
     pub is_mutable: bool,
     pub is_object_prop: bool,
 }
-pub fn variable(declaration: Declaration) -> Statement {
-    Statement {
-        node: ASTNode::VariableDeclaration(declaration),
-    }
+#[derive(Debug, Clone)]
+pub struct Reassigment {
+    pub name: String,
+    pub value: Expression,
 }
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -40,16 +41,20 @@ impl fmt::Display for Declaration {
     }
 }
 impl Declaration {
-    pub fn equivalent_tokens(&self) -> Vec<Token> {
-        let keyword = self.get_var_keyword();
-        let source_code = format!(
-            "{} {}: {} = {};",
-            keyword,
-            self.name,
-            self.var_type.as_assignment(),
-            self.value
-        );
-        tokenize(source_code.as_bytes()).unwrap().into()
+    pub fn new(
+        name: String,
+        var_type: VariableType,
+        value: Expression,
+        is_mutable: bool,
+        is_object_prop: bool,
+    ) -> Declaration {
+        Declaration {
+            name,
+            var_type,
+            value,
+            is_mutable,
+            is_object_prop,
+        }
     }
     fn get_var_keyword(&self) -> &str {
         if self.is_mutable {
@@ -59,18 +64,17 @@ impl Declaration {
         }
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct Reassignment {
-    pub name: String,
-    pub value: Expression,
-}
-pub fn reassignment(reassignement: Reassignment) -> Statement {
-    Statement {
-        node: ASTNode::VariableReassignment(reassignement),
+impl From<Argument> for Declaration {
+    fn from(value: Argument) -> Self {
+        Declaration::new(
+            value.name,
+            value.var_type,
+            Expression::Null,
+            value.is_mutable,
+            false,
+        )
     }
 }
-
 pub fn parse_var_declaration(
     tokens: &mut std::iter::Peekable<std::slice::Iter<'_, Token>>,
     var_keyword: &str,
@@ -99,7 +103,7 @@ pub fn parse_var_declaration(
         ..
     }) = next
     {
-        let var_type = parse_type(tokens)?;
+        let var_type = parse_type(tokens.next())?;
         ignore_whitespace(tokens);
 
         if let Some(Token {
@@ -116,20 +120,22 @@ pub fn parse_var_declaration(
             ignore_whitespace(tokens);
 
             let expression = parse_expression(tokens, symbol_table)?;
-            println!("{var_keyword} {name}: {var_type} = {expression}");
 
-            if let Expression::Null = &expression {
-                return Ok(Declaration {
-                    name,
-                    var_type,
-                    value: expression,
-                    is_mutable,
-                    is_object_prop: false,
-                });
+            match expression {
+                Expression::Null => {
+                    return Ok(Declaration {
+                        name,
+                        var_type,
+                        value: expression,
+                        is_mutable,
+                        is_object_prop: false,
+                    })
+                }
+                _ => (),
             }
 
-            let var_type_from_expression =
-                type_from_expression(&expression, symbol_table, Some(tokens))?;
+            let var_type_from_expression = type_from_expression(&expression, symbol_table)?;
+
             if var_type != var_type_from_expression {
                 return Err(ParsingError::AssignedTypeNotFound {
                     assigned_t: var_type,
@@ -168,18 +174,18 @@ pub fn parse_var_declaration(
 
         match &expression {
             Expression::Null => return Err(ParsingError::UnknownVariableType { var_name: name }),
-            _ => {
-                let var_type = type_from_expression(&expression, symbol_table, Some(tokens))?;
-
-                return Ok(Declaration {
-                    name,
-                    var_type,
-                    value: expression,
-                    is_mutable,
-                    is_object_prop: false,
-                });
-            }
+            _ => (),
         }
+
+        let var_type = type_from_expression(&expression, symbol_table)?;
+
+        return Ok(Declaration {
+            name,
+            var_type,
+            value: expression,
+            is_mutable,
+            is_object_prop: false,
+        });
     } else {
         // If there's no colon or assignment operator, it's an error.
         return Err(ParsingError::MissingInitializer {
@@ -196,7 +202,7 @@ pub fn parse_var_reassignment(
     initial_var: Option<&Declaration>,
     symbol_table: &mut SymbolTable,
     identifier: &str,
-) -> Result<Reassignment, ParsingError> {
+) -> Result<Reassigment, ParsingError> {
     ignore_whitespace(tokens);
 
     // initial_var is none if it's an object prop reassignment
@@ -231,7 +237,7 @@ pub fn parse_var_reassignment(
         );
 
         if let Some(initial_var) = initial_var {
-            let t = type_from_expression(&expression, symbol_table, Some(tokens))?;
+            let t = type_from_expression(&expression, symbol_table)?;
 
             if initial_var.var_type != t {
                 return Err(ParsingError::CannotChangeAssignedType {
@@ -246,9 +252,9 @@ pub fn parse_var_reassignment(
             }
         }
 
-        return Ok(Reassignment {
-            value: expression,
+        return Ok(Reassigment {
             name: identifier.to_owned(),
+            value: expression,
         });
     } else {
         // If there's no assignment operator, it's an error.
